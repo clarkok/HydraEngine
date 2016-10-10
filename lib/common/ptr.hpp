@@ -5,6 +5,7 @@
 namespace hydra
 {
 
+// A pointer that cannot be used in arithmetic operations
 template <typename T>
 struct Ptr
 {
