@@ -1,5 +1,5 @@
 set(COMMON_TEST_SRCS
-    ptr-test.cpp)
+    encoding-test.cpp)
 
 add_executable(common_test ${COMMON_TEST_SRCS})
-add_test(Ptr common_test [Ptr])
+add_test(common_test common_test)
