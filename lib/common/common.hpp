@@ -18,4 +18,6 @@ using std::uint64_t;
 
 using std::size_t;
 
+#define UNUSED(v)   do { (void)(v); } while(0)
+
 }

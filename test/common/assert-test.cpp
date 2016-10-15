@@ -14,6 +14,7 @@ TEST_CASE("Assert will failed when condition is false", "[Assert]")
     }
     catch (const AssertFailedException &e)
     {
+        UNUSED(e);
         catched = true;
     }
 
@@ -30,6 +31,7 @@ TEST_CASE("Assert will not failed when condition is true", "[Assert]")
     }
     catch (const AssertFailedException &e)
     {
+        UNUSED(e);
         catched = true;
     }
 

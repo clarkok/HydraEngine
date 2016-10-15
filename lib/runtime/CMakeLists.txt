@@ -1,5 +1,6 @@
 set(HYDRA_RUNTIME_SRCS
 	runtime.cpp
+	value.hpp
 	heap.hpp
 	heap.cpp
 	)
