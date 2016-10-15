@@ -8,26 +8,34 @@ namespace hydra
 { namespace Encoding
 {
 
-template<typename T, typename = std::is_convertible<decltype(*(*(T*)0)), uint8_t &> >
-size_t EncodeUtf8(uint32_t ch, T dst)
+namespace internal
+{
+    template<typename T, typename U>
+    struct IsInputIteratorOf : std::is_convertible<decltype(*(*(T*)0)), const U &>
+    { };
+
+    template <typename T, typename U>
+    struct IsOutputIteratorOf : std::is_convertible<decltype(*(*(T*)0)), U &>
+    { };
+}
+
+template<typename T, typename = internal::IsOutputIteratorOf<T, uint8_t> >
+T EncodeUtf8(T dst, uint32_t ch)
 {
     if (ch < 0x80)
     {
-        *dst = ch;
-        return 1;
+        *dst++ = ch;
     }
     else if (ch < 0x800)
     {
         *dst++ = 0xC0 | (ch >> 6);
-        *dst = 0x80 | (ch & 0x3F);
-        return 2;
+        *dst++ = 0x80 | (ch & 0x3F);
     }
     else if (ch < 0x10000)
     {
         *dst++ = 0xE0 | (ch >> 12);
         *dst++ = 0x80 | ((ch >> 6) & 0x3F);
-        *dst = 0x80 | (ch & 0x3F);
-        return 3;
+        *dst++ = 0x80 | (ch & 0x3F);
     }
     else
     {
@@ -35,71 +43,95 @@ size_t EncodeUtf8(uint32_t ch, T dst)
         *dst++ = 0xF0 | (ch >> 18);
         *dst++ = 0x80 | ((ch >> 12) & 0x3F);
         *dst++ = 0x80 | ((ch >> 6) & 0x3F);
-        *dst = 0x80 | (ch & 0x3F);
-        return 4;
+        *dst++ = 0x80 | (ch & 0x3F);
     }
+    return dst;
 }
 
-template<typename T, typename = std::is_convertible<decltype(*(*(T*)0)), const uint8_t &> >
-uint32_t DecodeUtf8(T src)
+template<typename T, typename = internal::IsInputIteratorOf<T, uint8_t> >
+T DecodeUtf8(T src, uint32_t &decoded)
 {
     if (((*src) & 0x80) == 0)
     {
-        return *src;
+        decoded = *src++;
     }
     else if (((*src) & 0xE0) == 0xC0)
     {
-        uint32_t decoded = ((*src++) & 0x1F) << 6;
-        return decoded | ((*src) & 0x3F);
+        decoded = ((*src++) & 0x1F) << 6;
+        decoded |= ((*src++) & 0x3F);
     }
     else if (((*src) & 0xF0) == 0xE0)
     {
-        uint32_t decoded = ((*src++) & 0x0F) << 12;
+        decoded = ((*src++) & 0x0F) << 12;
         decoded |= ((*src++) & 0x3F) << 6;
-        return decoded | ((*src) & 0x3F);
+        decoded |= ((*src++) & 0x3F);
     }
     else if (((*src) & 0xF8) == 0xF0)
     {
-        uint32_t decoded = ((*src++) & 0x07) << 18;
+        decoded = ((*src++) & 0x07) << 18;
         decoded |= ((*src++) & 0x3F) << 12;
         decoded |= ((*src++) & 0x3F) << 6;
-        return decoded | ((*src) & 0x3F);
+        decoded |= ((*src++) & 0x3F);
     }
-    else
-    {
-        *(int*)(0) = 1;
-        return 0;
-    }
+    return src;
 }
 
-template<typename T, typename = std::is_convertible<decltype(*(*(T*)0)), uint16_t &>>
-size_t EncodeUtf16(uint32_t ch, T dst)
+template<typename T, typename = internal::IsOutputIteratorOf<T, uint16_t> >
+T EncodeUtf16(T dst, uint32_t ch)
 {
     if ((ch < 0xD800) || (ch >= 0xE000 && ch < 0x10000))
     {
-        *dst = ch;
-        return 1;
+        *dst++ = ch;
     }
     else
     {
         *dst++ = ((ch - 0x10000) >> 10) | 0xD800;
-        *dst = (ch & 0x3FF) | 0xDC00;
-        return 2;
+        *dst++ = (ch & 0x3FF) | 0xDC00;
     }
+    return dst;
 }
 
-template<typename T, typename = std::is_convertible<decltype(*(*(T*)0)), const uint16_t &>>
-uint32_t DecodeUtf16(T src)
+template<typename T, typename = internal::IsInputIteratorOf<T, uint16_t> >
+T DecodeUtf16(T src, uint32_t &decoded)
 {
     if ((*src & 0xFC00) == 0xD800)
     {
-        uint32_t decoded = (((*src++) & 0x3FF) << 10) + 0x10000;
-        return decoded | ((*src) & 0x3FF);
+        decoded = (((*src++) & 0x3FF) << 10) + 0x10000;
+        decoded |= ((*src++) & 0x3FF);
     }
     else
     {
-        return *src;
+        decoded = *src++;
     }
+    return src;
+}
+
+template<typename T, typename U,
+    typename = internal::IsOutputIteratorOf<T, uint8_t>,
+    typename = internal::IsInputIteratorOf<U, uint16_t>
+>
+T ConvertUtf16To8(T dst, U src, U limit)
+{
+    while (src < limit)
+    {
+        uint32_t decoded;
+        src = DecodeUtf16(src, decoded);
+        dst = EncodeUtf8(dst, decoded);
+    }
+    return dst;
+}
+
+template<typename T, typename U,
+    typename = internal::IsOutputIteratorOf<T, uint16_t>
+    typename = internal::IsInputIteratorOf<U, uint8_t>
+>
+T ConvertUtf8To16(T dst, U src, U limit)
+{
+    while (src != limit)
+    {
+        dst += EncodeUtf8(DecodeUtf16(src++), dst);
+    }
+    return dst;
 }
 
 }}

@@ -1,6 +1,6 @@
 set(HYDRA_COMMON_SRCS
+	exception.hpp
 	assert.hpp
-	assert.cpp
 	encoding.hpp
 	encoding.cpp
 	common.hpp
