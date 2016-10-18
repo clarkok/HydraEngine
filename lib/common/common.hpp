@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <limits>
 
 namespace hydra
 {
@@ -19,5 +20,7 @@ using std::uint64_t;
 using std::size_t;
 
 #define UNUSED(v)   do { (void)(v); } while(0)
+
+constexpr auto NaN = std::numeric_limits<double>::quiet_NaN();
 
 }

@@ -1,7 +1,7 @@
 set(COMMON_TEST_SRCS
     encoding-test.cpp
-	assert-test.cpp
-	../main.cpp)
+    assert-test.cpp
+    ../main.cpp)
 
 add_executable(common_test ${COMMON_TEST_SRCS})
 

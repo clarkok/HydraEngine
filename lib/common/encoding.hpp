@@ -5,7 +5,9 @@
 #include <type_traits>
 
 namespace hydra
-{ namespace Encoding
+{
+
+namespace Encoding
 {
 
 namespace internal
@@ -134,4 +136,5 @@ T ConvertUtf8To16(T dst, U src, U limit)
     return dst;
 }
 
-}}
+}
+}
