@@ -12,6 +12,7 @@ namespace internal
     constexpr uint64_t UNDEFINED_CONTENT = 0xFFFFFFFFFFFFFFFF;
     constexpr uint64_t TRUE_CONTENT = 0xFFFB000000000000;
     constexpr uint64_t FALSE_CONTENT = 0xFFFA000000000000;
+    constexpr uint64_t NAN_CONTENT = 0xFFF8000000000000;
 
     constexpr uint64_t INTEGER_FLAG = 0xFFFC000000000000;
     constexpr uint64_t SYMBOL_FLAG = 0xFFFD000000000000;
@@ -37,6 +38,7 @@ namespace internal
 
     constexpr uint64_t BOOL_VALID_MASK = 0xFFFE000000000000;
     constexpr uint64_t BOOL_VALID_VALUE = 0xFFFA000000000000;
+    constexpr uint64_t BOOL_MASK = 0x0001000000000000;
 }
 
 struct Value
@@ -105,6 +107,11 @@ struct Value
         return Value(*reinterpret_cast<uint64_t*>(&value));
     }
 
+    static inline Value FromNaN()
+    {
+        return Value(internal::NAN_CONTENT);
+    }
+
     static inline Value FromUndefined()
     {
         return Value();
@@ -137,6 +144,11 @@ struct Value
             return NaN;
         }
         return *reinterpret_cast<const double *>(&_content);
+    }
+
+    inline bool AsBool() const
+    {
+        return (_content & internal::BOOL_MASK) != 0;
     }
 
     inline uint32_t AsSymbol() const

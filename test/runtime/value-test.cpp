@@ -90,3 +90,47 @@ TEST_CASE_METHOD(ValueTest, "Value can be assigned", "[Value]")
         }
     }
 }
+
+TEST_CASE_METHOD(ValueTest, "Value can be retrived", "[Value]")
+{
+    Value uut;
+
+    SECTION("Value can be retrived as Int")
+    {
+        for (int i = 0; i < 100; ++i)
+        {
+            uut = Value::FromInt(i);
+            REQUIRE(i == uut.AsInt());
+        }
+    }
+
+    SECTION("Value can be retrived as Double")
+    {
+        for (double i = 0.2; i < 100; i += 1.3)
+        {
+            uut = Value::FromDouble(i);
+            REQUIRE(i == uut.AsDouble());
+        }
+
+        uut = Value::FromNaN();
+        REQUIRE(uut.IsNaN());
+    }
+
+    SECTION("Value can be retrived as Bool")
+    {
+        uut = Value::FromBool(true);
+        REQUIRE(true == uut.AsBool());
+
+        uut = Value::FromBool(false);
+        REQUIRE(false == uut.AsBool());
+    }
+
+    SECTION("Value can be retrived as Symbol")
+    {
+        for (uint32_t i = 0; i < 100; ++i)
+        {
+            uut = Value::FromSymbol(i);
+            REQUIRE(i == uut.AsSymbol());
+        }
+    }
+}
