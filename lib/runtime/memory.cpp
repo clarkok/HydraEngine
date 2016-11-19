@@ -2,12 +2,17 @@
 #include "common/utility.hpp"
 
 #include <malloc.h>
+#include <list>
+#include <mutex>
 
 #ifdef _WIN64
 #include <Windows.h>
 #endif
 
 namespace hydra
+{
+
+namespace memory
 {
 
 #ifdef _WIN64
@@ -30,6 +35,11 @@ void WriteProtect(void *ptr, size_t size)
     Assert(result != 0, "Write protected failed, error code: ", GetLastError());
 }
 
+void WriteProtect(volatile void *ptr, size_t size)
+{
+    WriteProtect((void*)ptr, size);
+}
+
 void WriteUnprotect(void *ptr, size_t size)
 {
     DWORD original;
@@ -38,19 +48,31 @@ void WriteUnprotect(void *ptr, size_t size)
     Assert(result != 0, "Write unprotected failed, error code: ", GetLastError());
 }
 
-MemoryWriteWatcher globalWatcher;
+void WriteUnprotect(volatile void *ptr, size_t size)
+{
+    WriteUnprotect((void*)ptr, size);
+}
+
+static std::list<MemoryWriteWatcher> globalWatchers;
+static std::mutex globalWatchersMutex;
 
 static LONG ExceptionHandler(LPEXCEPTION_POINTERS except)
 {
+    std::lock_guard<std::mutex> guard(globalWatchersMutex);
+
     if (except->ExceptionRecord->ExceptionCode != STATUS_ACCESS_VIOLATION)
     {
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
     UINT_PTR addr = except->ExceptionRecord->ExceptionInformation[1];
-    if (globalWatcher && globalWatcher((void*)addr))
+
+    for (const auto &watcher : globalWatchers)
     {
-        return EXCEPTION_CONTINUE_EXECUTION;
+        if (watcher((volatile void*)addr))
+        {
+            return EXCEPTION_CONTINUE_EXECUTION;
+        }
     }
 
     return EXCEPTION_CONTINUE_SEARCH;
@@ -60,13 +82,26 @@ BEFORE_MAIN({
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)ExceptionHandler);
 });
 
-void SetMemoryWriteWatcher(MemoryWriteWatcher watcher)
+uint64_t AddMemoryWriteWatcher(MemoryWriteWatcher watcher)
 {
-    globalWatcher = watcher;
+    std::lock_guard<std::mutex> guard(globalWatchersMutex);
+    globalWatchers.push_back(watcher);
+    return reinterpret_cast<uint64_t>(&globalWatchers.back());
+}
+
+void RemoveMemoryWriteWatcher(uint64_t handle)
+{
+    std::lock_guard<std::mutex> guard(globalWatchersMutex);
+    globalWatchers.remove_if([&](const MemoryWriteWatcher &w)
+    {
+        return reinterpret_cast<uint64_t>(&w) == handle;
+    });
 }
 
 #else
 static_assert(false, "Not implemented");
 #endif
+
+}
 
 }
