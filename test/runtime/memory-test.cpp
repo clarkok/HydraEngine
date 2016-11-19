@@ -94,3 +94,37 @@ TEST_CASE("MemoryWriteWatcher can be removed", "[Memory]")
     AlignFree((void*)ptr);
     RemoveMemoryWriteWatcher(handle);
 }
+
+TEST_CASE("MemoryWriteWatcher can throw exceptions", "[Memory]")
+{
+    const size_t ALLOC_SIZE = (1 << 20);    // 1MB
+    volatile void *ptr = AlignAlloc(ALLOC_SIZE, ALLOC_SIZE);
+    *reinterpret_cast<volatile size_t*>(ptr) = 0;
+    bool accessed = false;
+
+    uint64_t handle = AddMemoryWriteWatcher([&](volatile void* addr)
+    {
+        accessed = true;
+        throw Exception("Test exception");
+        return true;
+    });
+
+    WriteProtect(ptr, ALLOC_SIZE);
+
+    bool catched = false;
+    try
+    {
+        *reinterpret_cast<volatile size_t*>(ptr) = ALLOC_SIZE;
+    }
+    catch (const Exception &e)
+    {
+        REQUIRE(e.Message == "Test exception");
+    }
+
+    REQUIRE(accessed);
+    REQUIRE(*reinterpret_cast<volatile size_t*>(ptr) == 0);
+
+    WriteUnprotect(ptr, ALLOC_SIZE);
+    AlignFree((void*)ptr);
+    RemoveMemoryWriteWatcher(handle);
+}
