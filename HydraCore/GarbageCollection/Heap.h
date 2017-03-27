@@ -24,7 +24,7 @@ namespace hydra
 namespace gc
 {
 
-class ThreadCollector;
+class ThreadAllocator;
 
 //to add state(s), you must update Cell::GC_STATE_MASK accordingly in HeapObject.h
 enum GCState : u8
@@ -185,7 +185,7 @@ private:
 
     bool AreAllWorkingThreadsReported();
 
-    friend class ThreadCollector;
+    friend class ThreadAllocator;
 };
 
 } // namespace gc

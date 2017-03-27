@@ -14,7 +14,7 @@ int main()
     std::cout << "Hello World" << std::endl;
 
     gc::Heap *heap = gc::Heap::GetInstance();
-    gc::ThreadCollector allocator(heap);
+    gc::ThreadAllocator allocator(heap);
 
     while (true)
     {

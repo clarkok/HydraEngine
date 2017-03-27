@@ -18,10 +18,10 @@ namespace hydra
 namespace gc
 {
 
-class ThreadCollector
+class ThreadAllocator
 {
 public:
-    explicit ThreadCollector(Heap *owner)
+    explicit ThreadAllocator(Heap *owner)
         : Owner(owner),
         ReportedGCRound(0),
         RunningLock(Owner->RunningMutex)
@@ -31,7 +31,7 @@ public:
         Owner->TotalThreads.fetch_add(1, std::memory_order_relaxed);
     }
 
-    ~ThreadCollector()
+    ~ThreadAllocator()
     {
         Owner->TotalThreads.fetch_add(-1, std::memory_order_relaxed);
     }

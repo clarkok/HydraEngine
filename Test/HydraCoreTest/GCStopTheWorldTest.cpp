@@ -12,7 +12,7 @@ std::atomic<bool> ShouldExit = { false };
 
 void Thread()
 {
-    gc::ThreadCollector allocator(gc::Heap::GetInstance());
+    gc::ThreadAllocator allocator(gc::Heap::GetInstance());
 
     while (!ShouldExit.load())
     {

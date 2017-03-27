@@ -11,7 +11,7 @@ using namespace hydra;
 
 TEST_CASE("Region", "[GC]")
 {
-    size_t level = gc::ThreadCollector::GetLevelFromSize(sizeof(TestHeapObject));
+    size_t level = gc::ThreadAllocator::GetLevelFromSize(sizeof(TestHeapObject));
     gc::Region *uut = gc::Region::New(level);
 
     REQUIRE(uut != nullptr);
