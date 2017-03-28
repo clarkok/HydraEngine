@@ -5,6 +5,10 @@
 #include "GarbageCollection/HeapObject.h"
 #include "GarbageCollection/ThreadAllocator.h"
 
+#include <vector>
+#include <stack>
+#include <algorithm>
+
 namespace hydra
 {
 namespace runtime
@@ -25,8 +29,9 @@ class String : public gc::HeapObject
 public:
     virtual ~String() = default;
 
-    virtual char_t at(size_t) const = 0;
+    virtual char_t at(size_t index) const = 0;
     virtual size_t length() const = 0;
+    virtual void flatten(size_t start, size_t length, char_t *dst) const = 0;
 
     template <typename Iterator, typename T_Report>
     static String *New(gc::ThreadAllocator &allocator, T_Report reportFunc, Iterator begin, Iterator end)
@@ -42,6 +47,40 @@ public:
     static String *Empty(gc::ThreadAllocator &allocator, T_Report reportFunc)
     {
         return allocator.Allocate<EmptyString>(reportFunc);
+    }
+
+    template <typename T_Report>
+    static String *Concat(
+        gc::ThreadAllocator &allocator,
+        T_Report reportFunc,
+        String *left,
+        String *right)
+    {
+        return allocator.Allocate<ConcatedString>(
+            [&]()
+            {
+                reportFunc();
+                gc::Heap::GetInstance()->Remember(left);
+                gc::Heap::GetInstance()->Remember(right);
+            },
+            left, right);
+    }
+
+    inline bool EqualsTo(const String *other) const
+    {
+        if (length() != other->length())
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < length(); ++i)
+        {
+            if (_at(i) != other->_at(i))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
 protected:
@@ -74,6 +113,14 @@ public:
     virtual size_t length() const override final
     {
         return 0;
+    }
+
+    virtual void flatten(size_t start, size_t length, char_t *dst) const override final
+    {
+        if (start != 0 || length != 0)
+        {
+            throw OutOfRangeException(start, 0);
+        }
     }
 
     virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
@@ -122,6 +169,16 @@ public:
         return Length;
     }
 
+    virtual void flatten(size_t start, size_t length, char_t *dst) const override final
+    {
+        if (start + length > Length)
+        {
+            throw OutOfRangeException(start + length, Length);
+        }
+
+        std::copy(begin() + start, begin() + start + length, dst);
+    }
+
     virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
     { }
 
@@ -149,7 +206,10 @@ public:
     ConcatedString(u8 property, String *left, String *right)
         : String(property), Left(left), Right(right), LeftLength(left->length()),
         Length(left->length() + right->length())
-    { }
+    {
+        gc::Heap::GetInstance()->WriteBarrier(this, left);
+        gc::Heap::GetInstance()->WriteBarrier(this, right);
+    }
 
     virtual ~ConcatedString() = default;
 
@@ -166,6 +226,27 @@ public:
     virtual size_t length() const override final
     {
         return Length;
+    }
+
+    virtual void flatten(size_t start, size_t length, char_t *dst) const override final
+    {
+        if (start + length > Length)
+        {
+            throw OutOfRangeException(start + length, Length);
+        }
+
+        if (start < LeftLength)
+        {
+            size_t copyLength = std::min<size_t>(length, LeftLength - start);
+            Left->flatten(start, copyLength, dst);
+            dst += copyLength;
+        }
+
+        if (start + length >= LeftLength)
+        {
+            size_t copyStart = start > LeftLength ? start - LeftLength : 0;
+            Right->flatten(copyStart, start + length - LeftLength, dst);
+        }
     }
 
     virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
@@ -204,6 +285,7 @@ public:
     {
         hydra_assert(length + start <= sliced->length(),
             "Slice must be contained by the sliced");
+        gc::Heap::GetInstance()->WriteBarrier(this, sliced);
     }
 
     virtual ~SlicedString() = default;
@@ -221,6 +303,15 @@ public:
         return Length;
     }
 
+    virtual void flatten(size_t start, size_t length, char_t *dst) const override final
+    {
+        if (start + length > Length)
+        {
+            throw OutOfRangeException(start + length, Length);
+        }
+
+        Sliced->flatten(start + Start, length, dst);
+    }
 
     virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
     {
