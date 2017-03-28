@@ -15,8 +15,14 @@ target_link_libraries( GCTest HydraCore )
 add_test(GCTest GCTest)
 
 add_executable( GCStopTheWorldTest
-    GCStopTheWorldTest
+    GCStopTheWorldTest.cpp
     TestHeapObject.h
 )
 target_link_libraries( GCStopTheWorldTest HydraCore)
 add_test(GCStopTheWorldTest GCStopTheWorldTest)
+
+add_executable( StringTest
+    StringTest.cpp
+)
+target_link_libraries( StringTest HydraCore )
+add_test(StringTest StringTest)

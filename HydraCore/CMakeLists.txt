@@ -8,4 +8,5 @@ add_library( HydraCore STATIC
     HydraCore.cpp
     $<TARGET_OBJECTS:HydraCore.Common>
     $<TARGET_OBJECTS:HydraCore.GarbageCollection>
+    $<TARGET_OBJECTS:HydraCore.Runtime>
 )
