@@ -122,6 +122,8 @@ void Heap::GCManagement()
 
         if (fullGCRequested)
         {
+            Logger::GetInstance()->Log() << "Before Full GC: " << Region::GetTotalRegionCount() << " Regions";
+
             auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
             GCRount.fetch_add(1, std::memory_order_acq_rel);
@@ -145,6 +147,8 @@ void Heap::GCManagement()
             perfSession.Phase("Sweep");
 
             RegionSizeAfterLastFullGC.store(Region::GetTotalRegionCount(), std::memory_order_relaxed);
+
+            Logger::GetInstance()->Log() << "After Full GC: " << Region::GetTotalRegionCount() << " Regions";
         }
         else if (youngGCRequested)
         {
@@ -252,6 +256,21 @@ void Heap::GCWorkerYoungMark()
 {
     std::queue<HeapObject *> localQueue;
     bool shouldWaitForWorkingThreadReported = GCCurrentPhase.load() == GCPhase::GC_YOUNG_MARK;
+    std::function<void(HeapObject *)> scanner = [&](HeapObject *ref)
+    {
+        hydra_assert(ref, "Reference should not be nullptr");
+
+        u8 gcState = ref->GetGCState();
+
+        if (gcState == GCState::GC_WHITE)
+        {
+            if (ref->SetGCState(GCState::GC_GREY) == GCState::GC_WHITE)
+            {
+                Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
+                localQueue.push(ref);
+            }
+        }
+    };
 
     for (;;)
     {
@@ -294,29 +313,8 @@ void Heap::GCWorkerYoungMark()
                     continue;
                 }
 
-                obj->Scan([&](HeapObject *ref)
-                {
-                    hydra_assert(ref, "Reference should not be nullptr");
-
-                    u8 gcState = ref->GetGCState();
-
-                    if (gcState == GCState::GC_WHITE)
-                    {
-                        while (!ref->TrySetGCState(gcState, GCState::GC_GREY))
-                        {
-                            if (gcState != GCState::GC_WHITE)
-                            {
-                                break;
-                            }
-                        }
-
-                        if (gcState == GCState::GC_WHITE)
-                        {
-                            Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
-                            localQueue.push(ref);
-                        }
-                    }
-                });
+                hydra_assert(scanner.operator bool(), "Scanner should be valid");
+                obj->Scan(scanner);
             }
 
             // feed back half of localQueue to global WorkingQueue
@@ -338,6 +336,26 @@ void Heap::GCWorkerFullMark()
 {
     std::queue<HeapObject *> localQueue;
     bool shouldWaitForWorkingThreadReported = GCCurrentPhase.load() == GCPhase::GC_FULL_MARK;
+    std::function<void(HeapObject *)> scanner = [&](HeapObject *ref)
+    {
+        u8 gcState = ref->GetGCState();
+
+        if (gcState == GCState::GC_WHITE)
+        {
+            if (ref->SetGCState(GCState::GC_GREY) == GCState::GC_WHITE)
+            {
+                Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
+                localQueue.push(ref);
+            }
+        }
+        else if (gcState == GCState::GC_DARK)
+        {
+            if (ref->SetGCState(GCState::GC_GREY) == GCState::GC_DARK)
+            {
+                localQueue.push(ref);
+            }
+        }
+    };
 
     for (;;)
     {
@@ -379,34 +397,7 @@ void Heap::GCWorkerFullMark()
                     continue;
                 }
 
-                obj->Scan([&](HeapObject *ref)
-                {
-                    u8 gcState = ref->GetGCState();
-
-                    if (gcState == GCState::GC_WHITE)
-                    {
-                        while (!ref->TrySetGCState(gcState, GCState::GC_GREY))
-                        {
-                            if (gcState != GCState::GC_WHITE)
-                            {
-                                break;
-                            }
-                        }
-
-                        if (gcState == GCState::GC_WHITE)
-                        {
-                            Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
-                            localQueue.push(ref);
-                        }
-                    }
-                    else if (gcState == GCState::GC_DARK)
-                    {
-                        if (ref->SetGCState(GCState::GC_GREY) == GCState::GC_DARK)
-                        {
-                            localQueue.push(ref);
-                        }
-                    }
-                });
+                obj->Scan(scanner);
             }
 
             // feed back half of localQueue to global WorkingQueue

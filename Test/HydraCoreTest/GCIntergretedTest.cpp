@@ -23,8 +23,15 @@ int main()
 
     size_t round = ROUND;
 
+    std::vector<TestHeapObject *> headers;
+
     while (round--)
     {
+        if (round % 10 == 0)
+        {
+            headers.clear();
+        }
+
         TestHeapObject *head = nullptr;
         size_t count = 1000;
 
@@ -33,8 +40,11 @@ int main()
             head = allocator.Allocate<TestHeapObject>(
                 [&]()
                 {
-                    Logger::GetInstance()->Log() << "Report local references";
                     heap->Remember(head);
+                    for (auto &header : headers)
+                    {
+                        heap->Remember(header);
+                    }
                 },
                 head);
         }
@@ -50,6 +60,8 @@ int main()
             lastId = ptr->Id;
             count++;
         }
+
+        headers.push_back(head);
 
         hydra_assert(count == 1000, "Count should match");
         Logger::GetInstance()->Log() << "Round " << (ROUND - round);

@@ -16,7 +16,7 @@ void Thread()
 
     while (!ShouldExit.load())
     {
-        allocator.CheckIfNeedStop();
+        allocator.Checkpoint([]() {});
     }
 }
 

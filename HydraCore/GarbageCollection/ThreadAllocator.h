@@ -49,8 +49,7 @@ public:
         static_assert(std::is_base_of<HeapObject, T>::value,
             "T should inhert from HeapObject");
 
-        CheckIfNeedReport(reportFunc);
-        CheckIfNeedStop();
+        Checkpoint(reportFunc);
 
         if (size > MAXIMAL_ALLOCATE_SIZE)
         {
@@ -109,28 +108,21 @@ public:
         return (platform::GetMSB(size - 1) + 1) - MINIMAL_ALLOCATE_SIZE_LEVEL;
     }
 
-    inline void CheckIfNeedStop()
-    {
-        if (Owner->PauseRequested.load(std::memory_order_acquire))
-        {
-            Owner->WakeupCV.wait(RunningLock, [this]() { return !Owner->PauseRequested.load(std::memory_order_acquire); });
-        }
-    }
-
     template <typename T_Report>
-    inline void CheckIfNeedReport(T_Report reportFunc)
+    inline void Checkpoint(T_Report reportFunc)
     {
-        size_t currentGCRound = Owner->GCRount.load(std::memory_order_relaxed);
-
+        size_t currentGCRound = Owner->GCRount.load(std::memory_order_acquire);
         if (ReportedGCRound != currentGCRound)
         {
             ReportedGCRound = currentGCRound;
             reportFunc();
-            Owner->ReportedThreads.fetch_add(1, std::memory_order_acq_rel);
+            Owner->ReportedThreads.fetch_add(1);
         }
         else if (Owner->PauseRequested.load(std::memory_order_acquire))
         {
             reportFunc();
+            Owner->WakeupCV.wait(RunningLock,
+                [this]() { return !Owner->PauseRequested.load(std::memory_order_acquire); });
         }
     }
 
