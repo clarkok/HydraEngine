@@ -67,16 +67,18 @@ public:
 
     bool Pop(T* &node)
     {
-        node = Head.load(std::memory_order_relaxed);
+        node = Head.load(std::memory_order_consume);
+        while (node && !Head.compare_exchange_weak(
+            node,
+            node->Next.load(std::memory_order_relaxed),
+            std::memory_order_release,
+            std::memory_order_acquire));
+
         if (!node)
         {
             return false;
         }
-        while (!Head.compare_exchange_weak(
-            node,
-            node->Next.load(std::memory_order_relaxed),
-            std::memory_order_release,
-            std::memory_order_relaxed));
+
         Count.fetch_add(-1, std::memory_order_relaxed);
 
         node->Next.store(nullptr, std::memory_order_release);
