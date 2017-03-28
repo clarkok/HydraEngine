@@ -19,8 +19,9 @@ int main()
 
     auto started = std::chrono::system_clock::now();
 
-    // while ((std::chrono::system_clock::now() - started) < 1min)
-    while (true)
+    size_t round = 10000;
+
+    while (round--)
     {
         TestHeapObject *head = nullptr;
         size_t count = 1000;
@@ -49,9 +50,13 @@ int main()
         }
 
         hydra_assert(count == 1000, "Count should match");
+        Logger::GetInstance()->Log() << "Round";
     }
 
     allocator.SetInactive([]() {});
+
+    auto ended = std::chrono::system_clock::now();
+    Logger::GetInstance()->Log() << "Test Finished: " << std::chrono::duration_cast<std::chrono::milliseconds>(ended - started).count() << "ms";
 
     heap->Shutdown();
     Logger::GetInstance()->Shutdown();

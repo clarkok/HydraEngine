@@ -9,6 +9,7 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include <chrono>
 
 namespace hydra
 {
@@ -47,12 +48,65 @@ public:
         friend class Logger;
     };
 
+    class PerfSession
+    {
+    public:
+        PerfSession(PerfSession &&other)
+            : Logger(other.Logger), Name(other.Name), Start(other.Start), Last(other.Last)
+        {
+            other.Logger = nullptr;
+        }
+
+        ~PerfSession()
+        {
+            if (Logger)
+            {
+                auto Now = std::chrono::high_resolution_clock::now();
+                Logger->Log() << "PerfSession " << Name << "::END\t"
+                    << std::chrono::duration_cast<std::chrono::microseconds>(Now - Start).count() / 1000.0f << "ms "
+                    << "(+" << std::chrono::duration_cast<std::chrono::microseconds>(Now - Last).count() / 1000.0f << "ms)";
+            }
+        }
+
+        inline void Phase(std::string phaseName)
+        {
+            hydra_assert(Logger,
+                "Valid PerfSession should refer to a valid Logger");
+
+            auto Now = std::chrono::high_resolution_clock::now();
+            Logger->Log() << "PerfSession " << Name << "::" << phaseName << "\t"
+                << std::chrono::duration_cast<std::chrono::microseconds>(Now - Start).count() / 1000.0f << "ms "
+                << "(+" << std::chrono::duration_cast<std::chrono::microseconds>(Now - Last).count() / 1000.0f << "ms)";
+            Last = Now;
+        }
+
+    private:
+        PerfSession(Logger *logger, std::string name)
+            : Logger(logger), Name(name), Start(std::chrono::high_resolution_clock::now()), Last(Start)
+        {
+            Logger->Log() << "PerfSession " << Name << "::START";
+        }
+
+        Logger *Logger;
+        std::string Name;
+        std::chrono::time_point<std::chrono::high_resolution_clock> Start;
+        std::chrono::time_point<std::chrono::high_resolution_clock> Last;
+
+        friend class Logger;
+    };
+
     Logger();
     ~Logger();
 
-    LoggerProxy Log()
+    inline LoggerProxy Log()
     {
         LoggerProxy ret(this);
+        return std::move(ret);
+    }
+
+    inline PerfSession Perf(std::string name)
+    {
+        PerfSession ret(this, name);
         return std::move(ret);
     }
 

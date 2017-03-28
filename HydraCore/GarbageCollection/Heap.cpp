@@ -108,51 +108,51 @@ void Heap::GCManagement()
 
         if (fullGCRequested)
         {
-            Logger::GetInstance()->Log() << "Full GC started";
+            auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
             GCRount.fetch_add(1, std::memory_order_acq_rel);
             FireGCPhaseAndWait(GCPhase::GC_FULL_MARK);
+            perfSession.Phase("InitialMark");
 
             StopTheWorld();
+            perfSession.Phase("AfterStopTheWorld");
+
             FireGCPhaseAndWait(GCPhase::GC_FULL_FINISH_MARK);
+            perfSession.Phase("FinishMark");
 
             for (size_t level = 0; level < LEVEL_NR; ++level)
             {
                 CleaningLists[level].Steal(FullLists[level]);
             }
+            perfSession.Phase("BeforeResumeTheWorld");
             ResumeTheWorld();
 
             FireGCPhaseAndWait(GCPhase::GC_FULL_SWEEP);
-
-            Logger::GetInstance()->Log() << "Full GC finished";
+            perfSession.Phase("Sweep");
         }
         else if (youngGCRequested)
         {
-            Logger::GetInstance()->Log() << "Young GC started";
-            auto gcStart = std::chrono::high_resolution_clock::now();
+            auto perfSession = Logger::GetInstance()->Perf("YoungGC");
 
             GCRount.fetch_add(1, std::memory_order_acq_rel);
             FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK);
-
-            Logger::GetInstance()->Log() << "Young GC mark 1";
+            perfSession.Phase("InitialMark");
 
             StopTheWorld();
-            FireGCPhaseAndWait(GCPhase::GC_YOUNG_FINISH_MARK);
+            perfSession.Phase("AfterStopTheWorld");
 
+            FireGCPhaseAndWait(GCPhase::GC_YOUNG_FINISH_MARK);
             hydra_assert(WorkingQueue.Count() == 0,
                 "WorkingQueue should be empty now");
-
-            Logger::GetInstance()->Log() << "Young GC mark 2";
+            perfSession.Phase("FinishMark");
 
             for (size_t level = 0; level < LEVEL_NR; ++level)
             {
                 FreeLists[level].Steal(FullLists[level]);
             }
 
+            perfSession.Phase("BeforeResumeTheWorld");
             ResumeTheWorld();
-
-            auto gcEnd = std::chrono::high_resolution_clock::now();
-            Logger::GetInstance()->Log() << "Young GC finished: " << (gcEnd - gcStart).count() / 1000000.0 << "ms";
         }
 
         GCCurrentPhase.store(GCPhase::GC_IDLE);
@@ -188,7 +188,7 @@ void Heap::GCWorker()
     GCPhase phase = GCPhase::GC_IDLE;
     GCWorkerCompletedCount.fetch_add(1);
 
-    while (!ShouldExit.load())
+    while (true)
     {
         std::shared_lock<std::shared_mutex> lck(GCWorkerRunningMutex);
         GCPhase currentPhase = GCCurrentPhase.load();

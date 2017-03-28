@@ -2,6 +2,8 @@
 #include <iostream>
 #include <fstream>
 
+std::ofstream fout("./log.txt");
+
 namespace hydra
 {
 
@@ -35,7 +37,7 @@ void Logger::Write()
         Entry entry;
         Queue.Dequeue(entry);
 
-        std::cout << entry.TimePoint.time_since_epoch().count() << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
+        /* std::cout */ fout << entry.TimePoint.time_since_epoch().count() << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
     }
 
     Entry entry;
