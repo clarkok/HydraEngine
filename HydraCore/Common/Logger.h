@@ -10,6 +10,7 @@
 #include <sstream>
 #include <algorithm>
 #include <chrono>
+#include <iomanip>
 
 namespace hydra
 {
@@ -61,10 +62,7 @@ public:
         {
             if (Logger)
             {
-                auto Now = std::chrono::high_resolution_clock::now();
-                Logger->Log() << "PerfSession " << Name << "::END\t"
-                    << std::chrono::duration_cast<std::chrono::microseconds>(Now - Start).count() / 1000.0f << "ms "
-                    << "(+" << std::chrono::duration_cast<std::chrono::microseconds>(Now - Last).count() / 1000.0f << "ms)";
+                WriteLogAndUpdateLast("END", std::chrono::high_resolution_clock::now());
             }
         }
 
@@ -73,18 +71,24 @@ public:
             hydra_assert(Logger,
                 "Valid PerfSession should refer to a valid Logger");
 
-            auto Now = std::chrono::high_resolution_clock::now();
-            Logger->Log() << "PerfSession " << Name << "::" << phaseName << "\t"
-                << std::chrono::duration_cast<std::chrono::microseconds>(Now - Start).count() / 1000.0f << "ms "
-                << "(+" << std::chrono::duration_cast<std::chrono::microseconds>(Now - Last).count() / 1000.0f << "ms)";
-            Last = Now;
+            WriteLogAndUpdateLast(phaseName, std::chrono::high_resolution_clock::now());
         }
 
     private:
         PerfSession(Logger *logger, std::string name)
             : Logger(logger), Name(name), Start(std::chrono::high_resolution_clock::now()), Last(Start)
         {
-            Logger->Log() << "PerfSession " << Name << "::START";
+            WriteLogAndUpdateLast("START", Start);
+        }
+
+        inline void WriteLogAndUpdateLast(std::string phaseName, std::chrono::time_point<std::chrono::high_resolution_clock> now)
+        {
+            double fromStart = std::chrono::duration_cast<std::chrono::microseconds>(now - Start).count() / 1000.0f;
+            double fromLast = std::chrono::duration_cast<std::chrono::microseconds>(now - Last).count() / 1000.0f;
+            Logger->Log() << "Perf " << std::fixed << std::setprecision(3) << fromStart <<
+                "(+" << fromLast << ") " << Name << "::" << phaseName;
+
+            Last = now;
         }
 
         Logger *Logger;
