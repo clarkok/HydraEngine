@@ -81,11 +81,11 @@ struct AssertFailureException : Exception
     { }
 
     static inline void TestAndRaise(
-        std::string source,
+        const char *source,
         int lineNumber,
         bool condition,
-        std::string expression,
-        std::string message)
+        const char *expression,
+        const char *message)
     {
         if (!condition)
         {

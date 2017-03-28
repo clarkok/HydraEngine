@@ -19,7 +19,9 @@ int main()
 
     auto started = std::chrono::system_clock::now();
 
-    size_t round = 10000;
+    constexpr size_t ROUND = 100000;
+
+    size_t round = ROUND;
 
     while (round--)
     {
@@ -50,7 +52,7 @@ int main()
         }
 
         hydra_assert(count == 1000, "Count should match");
-        Logger::GetInstance()->Log() << "Round";
+        Logger::GetInstance()->Log() << "Round " << (ROUND - round);
     }
 
     allocator.SetInactive([]() {});
