@@ -193,6 +193,11 @@ public:
         return REGION_SIZE;
     }
 
+    inline static size_t GetTotalRegionCount()
+    {
+        return TotalRegionCount.load(std::memory_order_relaxed);
+    }
+
 private:
     Region(size_t level);
 
@@ -205,6 +210,8 @@ private:
     };
 
     std::atomic<size_t> OldObjectCount;
+
+    static std::atomic<size_t> TotalRegionCount;
 
     friend class Heap;
 };

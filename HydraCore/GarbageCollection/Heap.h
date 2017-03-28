@@ -44,6 +44,7 @@ public:
     Heap()
         : ShouldExit(false),
         GCRount(0),
+        RegionSizeAfterLastFullGC(0),
         GatheringWorkerCount(0),
         TotalThreads(0),
         PauseRequested(false),
@@ -150,6 +151,7 @@ private:
 
     std::atomic<bool> ShouldExit;
     std::atomic<size_t> GCRount;
+    std::atomic<size_t> RegionSizeAfterLastFullGC;
 
     std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> FreeLists;
     std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> FullLists;

@@ -27,7 +27,11 @@ constexpr size_t GC_WORKER_MAX_NR = 8;
 constexpr size_t GC_WORKER_BALANCE_FACTOR = 128;
 constexpr double GC_WORKING_QUEUE_FACTOR = 0.7;
 
-constexpr size_t GC_FULL_GC_TRIGGER_FACTOR = 256;
+constexpr size_t MAXIMUM_HEAP_SIZE = 1024 * 1024 * 1024;    // 1GB
+constexpr size_t MAXIMUM_REGION_COUNT = MAXIMUM_HEAP_SIZE / REGION_SIZE;
+
+constexpr double FULL_GC_TRIGGER_FACTOR_BY_INCREMENT = 2;
+constexpr double FULL_GC_TRIGGER_FACTOR_BY_HEAP_SIZE = 0.7;
 
 } // namespace gc
 

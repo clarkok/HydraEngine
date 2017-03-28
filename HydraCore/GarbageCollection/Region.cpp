@@ -8,6 +8,8 @@ namespace hydra
 namespace gc
 {
 
+std::atomic<size_t> Region::TotalRegionCount { 0 };
+
 size_t Region::YoungSweep()
 {
     Logger::GetInstance()->Log() << "Region " << this <<
@@ -121,6 +123,8 @@ Region * Region::New(size_t level)
     hydra_assert(reinterpret_cast<uintptr_t>(region) == reinterpret_cast<uintptr_t>(allocated),
         "'region' should be the same with 'allocated'");
 
+    TotalRegionCount.fetch_add(1, std::memory_order_relaxed);
+
     return region;
 }
 
@@ -128,6 +132,8 @@ void Region::Delete(Region *region)
 {
     region->~Region();
     platform::AlignedFree(region);
+
+    TotalRegionCount.fetch_add(-1, std::memory_order_relaxed);
 }
 
 } // namespace gc

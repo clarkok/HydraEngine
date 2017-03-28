@@ -24,7 +24,21 @@ Region *Heap::GetFreeRegion(size_t level)
     if (!ret)
     {
         ret = Region::New(level);
-        RequestFullGC();
+    }
+
+    if (GCCurrentPhase.load(std::memory_order_relaxed) == GCPhase::GC_IDLE)
+    {
+        size_t currentRegionCount = Region::GetTotalRegionCount();
+
+        if (currentRegionCount >
+            RegionSizeAfterLastFullGC.load(std::memory_order_relaxed) * FULL_GC_TRIGGER_FACTOR_BY_INCREMENT)
+        {
+            RequestFullGC();
+        }
+        else if (currentRegionCount > MAXIMUM_REGION_COUNT * FULL_GC_TRIGGER_FACTOR_BY_HEAP_SIZE)
+        {
+            RequestFullGC();
+        }
     }
 
     return ret;
@@ -129,6 +143,8 @@ void Heap::GCManagement()
 
             FireGCPhaseAndWait(GCPhase::GC_FULL_SWEEP);
             perfSession.Phase("Sweep");
+
+            RegionSizeAfterLastFullGC.store(Region::GetTotalRegionCount(), std::memory_order_relaxed);
         }
         else if (youngGCRequested)
         {
