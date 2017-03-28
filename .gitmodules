@@ -1,3 +1,6 @@
 [submodule "ThirdParty/Catch"]
 	path = ThirdParty/Catch
 	url = https://github.com/philsquared/Catch.git
+[submodule "ThirdParty/libunwind"]
+	path = ThirdParty/libunwind
+	url = git://git.sv.gnu.org/libunwind.git

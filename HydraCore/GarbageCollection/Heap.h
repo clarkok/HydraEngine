@@ -73,6 +73,25 @@ public:
                 worker.join();
             }
         }
+
+        for (size_t i = 0; i < LEVEL_NR; ++i)
+        {
+            Region *region;
+            while (FreeLists[i].Pop(region))
+            {
+                Region::Delete(region);
+            }
+
+            while (FullLists[i].Pop(region))
+            {
+                Region::Delete(region);
+            }
+
+            while (CleaningLists[i].Pop(region))
+            {
+                Region::Delete(region);
+            }
+        }
     }
 
     inline void RequestYoungGC()
