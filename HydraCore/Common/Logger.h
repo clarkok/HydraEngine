@@ -56,6 +56,8 @@ public:
         return std::move(ret);
     }
 
+    void Shutdown();
+
 private:
     struct Entry
     {

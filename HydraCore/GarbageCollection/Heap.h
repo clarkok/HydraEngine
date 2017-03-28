@@ -63,12 +63,14 @@ public:
 
     ~Heap()
     {
-        ShouldExit.store(true);
-        GCManagementThread.join();
-
-        for (auto &worker : GCWorkerThreads)
+        if (!ShouldExit.exchange(true))
         {
-            worker.join();
+            GCManagementThread.join();
+
+            for (auto &worker : GCWorkerThreads)
+            {
+                worker.join();
+            }
         }
     }
 
@@ -128,6 +130,8 @@ public:
 
     void StopTheWorld();
     void ResumeTheWorld();
+
+    void Shutdown();
 
 private:
     enum class GCPhase

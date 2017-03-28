@@ -13,8 +13,19 @@ Logger::Logger()
 
 Logger::~Logger()
 {
-    ShouldExit.store(true);
-    WriteThread.join();
+    if (!ShouldExit.exchange(true))
+    {
+        WriteThread.join();
+    }
+}
+
+void Logger::Shutdown()
+{
+    if (!ShouldExit.exchange(true))
+    {
+        Log() << "Logger shutdown requested";
+        WriteThread.join();
+    }
 }
 
 void Logger::Write()
@@ -26,6 +37,14 @@ void Logger::Write()
 
         std::cout << entry.TimePoint.time_since_epoch().count() << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
     }
+
+    Entry entry;
+    while (Queue.TryDequeue(entry))
+    {
+        std::cout << entry.TimePoint.time_since_epoch().count() << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
+    }
+
+    std::cout << "Logger shutdown" << std::endl;
 }
 
 } // namespace hydra

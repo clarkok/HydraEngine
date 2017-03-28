@@ -74,6 +74,22 @@ void Heap::ResumeTheWorld()
     }
 }
 
+void Heap::Shutdown()
+{
+    Logger::GetInstance()->Log() << "Heap shutdown requested";
+
+    if (!ShouldExit.exchange(true))
+    {
+        GCManagementThread.join();
+        for (auto &worker : GCWorkerThreads)
+        {
+            worker.join();
+        }
+    }
+
+    Logger::GetInstance()->Log() << "Heap shutdown";
+}
+
 void Heap::GCManagement()
 {
     bool youngGCRequested = false;
@@ -144,6 +160,8 @@ void Heap::GCManagement()
 
     GCCurrentPhase.store(GCPhase::GC_EXIT);
     GCWorkerRunningCV.notify_all();
+
+    Logger::GetInstance()->Log() << "GC Management shutdown";
 }
 
 void Heap::FireGCPhaseAndWait(Heap::GCPhase phase)
@@ -411,7 +429,7 @@ void Heap::GCWorkerFullSweep()
 
 bool Heap::AreAllWorkingThreadsReported()
 {
-    return ReportedThreads.load() == TotalThreads.load();
+    return ReportedThreads.load() >= TotalThreads.load();
 }
 
 } // namespace gc
