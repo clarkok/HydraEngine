@@ -212,6 +212,7 @@ private:
     std::atomic<size_t> OldObjectCount;
 
     static std::atomic<size_t> TotalRegionCount;
+    static concurrent::ForwardLinkedList<Region> FreeRegions;
 
     friend class Heap;
 };

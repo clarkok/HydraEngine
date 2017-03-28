@@ -33,6 +33,8 @@ constexpr size_t MAXIMUM_REGION_COUNT = MAXIMUM_HEAP_SIZE / REGION_SIZE;
 constexpr double FULL_GC_TRIGGER_FACTOR_BY_INCREMENT = 2;
 constexpr double FULL_GC_TRIGGER_FACTOR_BY_HEAP_SIZE = 0.7;
 
+constexpr size_t CACHED_FREE_REGION_COUNT = 16;
+
 } // namespace gc
 
 } // namespace hydra

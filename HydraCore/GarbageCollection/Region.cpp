@@ -9,6 +9,7 @@ namespace gc
 {
 
 std::atomic<size_t> Region::TotalRegionCount { 0 };
+concurrent::ForwardLinkedList<Region> Region::FreeRegions;
 
 size_t Region::YoungSweep()
 {
@@ -113,6 +114,15 @@ void Region::FreeAll()
 
 Region * Region::New(size_t level)
 {
+    TotalRegionCount.fetch_add(1, std::memory_order_relaxed);
+
+    Region *node = nullptr;
+
+    if (FreeRegions.Pop(node))
+    {
+        return new (node) Region(level);
+    }
+
     void *allocated = platform::AlignedAlloc(REGION_SIZE, REGION_SIZE);
     std::memset(allocated, 0, REGION_SIZE);
 
@@ -123,17 +133,23 @@ Region * Region::New(size_t level)
     hydra_assert(reinterpret_cast<uintptr_t>(region) == reinterpret_cast<uintptr_t>(allocated),
         "'region' should be the same with 'allocated'");
 
-    TotalRegionCount.fetch_add(1, std::memory_order_relaxed);
-
     return region;
 }
 
 void Region::Delete(Region *region)
 {
-    region->~Region();
-    platform::AlignedFree(region);
-
     TotalRegionCount.fetch_add(-1, std::memory_order_relaxed);
+
+    region->~Region();
+
+    if (FreeRegions.GetCount() >= CACHED_FREE_REGION_COUNT)
+    {
+        platform::AlignedFree(region);
+    }
+    else
+    {
+        FreeRegions.Push(region);
+    }
 }
 
 } // namespace gc

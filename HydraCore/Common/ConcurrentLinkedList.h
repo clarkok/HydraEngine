@@ -117,6 +117,11 @@ public:
         Count.fetch_add(count);
     }
 
+    size_t GetCount()
+    {
+        return Count.load(std::memory_order_relaxed);
+    }
+
 private:
     std::atomic<T *> Head;
     std::atomic<size_t> Count;
