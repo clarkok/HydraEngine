@@ -24,7 +24,8 @@ public:
     explicit ThreadAllocator(Heap *owner)
         : Owner(owner),
         ReportedGCRound(0),
-        RunningLock(Owner->RunningMutex)
+        RunningLock(Owner->RunningMutex),
+        Active(true)
     {
         LocalPool.fill(nullptr);
 
@@ -76,6 +77,26 @@ public:
         return allocated;
     }
 
+    template <typename T_Report>
+    void SetInactive(T_Report reportFunc)
+    {
+        if (Active.exchange(false))
+        {
+            reportFunc();
+            Owner->TotalThreads.fetch_add(-1, std::memory_order_relaxed);
+            RunningLock.unlock();
+        }
+    }
+
+    inline void SetActive()
+    {
+        if (!Active.exchange(true))
+        {
+            Owner->TotalThreads.fetch_add(1, std::memory_order_relaxed);
+            RunningLock.lock();
+        }
+    }
+
     static inline size_t GetLevelFromSize(size_t size)
     {
         hydra_assert(size <= MAXIMAL_ALLOCATE_SIZE, "'size' is too large");
@@ -118,6 +139,7 @@ private:
     std::array<Region *, LEVEL_NR> LocalPool;
     size_t ReportedGCRound;
     std::shared_lock<std::shared_mutex> RunningLock;
+    std::atomic<bool> Active;
 };
 
 } // namespace gc

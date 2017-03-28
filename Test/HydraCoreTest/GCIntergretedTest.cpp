@@ -8,6 +8,7 @@
 #include <iostream>
 
 using namespace hydra;
+using namespace std::chrono_literals;
 
 int main()
 {
@@ -16,6 +17,9 @@ int main()
     gc::Heap *heap = gc::Heap::GetInstance();
     gc::ThreadAllocator allocator(heap);
 
+    auto started = std::chrono::system_clock::now();
+
+    // while ((std::chrono::system_clock::now() - started) < 1min)
     while (true)
     {
         TestHeapObject *head = nullptr;
@@ -46,6 +50,11 @@ int main()
 
         hydra_assert(count == 1000, "Count should match");
     }
+
+    allocator.SetInactive([]() {});
+
+    heap->Shutdown();
+    Logger::GetInstance()->Shutdown();
 
     return 0;
 }
