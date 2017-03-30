@@ -10,6 +10,7 @@ namespace gc
 
 std::atomic<size_t> Region::TotalRegionCount { 0 };
 concurrent::ForwardLinkedList<Region> Region::FreeRegions;
+concurrent::LevelHashSet<Region> Region::RegionSet;
 
 size_t Region::YoungSweep()
 {
@@ -112,7 +113,33 @@ void Region::FreeAll()
     }
 }
 
-Region * Region::New(size_t level)
+bool Region::IsInRegion(void *ptr, Cell *&cell)
+{
+    Region *region = GetRegionOfObject(reinterpret_cast<HeapObject*>(ptr));
+
+    if (!RegionSet.Has(region))
+    {
+        return false;
+    }
+
+    uintptr_t offset = reinterpret_cast<uintptr_t>(ptr) -
+        reinterpret_cast<uintptr_t>(region);
+
+    if (offset < AllocateBegin(region->Level))
+    {
+        cell = nullptr;
+    }
+    else
+    {
+        auto cellSize = CellSizeFromLevel(region->Level);
+        auto cellOffset = offset & (~cellSize + 1);
+        cell = reinterpret_cast<Cell*>(reinterpret_cast<uintptr_t>(region) + cellOffset);
+    }
+
+    return true;
+}
+
+Region * Region::NewInternal(size_t level)
 {
     TotalRegionCount.fetch_add(1, std::memory_order_relaxed);
 
@@ -136,7 +163,7 @@ Region * Region::New(size_t level)
     return region;
 }
 
-void Region::Delete(Region *region)
+void Region::DeleteInternal(Region *region)
 {
     TotalRegionCount.fetch_add(-1, std::memory_order_relaxed);
 

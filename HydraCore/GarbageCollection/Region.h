@@ -3,6 +3,8 @@
 
 #include "Common/HydraCore.h"
 #include "Common/ConcurrentLinkedList.h"
+#include "Common/ConcurrentLevelHashSet.h"
+#include "Common/Constexpr.h"
 
 #include "GCDefs.h"
 #include "HeapObject.h"
@@ -170,8 +172,18 @@ public:
 
     void FreeAll();
 
-    static Region *New(size_t level);
-    static void Delete(Region *);
+    inline static Region *New(size_t level)
+    {
+        Region *region = NewInternal(level);
+        RegionSet.Add(region);
+        return region;
+    }
+
+    inline static void Delete(Region *region)
+    {
+        RegionSet.Remove(region);
+        DeleteInternal(region);
+    }
 
     static constexpr size_t CellSizeFromLevel(size_t level)
     {
@@ -198,6 +210,17 @@ public:
         return TotalRegionCount.load(std::memory_order_relaxed);
     }
 
+    inline u64 Hash() const
+    {
+        u64 hash = reinterpret_cast<u64>(this);
+        return hash | cexpr::SubBits(
+            hash,
+            cexpr::TypeBitCount<u64>::value - REGION_SIZE_LEVEL,
+            REGION_SIZE_LEVEL);
+    }
+
+    static bool IsInRegion(void *ptr, Cell *&cell);
+
 private:
     Region(size_t level);
 
@@ -211,8 +234,12 @@ private:
 
     std::atomic<size_t> OldObjectCount;
 
+    static Region *NewInternal(size_t level);
+    static void DeleteInternal(Region *);
+
     static std::atomic<size_t> TotalRegionCount;
     static concurrent::ForwardLinkedList<Region> FreeRegions;
+    static concurrent::LevelHashSet<Region> RegionSet;
 
     friend class Heap;
 };

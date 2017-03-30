@@ -155,5 +155,33 @@ TEST_CASE("Region", "[GC]")
         }
     }
 
+    SECTION("InRegion Test")
+    {
+        auto *obj = uut->Allocate<TestHeapObject>();
+
+        gc::Cell *cell = nullptr;
+
+        REQUIRE(gc::Region::IsInRegion(obj, cell));
+        REQUIRE(cell == obj);
+
+        REQUIRE(gc::Region::IsInRegion(uut, cell));
+        REQUIRE(cell == nullptr);
+
+        void *ptrOnStack = &obj;
+        REQUIRE(!gc::Region::IsInRegion(ptrOnStack, cell));
+    }
+
     gc::Region::Delete(uut);
 }
+
+struct EventListener : Catch::TestEventListenerBase
+{
+    using TestEventListenerBase::TestEventListenerBase;
+
+    virtual void testRunEnded(Catch::TestRunStats const &) override
+    {
+        Logger::GetInstance()->Shutdown();
+    }
+};
+
+CATCH_REGISTER_LISTENER(EventListener);

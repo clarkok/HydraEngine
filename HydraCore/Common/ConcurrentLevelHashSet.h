@@ -15,7 +15,7 @@ namespace concurrent
 
 /* LevelHashSet never shrink */
 template <typename T,
-    typename T_Hash = size_t,
+    typename T_Hash = u64,
     size_t LevelSize = 512,
     size_t LevelHashWidth = cexpr::LSBShift(LevelSize),
     size_t HashWidth = cexpr::TypeBitCount<T_Hash>::value,
@@ -25,13 +25,13 @@ class LevelHashSet
 {
 public:
     template<typename T_Ptr>
-    inline static auto Hash(T_Ptr ptr) -> decltype((T_Hash)(ptr->*Hash)(), T_Hash())
+    inline static auto Hash(T_Ptr ptr) -> decltype(ptr->Hash(), T_Hash())
     {
         return ptr->Hash();
     }
 
     template<typename T_Ptr>
-    inline static T_Hash Hash(T_Ptr ptr)
+    inline static auto Hash(T_Ptr ptr) -> decltype(hash(ptr), T_Hash())
     {
         return hash(ptr);
     }
@@ -71,7 +71,7 @@ private:
     static_assert((LevelSize & (LevelSize - 1)) == 0,
         "LevelSize must be power of 2");
 
-    template <size_t Level, typename = void>
+    template <size_t Level, typename isEnable = void>
     struct LevelTable;
 
     template <size_t Level>
