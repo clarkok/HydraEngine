@@ -26,3 +26,9 @@ add_executable( StringTest
 )
 target_link_libraries( StringTest HydraCore )
 add_test(StringTest StringTest)
+
+add_executable( ConcurrentLevelHashSetTest
+    ConcurrentLevelHashSetTest.cpp
+)
+target_link_libraries( ConcurrentLevelHashSetTest HydraCore )
+add_test(ConcurrentLevelHashSetTest ConcurrentLevelHashSetTest)

@@ -1,7 +1,9 @@
 add_library( HydraCore.Common OBJECT
+	HydraCore.cpp
+    ConcurrentLevelHashSet.h
     ConcurrentLinkedList.h
     ConcurrentQueue.h
-	HydraCore.cpp
+    Constexpr.h
     HydraCore.h
     Logger.cpp
     Logger.h

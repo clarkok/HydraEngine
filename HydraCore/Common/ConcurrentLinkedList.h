@@ -117,6 +117,11 @@ public:
         Count.fetch_add(count);
     }
 
+    T *GetFirstNode()
+    {
+        return dynamic_cast<T*>(Head.load(std::memory_order_acquire));
+    }
+
     size_t GetCount()
     {
         return Count.load(std::memory_order_relaxed);
