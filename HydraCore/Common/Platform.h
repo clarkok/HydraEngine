@@ -21,6 +21,9 @@ inline void AlignedFree(void *ptr);
 inline size_t GetMSB(uint64_t);
 inline size_t GetLSB(uint64_t);
 
+template <typename T_callback>
+void ForeachWordOnStack(T_callback callback);
+
 #ifdef _MSC_VER
 
 inline void *AlignedAlloc(size_t size, size_t alignment)
@@ -53,6 +56,19 @@ inline size_t GetLSB(uint64_t value)
     }
 
     return static_cast<size_t>(-1);
+}
+
+template <typename T_callback>
+void ForeachWordOnStack(T_callback callback)
+{
+    u64 low = 0, high = 0;
+    GetCurrentThreadStackLimits(&low, &high);
+    uintptr_t addressOfReturnAddress = reinterpret_cast<uintptr_t>(_AddressOfReturnAddress());
+
+    for (uintptr_t ptr = low < addressOfReturnAddress ? addressOfReturnAddress : low; ptr < high; ptr += sizeof(void*))
+    {
+        callback(reinterpret_cast<void**>(ptr));
+    }
 }
 
 #else

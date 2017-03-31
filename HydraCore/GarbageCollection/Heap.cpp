@@ -14,15 +14,9 @@ Region *Heap::GetFreeRegion(size_t level)
     Region *ret = nullptr;
     FreeLists[level].Pop(ret);
 
-    while (ret && ret->YoungSweep() == Region::CellCountFromLevel(level))
-    {
-        // wait for full gc
-        CleaningLists[level].Push(ret);
-        FreeLists[level].Pop(ret);
-    }
-
     if (!ret)
     {
+        RequestYoungGC();
         ret = Region::New(level);
     }
 
@@ -50,8 +44,6 @@ void Heap::CommitFullRegion(Region *&region)
 
     FullLists[level].Push(region);
     region = GetFreeRegion(level);
-
-    RequestYoungGC();
 }
 
 void Heap::WriteBarrier(HeapObject *target, HeapObject *ref)
@@ -138,7 +130,7 @@ void Heap::GCManagement()
 
             for (size_t level = 0; level < LEVEL_NR; ++level)
             {
-                CleaningLists[level].Steal(FullLists[level]);
+                FullCleaningList.Steal(FullLists[level]);
             }
             perfSession.Phase("BeforeResumeTheWorld");
             ResumeTheWorld();
@@ -168,11 +160,14 @@ void Heap::GCManagement()
 
             for (size_t level = 0; level < LEVEL_NR; ++level)
             {
-                FreeLists[level].Steal(FullLists[level]);
+                CleaningList.Steal(FullLists[level]);
             }
 
             perfSession.Phase("BeforeResumeTheWorld");
             ResumeTheWorld();
+
+            FireGCPhaseAndWait(GCPhase::GC_YOUNG_SWEEP);
+            perfSession.Phase("Sweep");
         }
 
         GCCurrentPhase.store(GCPhase::GC_IDLE);
@@ -228,6 +223,9 @@ void Heap::GCWorker()
         case GCPhase::GC_YOUNG_MARK:
         case GCPhase::GC_YOUNG_FINISH_MARK:
             GCWorkerYoungMark();
+            break;
+        case GCPhase::GC_YOUNG_SWEEP:
+            GCWorkerYoungSweep();
             break;
         case GCPhase::GC_FULL_MARK:
         case GCPhase::GC_FULL_FINISH_MARK:
@@ -332,6 +330,22 @@ void Heap::GCWorkerYoungMark()
     }
 }
 
+void Heap::GCWorkerYoungSweep()
+{
+    Region *region;
+    while (CleaningList.Pop(region))
+    {
+        if (region->YoungSweep() == Region::CellCountFromLevel(region->Level))
+        {
+            FullCleaningList.Push(region);
+        }
+        else
+        {
+            FreeLists[region->Level].Push(region);
+        }
+    }
+}
+
 void Heap::GCWorkerFullMark()
 {
     std::queue<HeapObject *> localQueue;
@@ -417,19 +431,16 @@ void Heap::GCWorkerFullMark()
 
 void Heap::GCWorkerFullSweep()
 {
-    for (size_t level = 0; level < LEVEL_NR; ++level)
+    Region *region;
+    while (FullCleaningList.Pop(region))
     {
-        Region *region;
-        while (CleaningLists[level].Pop(region))
+        if (region->FullSweep() == 0)
         {
-            if (region->FullSweep() == 0)
-            {
-                Region::Delete(region);
-            }
-            else
-            {
-                FreeLists[level].Push(region);
-            }
+            Region::Delete(region);
+        }
+        else
+        {
+            FreeLists[region->Level].Push(region);
         }
     }
 }

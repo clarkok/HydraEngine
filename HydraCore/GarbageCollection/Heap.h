@@ -87,7 +87,12 @@ public:
                 Region::Delete(region);
             }
 
-            while (CleaningLists[i].Pop(region))
+            while (CleaningList.Pop(region))
+            {
+                Region::Delete(region);
+            }
+
+            while (FullCleaningList.Pop(region))
             {
                 Region::Delete(region);
             }
@@ -160,6 +165,7 @@ private:
 
         GC_YOUNG_MARK,
         GC_YOUNG_FINISH_MARK,
+        GC_YOUNG_SWEEP,
 
         GC_FULL_MARK,
         GC_FULL_FINISH_MARK,
@@ -174,7 +180,8 @@ private:
 
     std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> FreeLists;
     std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> FullLists;
-    std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> CleaningLists;
+    concurrent::ForwardLinkedList<Region> CleaningList;
+    concurrent::ForwardLinkedList<Region> FullCleaningList;
 
     concurrent::Queue<HeapObject*> WorkingQueue;
     std::atomic<size_t> GatheringWorkerCount;
@@ -205,6 +212,7 @@ private:
     std::vector<std::thread> GCWorkerThreads;
     void GCWorker();
     void GCWorkerYoungMark();
+    void GCWorkerYoungSweep();
     void GCWorkerFullMark();
     void GCWorkerFullSweep();
 

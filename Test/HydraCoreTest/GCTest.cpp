@@ -7,6 +7,8 @@
 
 #include "TestHeapObject.h"
 
+#include "Common/Platform.h"
+
 using namespace hydra;
 
 TEST_CASE("Region", "[GC]")
@@ -172,6 +174,14 @@ TEST_CASE("Region", "[GC]")
     }
 
     gc::Region::Delete(uut);
+}
+
+TEST_CASE("ForeachWordOnStack", "[GC]")
+{
+    platform::ForeachWordOnStack([](void *ptr)
+    {
+        Logger::GetInstance()->Log() << ptr << "\t" << std::hex << *reinterpret_cast<uintptr_t*>(ptr);
+    });
 }
 
 struct EventListener : Catch::TestEventListenerBase

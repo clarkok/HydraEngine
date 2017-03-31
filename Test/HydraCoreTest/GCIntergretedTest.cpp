@@ -23,30 +23,36 @@ int main()
 
     size_t round = ROUND;
 
-    std::vector<TestHeapObject *> headers;
+    // std::vector<TestHeapObject *> headers;
+    std::array<TestHeapObject *, 10> headers;
+    std::fill(headers.begin(), headers.end(), nullptr);
 
     while (round--)
+    // while (true)
     {
-        if (round % 10 == 0)
-        {
-            headers.clear();
-        }
-
         TestHeapObject *head = nullptr;
         size_t count = 1000;
 
         while (count--)
         {
-            head = allocator.Allocate<TestHeapObject>(
-                [&]()
-                {
-                    heap->Remember(head);
-                    for (auto &header : headers)
+            if (count & 1)
+            {
+                head = allocator.Allocate<TestHeapObject>(
+                    [&]()
                     {
-                        heap->Remember(header);
-                    }
-                },
-                head);
+                        auto perfSession = Logger::GetInstance()->Perf("LambdaReport");
+                        heap->Remember(head);
+                        for (auto &header : headers)
+                        {
+                            heap->Remember(header);
+                        }
+                    },
+                    head);
+            }
+            else
+            {
+                head = allocator.AllocateAuto<TestHeapObject>(head);
+            }
         }
 
         TestHeapObject *ptr = head;
@@ -61,10 +67,15 @@ int main()
             count++;
         }
 
-        headers.push_back(head);
+        // headers.push_back(head);
+        headers[round % 10] = head;
 
         hydra_assert(count == 1000, "Count should match");
-        Logger::GetInstance()->Log() << "Round " << (ROUND - round);
+
+        if (round % 100 == 0)
+        {
+            Logger::GetInstance()->Log() << "Round " << (ROUND - round);
+        }
     }
 
     allocator.SetInactive([]() {});

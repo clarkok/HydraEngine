@@ -43,6 +43,12 @@ public:
         return AllocateWithSize<T>(sizeof(T), reportFunc, args...);
     }
 
+    template <typename T, typename ...T_Args>
+    T* AllocateAuto(T_Args ...args)
+    {
+        return Allocate<T>(ThreadScan, args...);
+    }
+
     template <typename T, typename T_Report, typename ...T_Args>
     T* AllocateWithSize(size_t size, T_Report reportFunc, T_Args ...args)
     {
@@ -74,6 +80,12 @@ public:
         }
 
         return allocated;
+    }
+
+    template <typename T, typename ...T_Args>
+    T* AllocateWithSizeAuto(size_t size, T_Args ...args)
+    {
+        return AllocateWithSize(size, ThreadScan, args...);
     }
 
     template <typename T_Report>
@@ -132,6 +144,8 @@ private:
     size_t ReportedGCRound;
     std::shared_lock<std::shared_mutex> RunningLock;
     std::atomic<bool> Active;
+
+    static void ThreadScan();
 };
 
 } // namespace gc

@@ -14,9 +14,6 @@ concurrent::LevelHashSet<Region> Region::RegionSet;
 
 size_t Region::YoungSweep()
 {
-    Logger::GetInstance()->Log() << "Region " << this <<
-        " before Young Sweep: " << OldObjectCount.load();
-
     if (OldObjectCount.load() == 0)
     {
         for (auto cell : *this)
@@ -27,9 +24,6 @@ size_t Region::YoungSweep()
         }
 
         Allocated = AllocateBegin(Level);
-
-        Logger::GetInstance()->Log() << "Region " << this <<
-            " after Young Sweep: 0";
         return 0;
     }
 
@@ -57,9 +51,6 @@ size_t Region::YoungSweep()
 
     hydra_assert(oldObjectCount == OldObjectCount.load(),
         "OldObjectCount should match");
-
-    Logger::GetInstance()->Log() << "Region " << this <<
-        " after Young Sweep: " << oldObjectCount;
     return oldObjectCount;
 }
 
@@ -117,7 +108,7 @@ bool Region::IsInRegion(void *ptr, Cell *&cell)
 {
     Region *region = GetRegionOfObject(reinterpret_cast<HeapObject*>(ptr));
 
-    if (!RegionSet.Has(region))
+    if (!region || !RegionSet.Has(region))
     {
         return false;
     }

@@ -32,18 +32,38 @@ void Logger::Shutdown()
 
 void Logger::Write()
 {
+    auto StartTime = std::chrono::high_resolution_clock::now();
+
+    auto writeTime = [&](decltype(StartTime) time)
+    {
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(time - StartTime).count();
+        auto hour = us / 1000 / 1000 / 60 / 60;
+        auto min = us / 1000 / 1000 / 60 % 60;
+        auto sec = us / 1000 / 1000 % 60;
+        auto ms = us / 1000 % 1000;
+        us = us % 1000;
+
+        fout << (hour < 10 ? "0" : "") << hour << ":"
+            << (min < 10 ? "0" : "") << min << ":"
+            << (sec < 10 ? "0" : "") << sec << "."
+            << (ms < 10 ? "00" : ms < 100 ? "0" : "") << ms << "."
+            << (us < 10 ? "00" : us < 100 ? "0" : "") << us;
+    };
+
     while (!ShouldExit.load())
     {
         Entry entry;
         Queue.Dequeue(entry);
 
-        /* std::cout */ fout << entry.TimePoint.time_since_epoch().count() << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
+        writeTime(entry.TimePoint);
+        fout << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
     }
 
     Entry entry;
     while (Queue.TryDequeue(entry))
     {
-        std::cout << entry.TimePoint.time_since_epoch().count() << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
+        writeTime(entry.TimePoint);
+        fout << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
     }
 
     std::cout << "Logger shutdown" << std::endl;
