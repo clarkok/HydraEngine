@@ -3,6 +3,7 @@
 
 #include "Singleton.h"
 #include "ConcurrentQueue.h"
+#include "Common/HydraCore.h"
 
 #include <thread>
 #include <atomic>
@@ -18,16 +19,30 @@ namespace hydra
 class Logger : public Singleton<Logger>
 {
 public:
+#ifdef HYDRA_ENABLE_LOG
     class LoggerProxy : public std::stringstream
+#else
+    class LoggerProxy
+#endif
     {
     public:
         ~LoggerProxy()
         {
+#ifdef HYDRA_ENABLE_LOG
             if (Owner)
             {
                 Owner->InsertEntry(TimePoint, str(), std::this_thread::get_id());
             }
+#endif
         }
+
+#ifndef HYDRA_ENABLE_LOG
+        template <typename T>
+        LoggerProxy &operator << (const T &)
+        {
+            return *this;
+        }
+#endif
 
     private:
         explicit LoggerProxy(Logger *owner)
