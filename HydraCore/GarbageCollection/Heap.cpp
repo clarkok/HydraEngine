@@ -20,6 +20,9 @@ Region *Heap::GetFreeRegion(size_t level)
         ret = Region::New(level);
     }
 
+    hydra_assert(ret->Level == level,
+        "Leve of region should match to expected");
+
     if (GCCurrentPhase.load(std::memory_order_relaxed) == GCPhase::GC_IDLE)
     {
         size_t currentRegionCount = Region::GetTotalRegionCount();
@@ -118,7 +121,7 @@ void Heap::GCManagement()
 
             auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
-            GCRount.fetch_add(1, std::memory_order_acq_rel);
+            GCRound.fetch_add(1, std::memory_order_acq_rel);
             FireGCPhaseAndWait(GCPhase::GC_FULL_MARK);
             perfSession.Phase("InitialMark");
 
@@ -146,7 +149,7 @@ void Heap::GCManagement()
         {
             auto perfSession = Logger::GetInstance()->Perf("YoungGC");
 
-            GCRount.fetch_add(1, std::memory_order_acq_rel);
+            GCRound.fetch_add(1, std::memory_order_acq_rel);
             FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK);
             perfSession.Phase("InitialMark");
 

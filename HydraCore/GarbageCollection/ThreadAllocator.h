@@ -123,7 +123,7 @@ public:
     template <typename T_Report>
     inline void Checkpoint(T_Report reportFunc)
     {
-        size_t currentGCRound = Owner->GCRount.load(std::memory_order_acquire);
+        size_t currentGCRound = Owner->GCRound.load(std::memory_order_acquire);
         if (ReportedGCRound != currentGCRound)
         {
             ReportedGCRound = currentGCRound;

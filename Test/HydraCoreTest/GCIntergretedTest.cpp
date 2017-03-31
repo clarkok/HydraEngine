@@ -19,7 +19,7 @@ int main()
 
     auto started = std::chrono::system_clock::now();
 
-    constexpr size_t ROUND = 100000;
+    constexpr size_t ROUND = 10000001;
 
     size_t round = ROUND;
 
@@ -27,32 +27,16 @@ int main()
     std::array<TestHeapObject *, 10> headers;
     std::fill(headers.begin(), headers.end(), nullptr);
 
-    while (round--)
-    // while (true)
+    // while (round--)
+    while (true)
     {
+        // round--;
         TestHeapObject *head = nullptr;
         size_t count = 1000;
 
         while (count--)
         {
-            if (count & 1)
-            {
-                head = allocator.Allocate<TestHeapObject>(
-                    [&]()
-                    {
-                        auto perfSession = Logger::GetInstance()->Perf("LambdaReport");
-                        heap->Remember(head);
-                        for (auto &header : headers)
-                        {
-                            heap->Remember(header);
-                        }
-                    },
-                    head);
-            }
-            else
-            {
-                head = allocator.AllocateAuto<TestHeapObject>(head);
-            }
+            head = allocator.AllocateAuto<TestHeapObject>(head);
         }
 
         TestHeapObject *ptr = head;
