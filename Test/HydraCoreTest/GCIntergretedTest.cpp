@@ -19,7 +19,7 @@ int main()
 
     auto started = std::chrono::system_clock::now();
 
-    constexpr size_t ROUND = 10000001;
+    constexpr size_t ROUND = 100000;
 
     size_t round = ROUND;
 
@@ -27,10 +27,9 @@ int main()
     std::array<TestHeapObject *, 10> headers;
     std::fill(headers.begin(), headers.end(), nullptr);
 
-    // while (round--)
-    while (true)
+    while (round-- <= ROUND)
+    // while (true)
     {
-        round--;
         TestHeapObject *head = nullptr;
         size_t count = 1000;
 
@@ -51,8 +50,8 @@ int main()
             count++;
         }
 
-        // headers[round % 10] = head;
-        headers[0] = head;
+        headers[round % 10] = head;
+        // headers[0] = head;
 
         hydra_assert(count == 1000, "Count should match");
 
