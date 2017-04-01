@@ -79,6 +79,26 @@ public:
         return expected;
     }
 
+    inline u8 GetProperty()
+    {
+        return Property.load(std::memory_order_consume);
+    }
+
+    inline static bool CellIsInUse(u8 property)
+    {
+        return (property & IS_IN_USE) != 0;
+    }
+
+    inline static bool CellIsLarge(u8 property)
+    {
+        return (property & IS_LARGE) != 0;
+    }
+
+    inline static u8 CellGetGCState(u8 property)
+    {
+        return (property & GC_STATE_MASK);
+    }
+
     static constexpr u8 IS_IN_USE = 1u << 7;
     static constexpr u8 IS_LARGE = 1u << 6;
     static constexpr u8 GC_STATE_MASK = (1u << 2) - 1;
