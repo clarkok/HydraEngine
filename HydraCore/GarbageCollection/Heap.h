@@ -74,28 +74,28 @@ public:
             }
         }
 
+        Region *region;
         for (size_t i = 0; i < LEVEL_NR; ++i)
         {
-            Region *region;
             while (FreeLists[i].Pop(region))
             {
                 Region::Delete(region);
             }
+        }
 
-            while (FullLists[i].Pop(region))
-            {
-                Region::Delete(region);
-            }
+        while (FullList.Pop(region))
+        {
+            Region::Delete(region);
+        }
 
-            while (CleaningList.Pop(region))
-            {
-                Region::Delete(region);
-            }
+        while (CleaningList.Pop(region))
+        {
+            Region::Delete(region);
+        }
 
-            while (FullCleaningList.Pop(region))
-            {
-                Region::Delete(region);
-            }
+        while (FullCleaningList.Pop(region))
+        {
+            Region::Delete(region);
         }
     }
 
@@ -179,7 +179,7 @@ private:
     std::atomic<size_t> RegionSizeAfterLastFullGC;
 
     std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> FreeLists;
-    std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> FullLists;
+    concurrent::ForwardLinkedList<Region> FullList;
     concurrent::ForwardLinkedList<Region> CleaningList;
     concurrent::ForwardLinkedList<Region> FullCleaningList;
 

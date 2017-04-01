@@ -19,9 +19,13 @@ Region *Heap::GetFreeRegion(size_t level)
         RequestYoungGC();
         ret = Region::New(level);
     }
+    else if (FreeLists[level].GetCount() < 2)
+    {
+        RequestYoungGC();
+    }
 
     hydra_assert(ret->Level == level,
-        "Leve of region should match to expected");
+        "Level of region should match to expected");
 
     if (GCCurrentPhase.load(std::memory_order_relaxed) == GCPhase::GC_IDLE)
     {
@@ -45,7 +49,7 @@ void Heap::CommitFullRegion(Region *&region)
 {
     auto level = region->Level;
 
-    FullLists[level].Push(region);
+    FullList.Push(region);
     region = GetFreeRegion(level);
 }
 
@@ -131,10 +135,7 @@ void Heap::GCManagement()
             FireGCPhaseAndWait(GCPhase::GC_FULL_FINISH_MARK);
             perfSession.Phase("FinishMark");
 
-            for (size_t level = 0; level < LEVEL_NR; ++level)
-            {
-                FullCleaningList.Steal(FullLists[level]);
-            }
+            FullCleaningList.Steal(FullList);
             perfSession.Phase("BeforeResumeTheWorld");
             ResumeTheWorld();
 
@@ -161,11 +162,7 @@ void Heap::GCManagement()
                 "WorkingQueue should be empty now");
             perfSession.Phase("FinishMark");
 
-            for (size_t level = 0; level < LEVEL_NR; ++level)
-            {
-                CleaningList.Steal(FullLists[level]);
-            }
-
+            CleaningList.Steal(FullList);
             perfSession.Phase("BeforeResumeTheWorld");
             ResumeTheWorld();
 

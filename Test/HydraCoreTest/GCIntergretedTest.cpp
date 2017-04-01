@@ -30,7 +30,7 @@ int main()
     // while (round--)
     while (true)
     {
-        // round--;
+        round--;
         TestHeapObject *head = nullptr;
         size_t count = 1000;
 
@@ -51,8 +51,8 @@ int main()
             count++;
         }
 
-        // headers.push_back(head);
-        headers[round % 10] = head;
+        // headers[round % 10] = head;
+        headers[0] = head;
 
         hydra_assert(count == 1000, "Count should match");
 
