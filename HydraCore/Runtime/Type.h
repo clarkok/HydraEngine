@@ -17,8 +17,6 @@ class JSObject;
 enum class Type
 {
                     // 63-----56 55-----48 47-----40 39-----32 31-----24 23-----16 15------8 7-------0
-    T_VARIANT,      // 1111 1111 1111 ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
-
     T_UNDEFINE,     // 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 
     T_BOOLEAN,      // 1111 1111 1111 1001 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
 
@@ -29,6 +27,8 @@ enum class Type
     T_SYMBOL,       // 1111 1111 1111 1100 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
     T_STRING,       // 1111 1111 1111 1011 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
     T_OBJECT,       // 1111 1111 1111 1010 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
+
+    T_VARIANT,      // 1111 1111 1111 ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
 
     T_UNKNOWN
 };
