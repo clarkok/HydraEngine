@@ -21,13 +21,13 @@ TEST_CASE("String basic", "Runtime")
             std::begin(TEST_TEXT) + TEST_LENGTH
         );
 
-        REQUIRE(uut != nullptr);
-        REQUIRE(uut->length() == TEST_LENGTH);
-        for (size_t i = 0; i < uut->length(); ++i)
-        {
-            REQUIRE(uut->at(i) == TEST_TEXT[i]);
-        }
-        REQUIRE_THROWS(uut->at(10000));
+REQUIRE(uut != nullptr);
+REQUIRE(uut->length() == TEST_LENGTH);
+for (size_t i = 0; i < uut->length(); ++i)
+{
+    REQUIRE(uut->at(i) == TEST_TEXT[i]);
+}
+REQUIRE_THROWS(uut->at(10000));
     }
 
     SECTION("Test EmptyString")
@@ -86,6 +86,80 @@ TEST_CASE("String basic", "Runtime")
             REQUIRE(uut->at(i) == TEST_TEXT[i + 4]);
         }
         REQUIRE_THROWS(uut->at(9));
+    }
+
+    SECTION("Test Flatten")
+    {
+        runtime::String *str = runtime::String::New(
+            allocator,
+            std::begin(TEST_TEXT),
+            std::begin(TEST_TEXT) + TEST_LENGTH
+        );
+
+        runtime::String *slicedLeft = runtime::String::Slice(
+            allocator,
+            str,
+            0,
+            TEST_LENGTH / 2
+        );
+
+        runtime::String *slicedRight = runtime::String::Slice(
+            allocator,
+            str,
+            TEST_LENGTH / 2,
+            TEST_LENGTH / 2
+        );
+
+        runtime::String *combined = runtime::String::Concat(
+            allocator,
+            slicedLeft,
+            slicedRight
+        );
+
+        runtime::String *flattenned = combined->Flatten(allocator);
+
+        REQUIRE(dynamic_cast<runtime::ManagedString*>(flattenned) != nullptr);
+        REQUIRE(flattenned->length() == str->length());
+        for (size_t i = 0; i < str->length(); ++i)
+        {
+            REQUIRE(flattenned->at(i) == str->at(i));
+        }
+    }
+
+    SECTION("Test hash")
+    {
+        runtime::String *str = runtime::String::New(
+            allocator,
+            std::begin(TEST_TEXT),
+            std::begin(TEST_TEXT) + TEST_LENGTH
+        );
+
+        runtime::String *slicedLeft = runtime::String::Slice(
+            allocator,
+            str,
+            0,
+            TEST_LENGTH / 2
+        );
+
+        runtime::String *slicedRight = runtime::String::Slice(
+            allocator,
+            str,
+            TEST_LENGTH / 2,
+            TEST_LENGTH / 2
+        );
+
+        runtime::String *combined = runtime::String::Concat(
+            allocator,
+            slicedLeft,
+            slicedRight
+        );
+
+        runtime::String *flattenned = combined->Flatten(allocator);
+
+        REQUIRE(combined->GetHash() == flattenned->GetHash());
+        REQUIRE(combined->GetHash() != slicedLeft->GetHash());
+        REQUIRE(combined->GetHash() != slicedRight->GetHash());
+        REQUIRE(slicedLeft->GetHash() != slicedRight->GetHash());
     }
 }
 

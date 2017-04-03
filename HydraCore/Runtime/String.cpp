@@ -27,7 +27,7 @@ String *String::Slice(
     return allocator.AllocateAuto<SlicedString>(sliced, start, length);
 }
 
-String *String::GetFlattened(gc::ThreadAllocator &allocator)
+String *String::Flatten(gc::ThreadAllocator &allocator)
 {
     if (Flattenned)
     {

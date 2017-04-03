@@ -72,7 +72,7 @@ public:
         StringScan(scan);
     }
 
-    inline String *GetFlattened(gc::ThreadAllocator &allocator);
+    String *Flatten(gc::ThreadAllocator &allocator);
 
     inline u64 GetHash()
     {
