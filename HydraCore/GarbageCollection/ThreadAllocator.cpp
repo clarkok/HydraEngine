@@ -1,11 +1,14 @@
 #include "ThreadAllocator.h"
 
 #include "Common/Platform.h"
+#include "Runtime/Type.h"
 
 namespace hydra
 {
 namespace gc
 {
+
+using runtime::JSValue;
 
 void ThreadAllocator::ThreadScan()
 {
@@ -13,7 +16,22 @@ void ThreadAllocator::ThreadScan()
 
     platform::ForeachWordOnStack([](void **stackPtr)
     {
-        void *ptr = *stackPtr;
+        void *ptr = nullptr;
+        const JSValue &value = JSValue::AtAddress(stackPtr);
+
+        if (value.Type() == runtime::Type::T_OBJECT)
+        {
+            ptr = value.Object();
+        }
+        else if (value.Type() == runtime::Type::T_STRING)
+        {
+            ptr = value.String();
+        }
+        else
+        {
+            ptr = *stackPtr;
+        }
+
         Cell *cell = nullptr;
         if (Region::IsInRegion(ptr, cell))
         {

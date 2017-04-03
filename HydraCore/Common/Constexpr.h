@@ -149,6 +149,13 @@ constexpr u64 SubBits(u64 value, size_t offset, size_t width)
     return (value & Mask(offset, width)) >> offset;
 }
 
+constexpr u64 SignExt(u64 value, size_t signOffset)
+{
+    return (value & Mask(signOffset, 1))
+        ? (value | Mask(signOffset + 1, 63 - signOffset))
+        : value;
+}
+
 }
 }
 

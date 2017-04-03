@@ -31,39 +31,37 @@ public:
 
     virtual char_t at(size_t index) const = 0;
     virtual size_t length() const = 0;
-    virtual void flatten(size_t start, size_t length, char_t *dst) const = 0;
 
-    template <typename Iterator, typename T_Report>
-    static String *New(gc::ThreadAllocator &allocator, T_Report reportFunc, Iterator begin, Iterator end)
+    template <typename Iterator>
+    static String *New(gc::ThreadAllocator &allocator, Iterator begin, Iterator end)
     {
         size_t length = std::distance(begin, end);
         size_t allocateSize = length + sizeof(ManagedString);
 
-        return allocator.AllocateWithSize<ManagedString>(
-            allocateSize, reportFunc, length, begin, end);
+        return allocator.AllocateWithSizeAuto<ManagedString>(
+            allocateSize, length, begin, end);
     }
 
-    template <typename T_Report>
-    static String *Empty(gc::ThreadAllocator &allocator, T_Report reportFunc)
+    inline static String *Empty(gc::ThreadAllocator &allocator)
     {
-        return allocator.Allocate<EmptyString>(reportFunc);
+        return allocator.AllocateAuto<EmptyString>();
     }
 
-    template <typename T_Report>
-    static String *Concat(
+    inline static String *Concat(
         gc::ThreadAllocator &allocator,
-        T_Report reportFunc,
         String *left,
         String *right)
     {
-        return allocator.Allocate<ConcatedString>(
-            [&]()
-            {
-                reportFunc();
-                gc::Heap::GetInstance()->Remember(left);
-                gc::Heap::GetInstance()->Remember(right);
-            },
-            left, right);
+        return allocator.AllocateAuto<ConcatedString>(left, right);
+    }
+
+    inline static String *Slice(
+        gc::ThreadAllocator &allocator,
+        String *sliced,
+        size_t start,
+        size_t length)
+    {
+        return allocator.AllocateAuto<SlicedString>(sliced, start, length);
     }
 
     inline bool EqualsTo(const String *other) const
@@ -83,15 +81,54 @@ public:
         return true;
     }
 
+    virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
+    {
+        scan(Flattenned);
+        StringScan(scan);
+    }
+
+    inline ManagedString *GetFlattened(gc::ThreadAllocator &allocator)
+    {
+        if (Flattenned)
+        {
+            return Flattenned;
+        }
+
+        size_t allocateSize = length() + sizeof(ManagedString);
+        Flattenned = allocator.AllocateWithSizeAuto<ManagedString>(allocateSize, length());
+
+        flatten(0, length(), Flattenned->begin());
+        return Flattenned;
+    }
+
+    inline u64 GetHash()
+    {
+        if (Hash != INVALID_HASH)
+        {
+            return Hash;
+        }
+
+        u64 m = 1;
+        return Hash = hash(0, length(), m);
+    }
+
 protected:
+    static constexpr u64 INVALID_HASH = 0xFFFFFFFFFFFFFFFFull;
+    static constexpr u64 HASH_MULTIPLIER = 6364136223846793005ull;
+
     String(u8 property)
-        : HeapObject(property)
+        : HeapObject(property), Flattenned(nullptr), Hash(INVALID_HASH)
     { }
 
     virtual char_t _at(size_t) const = 0;
+    virtual void StringScan(std::function<void(gc::HeapObject *)> scan) = 0;
+    virtual void flatten(size_t start, size_t length, char_t *dst) const = 0;
+    virtual u64 hash(size_t start, size_t end, u64 &m, u64 c = 0) = 0;
+
+    ManagedString *Flattenned;
+    u64 Hash;
 
 private:
-
     friend class ConcatedString;
     friend class SlicedString;
 };
@@ -115,6 +152,15 @@ public:
         return 0;
     }
 
+protected:
+    virtual char_t _at(size_t index) const override final
+    {
+        throw OutOfRangeException(index, 0);
+    }
+
+    virtual void StringScan(std::function<void(gc::HeapObject *)> scan) override final
+    { }
+
     virtual void flatten(size_t start, size_t length, char_t *dst) const override final
     {
         if (start != 0 || length != 0)
@@ -123,13 +169,13 @@ public:
         }
     }
 
-    virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
-    { }
-
-protected:
-    virtual char_t _at(size_t index) const override final
+    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) override final
     {
-        throw OutOfRangeException(index, 0);
+        if (start != 0 || length != 0)
+        {
+            throw OutOfRangeException(start, 0);
+        }
+        return c;
     }
 
 private:
@@ -169,6 +215,15 @@ public:
         return Length;
     }
 
+protected:
+    virtual char_t _at(size_t index) const override final
+    {
+        return begin()[index];
+    }
+
+    virtual void StringScan(std::function<void(gc::HeapObject *)> scan) override final
+    { }
+
     virtual void flatten(size_t start, size_t length, char_t *dst) const override final
     {
         if (start + length > Length)
@@ -179,13 +234,21 @@ public:
         std::copy(begin() + start, begin() + start + length, dst);
     }
 
-    virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
-    { }
-
-protected:
-    virtual char_t _at(size_t index) const override final
+    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) override final
     {
-        return begin()[index];
+        if (start + length > Length)
+        {
+            throw OutOfRangeException(start + length, Length);
+        }
+
+        for (char_t *ptr = begin() + start, *limit = begin() + start + length;
+            ptr != limit;
+            ptr++)
+        {
+            c += (*ptr) * m;
+            m *= HASH_MULTIPLIER;
+        }
+        return c;
     }
 
 private:
@@ -193,6 +256,11 @@ private:
     {
         return reinterpret_cast<char_t *>(
             reinterpret_cast<uintptr_t>(this) + sizeof(ManagedString));
+    }
+
+    char_t *end() const
+    {
+        return begin() + length();
     }
 
     size_t Length;
@@ -228,6 +296,25 @@ public:
         return Length;
     }
 
+protected:
+    virtual char_t _at(size_t index) const override final
+    {
+        if (index < LeftLength)
+        {
+            return Left->_at(index);
+        }
+        else
+        {
+            return Right->_at(index - LeftLength);
+        }
+    }
+
+    virtual void StringScan(std::function<void(gc::HeapObject *)> scan) override final
+    {
+        scan(Left);
+        scan(Right);
+    }
+
     virtual void flatten(size_t start, size_t length, char_t *dst) const override final
     {
         if (start + length > Length)
@@ -249,23 +336,26 @@ public:
         }
     }
 
-    virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
+    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) override final
     {
-        scan(Left);
-        scan(Right);
-    }
+        if (start + length > Length)
+        {
+            throw OutOfRangeException(start + length, Length);
+        }
 
-protected:
-    virtual char_t _at(size_t index) const override final
-    {
-        if (index < LeftLength)
+        if (start < LeftLength)
         {
-            return Left->_at(index);
+            size_t hashLength = std::min<size_t>(length, LeftLength - start);
+            c = Left->hash(start, hashLength, m, c);
         }
-        else
+
+        if (start + length >= LeftLength)
         {
-            return Right->_at(index - LeftLength);
+            size_t hashStart = start > LeftLength ? start - LeftLength : 0;
+            c = Right->hash(hashStart, start + length - LeftLength, m, c);
         }
+
+        return c;
     }
 
 private:
@@ -303,6 +393,17 @@ public:
         return Length;
     }
 
+protected:
+    virtual char_t _at(size_t index) const override final
+    {
+        return Sliced->_at(index - Start);
+    }
+
+    virtual void StringScan(std::function<void(gc::HeapObject *)> scan) override final
+    {
+        scan(Sliced);
+    }
+
     virtual void flatten(size_t start, size_t length, char_t *dst) const override final
     {
         if (start + length > Length)
@@ -313,15 +414,14 @@ public:
         Sliced->flatten(start + Start, length, dst);
     }
 
-    virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
+    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) override final
     {
-        scan(Sliced);
-    }
+        if (start + length > Length)
+        {
+            throw OutOfRangeException(start + length, Length);
+        }
 
-protected:
-    virtual char_t _at(size_t index) const override final
-    {
-        return Sliced->_at(index - Start);
+        return Sliced->hash(start + Start, length, m, c);
     }
 
 public:

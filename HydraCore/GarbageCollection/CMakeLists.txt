@@ -1,5 +1,6 @@
 add_library(HydraCore.GarbageCollection OBJECT
     GCDefs.h
+    GC.h
     Heap.cpp
     Heap.h
     HeapObject.h

@@ -14,7 +14,6 @@ TEST_CASE("String basic", "Runtime")
 
     runtime::String *uutA = runtime::String::New(
         allocator,
-        [](){},
         std::begin(TEST_TEXT),
         std::end(TEST_TEXT)
     );
