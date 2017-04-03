@@ -85,7 +85,7 @@ public:
     template <typename T, typename ...T_Args>
     T* AllocateWithSizeAuto(size_t size, T_Args ...args)
     {
-        return AllocateWithSize(size, ThreadScan, args...);
+        return AllocateWithSize<T>(size, ThreadScan, args...);
     }
 
     template <typename T_Report>

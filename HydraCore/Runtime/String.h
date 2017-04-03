@@ -36,33 +36,15 @@ public:
     static String *New(gc::ThreadAllocator &allocator, Iterator begin, Iterator end)
     {
         size_t length = std::distance(begin, end);
-        size_t allocateSize = length + sizeof(ManagedString);
+        size_t allocateSize = length * sizeof(char_t) + sizeof(ManagedString);
 
         return allocator.AllocateWithSizeAuto<ManagedString>(
             allocateSize, length, begin, end);
     }
 
-    inline static String *Empty(gc::ThreadAllocator &allocator)
-    {
-        return allocator.AllocateAuto<EmptyString>();
-    }
-
-    inline static String *Concat(
-        gc::ThreadAllocator &allocator,
-        String *left,
-        String *right)
-    {
-        return allocator.AllocateAuto<ConcatedString>(left, right);
-    }
-
-    inline static String *Slice(
-        gc::ThreadAllocator &allocator,
-        String *sliced,
-        size_t start,
-        size_t length)
-    {
-        return allocator.AllocateAuto<SlicedString>(sliced, start, length);
-    }
+    static String *Empty(gc::ThreadAllocator &allocator);
+    static String *Concat(gc::ThreadAllocator &allocator, String *left, String *right);
+    static String *Slice(gc::ThreadAllocator &allocator, String *sliced, size_t start, size_t length);
 
     inline bool EqualsTo(const String *other) const
     {
@@ -83,23 +65,14 @@ public:
 
     virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
     {
-        scan(Flattenned);
+        if (Flattenned)
+        {
+            scan(Flattenned);
+        }
         StringScan(scan);
     }
 
-    inline ManagedString *GetFlattened(gc::ThreadAllocator &allocator)
-    {
-        if (Flattenned)
-        {
-            return Flattenned;
-        }
-
-        size_t allocateSize = length() + sizeof(ManagedString);
-        Flattenned = allocator.AllocateWithSizeAuto<ManagedString>(allocateSize, length());
-
-        flatten(0, length(), Flattenned->begin());
-        return Flattenned;
-    }
+    inline String *GetFlattened(gc::ThreadAllocator &allocator);
 
     inline u64 GetHash()
     {
@@ -125,7 +98,7 @@ protected:
     virtual void flatten(size_t start, size_t length, char_t *dst) const = 0;
     virtual u64 hash(size_t start, size_t end, u64 &m, u64 c = 0) = 0;
 
-    ManagedString *Flattenned;
+    String *Flattenned;
     u64 Hash;
 
 private:
@@ -386,6 +359,8 @@ public:
         {
             throw OutOfRangeException(index, Length);
         }
+
+        return _at(index);
     }
 
     virtual size_t length() const override final
@@ -396,7 +371,7 @@ public:
 protected:
     virtual char_t _at(size_t index) const override final
     {
-        return Sliced->_at(index - Start);
+        return Sliced->_at(index + Start);
     }
 
     virtual void StringScan(std::function<void(gc::HeapObject *)> scan) override final
