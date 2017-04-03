@@ -81,7 +81,7 @@ public:
 
     inline u8 GetProperty()
     {
-        return Property.load(std::memory_order_consume);
+        return Property.load(std::memory_order_acquire);
     }
 
     inline static bool CellIsInUse(u8 property)

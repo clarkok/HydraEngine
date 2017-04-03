@@ -61,22 +61,13 @@ inline size_t GetLSB(uint64_t value)
 template <typename T_callback>
 void ForeachWordOnStack(T_callback callback)
 {
-    // Scan registers
     CONTEXT threadContext;
     RtlCaptureContext(&threadContext);
-    uintptr_t start = reinterpret_cast<uintptr_t>(&threadContext);
-    uintptr_t limit = start + sizeof(CONTEXT);
-    for (uintptr_t ptr = start; ptr < limit; ptr += sizeof(void*))
-    {
-        callback(reinterpret_cast<void **>(ptr));
-    }
 
-    // Scan stack
     u64 low = 0, high = 0;
     GetCurrentThreadStackLimits(&low, &high);
-    uintptr_t addressOfReturnAddress = reinterpret_cast<uintptr_t>(_AddressOfReturnAddress());
 
-    for (uintptr_t ptr = low < addressOfReturnAddress ? addressOfReturnAddress : low; ptr < high; ptr += sizeof(void*))
+    for (uintptr_t ptr = threadContext.Rsp; ptr < high; ptr += sizeof(void*))
     {
         callback(reinterpret_cast<void**>(ptr));
     }

@@ -119,36 +119,33 @@ public:
     {
         if (obj)
         {
-            auto currentGCPhase = GCCurrentPhase.load();
             u8 currentGCState = obj->GetGCState();
 
-            switch (currentGCState)
+            if (currentGCState == GCState::GC_WHITE)
             {
-            case GCState::GC_WHITE:
-                if (obj->SetGCState(GCState::GC_GREY) == GCState::GC_WHITE)
-                {
-                    Region::GetRegionOfObject(obj)->IncreaseOldObjectCount();
-                    WorkingQueueEnqueue(obj);
-                }
-                break;
-            case GCState::GC_DARK:
-                if (currentGCPhase == GCPhase::GC_FULL_MARK &&
-                    obj->SetGCState(GCState::GC_GREY) == GCState::GC_DARK)
-                {
-                    WorkingQueueEnqueue(obj);
-                }
-                break;
+                SetGCStateAndWorkingQueueEnqueue(obj);
+            }
+            else if (currentGCState == GCState::GC_DARK &&
+                GCCurrentPhase.load() == GCPhase::GC_FULL_MARK)
+            {
+                SetGCStateAndWorkingQueueEnqueue(obj);
             }
         }
     }
 
-    inline void WorkingQueueEnqueue(HeapObject *obj)
+    inline void SetGCStateAndWorkingQueueEnqueue(HeapObject *obj)
     {
-        if (WorkingQueue.Count() > WorkingQueue.Capacoty() * GC_WORKING_QUEUE_FACTOR)
+        auto originalGCState = obj->SetGCState(GCState::GC_GREY);
+        if (originalGCState == GCState::GC_WHITE)
         {
-            RequestYoungGC();
+            Region::GetRegionOfObject(obj)->IncreaseOldObjectCount();
+            WorkingQueue.Enqueue(obj);
         }
-        WorkingQueue.Enqueue(obj);
+        else if (originalGCState != GCState::GC_GREY)
+        {
+            // the originalGCState can be GC_BLACK, but we still add it to WorkingQueue
+            WorkingQueue.Enqueue(obj);
+        }
     }
 
     void WriteBarrier(HeapObject *target, HeapObject *ref);

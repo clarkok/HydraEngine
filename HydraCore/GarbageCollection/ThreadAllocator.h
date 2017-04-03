@@ -124,7 +124,10 @@ public:
     inline void Checkpoint(T_Report reportFunc)
     {
         size_t currentGCRound = Owner->GCRound.load(std::memory_order_acquire);
-        if (ReportedGCRound != currentGCRound)
+        auto currentGCPhase = Owner->GCCurrentPhase.load(std::memory_order_acquire);
+        if (ReportedGCRound != currentGCRound &&
+            (currentGCPhase == Heap::GCPhase::GC_YOUNG_MARK ||
+             currentGCPhase == Heap::GCPhase::GC_FULL_MARK))
         {
             ReportedGCRound = currentGCRound;
             reportFunc();

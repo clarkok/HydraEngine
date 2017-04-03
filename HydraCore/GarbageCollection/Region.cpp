@@ -75,11 +75,15 @@ size_t Region::FullSweep()
         }
         else if (Cell::CellIsInUse(currentProperty))
         {
-            hydra_assert(Cell::CellGetGCState(currentProperty) != GCState::GC_GREY,
-                "GC state cannot be GREY at this point");
+            hydra_assert(Cell::CellGetGCState(currentProperty) == GCState::GC_BLACK,
+                "GC state should be BLACK now");
 
             cell->SetGCState(GCState::GC_DARK);
             oldObjectCount++;
+        }
+        else
+        {
+            FreeHead = new (cell)EmptyCell(FreeHead);
         }
     }
 

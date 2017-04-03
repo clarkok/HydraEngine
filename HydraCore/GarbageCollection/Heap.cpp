@@ -60,9 +60,14 @@ void Heap::WriteBarrier(HeapObject *target, HeapObject *ref)
         u8 targetGCState = target->GetGCState();
         if (targetGCState == GCState::GC_DARK || targetGCState == GCState::GC_BLACK)
         {
-            if (target->SetGCState(GCState::GC_GREY) != GCState::GC_GREY)
+            auto gcPhase = GCCurrentPhase.load();
+            if (gcPhase == GCPhase::GC_FULL_SWEEP || gcPhase == GCPhase::GC_YOUNG_SWEEP)
             {
-                WorkingQueueEnqueue(target);
+                SetGCStateAndWorkingQueueEnqueue(ref);
+            }
+            else
+            {
+                SetGCStateAndWorkingQueueEnqueue(target);
             }
         }
     }
@@ -133,6 +138,8 @@ void Heap::GCManagement()
             perfSession.Phase("AfterStopTheWorld");
 
             FireGCPhaseAndWait(GCPhase::GC_FULL_FINISH_MARK);
+            hydra_assert(WorkingQueue.Count() == 0,
+                "WorkingQueue should be empty now");
             perfSession.Phase("FinishMark");
 
             FullCleaningList.Steal(FullList);
@@ -262,10 +269,14 @@ void Heap::GCWorkerYoungMark()
 
         if (gcState == GCState::GC_WHITE)
         {
-            if (ref->SetGCState(GCState::GC_GREY) == GCState::GC_WHITE)
+            while (gcState == GCState::GC_WHITE)
             {
-                Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
-                localQueue.push(ref);
+                if (ref->TrySetGCState(gcState, GCState::GC_GREY))
+                {
+                    Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
+                    localQueue.push(ref);
+                    break;
+                }
             }
         }
     };
@@ -354,17 +365,15 @@ void Heap::GCWorkerFullMark()
     {
         u8 gcState = ref->GetGCState();
 
-        if (gcState == GCState::GC_WHITE)
+        if (gcState == GCState::GC_WHITE || gcState == GCState::GC_DARK)
         {
-            if (ref->SetGCState(GCState::GC_GREY) == GCState::GC_WHITE)
+            auto originalGCState = ref->SetGCState(GCState::GC_GREY);
+            if (originalGCState == GCState::GC_WHITE)
             {
                 Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
                 localQueue.push(ref);
             }
-        }
-        else if (gcState == GCState::GC_DARK)
-        {
-            if (ref->SetGCState(GCState::GC_GREY) == GCState::GC_DARK)
+            else if (originalGCState != GCState::GC_GREY)
             {
                 localQueue.push(ref);
             }

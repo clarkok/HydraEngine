@@ -19,7 +19,7 @@ int main()
 
     auto started = std::chrono::system_clock::now();
 
-    constexpr size_t ROUND = 100000;
+    constexpr size_t ROUND = 10000000;
 
     size_t round = ROUND;
 
@@ -36,6 +36,17 @@ int main()
         while (count--)
         {
             head = allocator.AllocateAuto<TestHeapObject>(head);
+            /*
+            head = allocator.Allocate<TestHeapObject>([&]()
+            {
+                heap->Remember(head);
+                for (auto &header : headers)
+                {
+                    heap->Remember(header);
+                }
+            },
+            head);
+            */
         }
 
         TestHeapObject *ptr = head;
