@@ -38,7 +38,10 @@ String *String::Flatten(gc::ThreadAllocator &allocator)
     auto flattenned = allocator.AllocateWithSizeAuto<ManagedString>(allocateSize, length());
 
     flatten(0, length(), flattenned->begin());
-    return Flattenned = flattenned;
+    Flattenned = flattenned;
+
+    gc::Heap::GetInstance()->WriteBarrier(this, Flattenned);
+    return Flattenned;
 }
 
 } // namespace runtime
