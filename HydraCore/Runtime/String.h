@@ -32,6 +32,14 @@ public:
     virtual char_t at(size_t index) const = 0;
     virtual size_t length() const = 0;
 
+    inline static String *New(gc::ThreadAllocator &allocator, const char16_t *str)
+    {
+        const char16_t *limit = str;
+        while (*limit) limit++;
+
+        return New(allocator, str, limit);
+    }
+
     template <typename Iterator>
     static String *New(gc::ThreadAllocator &allocator, Iterator begin, Iterator end)
     {

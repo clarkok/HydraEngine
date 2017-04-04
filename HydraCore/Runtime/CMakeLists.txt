@@ -5,5 +5,7 @@ add_library(HydraCore.Runtime OBJECT
     Klass.cpp
     JSObject.h
     JSObject.cpp
+    ManagedHashMap.h
+    ManagedHashMap.cpp
     Type.h
 )
