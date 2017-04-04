@@ -10,7 +10,7 @@ namespace hydra
 using TestMap = runtime::HashMap<TestHeapObject *>;
 using runtime::String;
 
-TEST_CASE("ManagedHashMap", "Runtime")
+TEST_CASE("ManagedHashMap", "[Runtime]")
 {
     gc::Heap *heap = gc::Heap::GetInstance();
     gc::ThreadAllocator allocator(heap);
@@ -110,8 +110,8 @@ TEST_CASE("ManagedHashMap", "Runtime")
         REQUIRE(enlarged == enlargeAgain);
 
         auto latest = TestMap::Latest(uut);
-        REQUIRE(latest, enlarged);
-        REQUIRE(uut, enlarged);
+        REQUIRE(latest == enlarged);
+        REQUIRE(uut == enlarged);
 
         for (size_t i = 0; i < original->Capacity(); ++i)
         {
@@ -123,6 +123,47 @@ TEST_CASE("ManagedHashMap", "Runtime")
             auto result = enlarged->Find(key, value);
             REQUIRE(result);
             REQUIRE(value == values[i]);
+        }
+    }
+}
+
+TEST_CASE("ManagedHashMapGCTest", "[Runtime][!hide]")
+{
+    gc::Heap *heap = gc::Heap::GetInstance();
+    gc::ThreadAllocator allocator(heap);
+    auto uut = TestMap::New(allocator, 20);
+
+    auto TEST_KEY = String::New(allocator,
+        u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890");
+
+    REQUIRE(uut->Capacity() == 40);
+    std::array<TestHeapObject *, 40> values;
+    std::fill(values.begin(), values.end(), nullptr);
+
+    while (true)
+    {
+        for (size_t i = 0; i < 40; ++i)
+        {
+            auto key = String::Slice(allocator, TEST_KEY, i, 1);
+            auto value = allocator.AllocateAuto<TestHeapObject>();
+
+            auto result = uut->TrySet(key, value);
+            // REQUIRE(result);
+            hydra_assert(result, "REQUIRE");
+
+            values[i] = value;
+        }
+
+        for (size_t i = 0; i < 40; ++i)
+        {
+            auto key = String::Slice(allocator, TEST_KEY, i, 1);
+            TestHeapObject *value = nullptr;
+
+            auto result = uut->Find(key, value);
+            // REQUIRE(result);
+            // REQUIRE(value == values[i]);
+            hydra_assert(result, "REQUIRE");
+            hydra_assert(value == values[i], "REQUIRE");
         }
     }
 }
