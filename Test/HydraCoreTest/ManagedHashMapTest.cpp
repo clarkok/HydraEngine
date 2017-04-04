@@ -70,6 +70,61 @@ TEST_CASE("ManagedHashMap", "Runtime")
             REQUIRE(!result);
         }
     }
+
+    SECTION("Enlarge")
+    {
+        std::vector<TestHeapObject *> values;
+
+        for (size_t i = 0; i < uut->Capacity(); ++i)
+        {
+            INFO(i);
+
+            auto key = String::Slice(allocator, TEST_KEY, i, 1);
+            auto value = allocator.AllocateAuto<TestHeapObject>();
+
+            auto result = uut->TrySet(key, value);
+            REQUIRE(result);
+
+            values.push_back(value);
+        }
+
+        for (size_t i = 0; i < uut->Capacity(); ++i)
+        {
+            INFO(i);
+
+            auto key = String::Slice(allocator, TEST_KEY, i, 1);
+            TestHeapObject *value = nullptr;
+
+            auto result = uut->Find(key, value);
+            REQUIRE(result);
+            REQUIRE(value == values[i]);
+        }
+
+        auto original = uut;
+
+        auto enlarged = uut->Enlarge(allocator);
+        REQUIRE(enlarged != nullptr);
+        REQUIRE(enlarged->Capacity() > uut->Capacity());
+
+        auto enlargeAgain = uut->Enlarge(allocator);
+        REQUIRE(enlarged == enlargeAgain);
+
+        auto latest = TestMap::Latest(uut);
+        REQUIRE(latest, enlarged);
+        REQUIRE(uut, enlarged);
+
+        for (size_t i = 0; i < original->Capacity(); ++i)
+        {
+            INFO(i);
+
+            auto key = String::Slice(allocator, TEST_KEY, i, 1);
+            TestHeapObject *value = nullptr;
+
+            auto result = enlarged->Find(key, value);
+            REQUIRE(result);
+            REQUIRE(value == values[i]);
+        }
+    }
 }
 
 }

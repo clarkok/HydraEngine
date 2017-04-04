@@ -113,7 +113,7 @@ public:
                 value = slot.Value;
                 return true;
             }
-        } while ((index = (index + 1) % TableSize) != hash & TableSize);
+        } while ((index = (index + 1) % TableSize) != hash % TableSize);
 
         return false;
     }
@@ -199,11 +199,11 @@ public:
         HashMap *target = this;
         while (!target->TrySet(key, value))
         {
-            target = target->Enlarge();
+            target = target->Enlarge(allocator);
         }
     }
 
-    HashMap *Enlarge()
+    HashMap *Enlarge(gc::ThreadAllocator &allocator)
     {
         auto replacement = Replacement.load();
         if (replacement)
@@ -219,31 +219,33 @@ public:
             return replacement;
         }
 
-        replacement = NewOfLevel(Level + 1);
+        replacement = NewOfLevel(allocator, Level + 1);
 
         std::atomic<Slot> *table = Table();
         std::atomic<Slot> *limit = table + TableSize;
 
         for (auto s = table; s != limit; s++)
         {
-            if (s->IsDeleted())
+            Slot slot = s->load();
+
+            if (slot.IsDeleted())
             {
                 continue;
             }
 
-            if (s->GetKey() == nullptr)
+            if (slot.GetKey() == nullptr)
             {
                 continue;
             }
 
-            bool result = replacement->TrySet(s->GetKey(), s->Value);
+            bool result = replacement->TrySet(slot.GetKey(), slot.Value);
 
             hydra_assert(result,
                 "Set value must succeed");
         }
 
-        replacement = Replacement.exchange(replacement);
-        hydra_assert(replacement == nullptr,
+        auto original = Replacement.exchange(replacement);
+        hydra_assert(original == nullptr,
             "No race condition would occur");
 
         return replacement;
@@ -297,7 +299,7 @@ public:
                     }
                 } while (current.GetKey()->EqualsTo(key) && current.Value == value);
             }
-        } while ((index = (index + 1) % TableSize) != hash & TableSize);
+        } while ((index = (index + 1) % TableSize) != hash % TableSize);
 
         return false;
     }
