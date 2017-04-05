@@ -9,30 +9,32 @@ namespace hydra
 char_t TEST_TEXT[] = u"hahahahahohohoho";
 size_t TEST_LENGTH = sizeof(TEST_TEXT) / sizeof(TEST_TEXT[0]) - 1;
 
-TEST_CASE("String basic", "Runtime")
+using runtime::String;
+
+TEST_CASE("String basic", "[Runtime]")
 {
     gc::ThreadAllocator allocator(gc::Heap::GetInstance());
 
     SECTION("Test ManagedString")
     {
-        runtime::String *uut = runtime::String::New(
+        String *uut = String::New(
             allocator,
             std::begin(TEST_TEXT),
             std::begin(TEST_TEXT) + TEST_LENGTH
         );
 
-REQUIRE(uut != nullptr);
-REQUIRE(uut->length() == TEST_LENGTH);
-for (size_t i = 0; i < uut->length(); ++i)
-{
-    REQUIRE(uut->at(i) == TEST_TEXT[i]);
-}
-REQUIRE_THROWS(uut->at(10000));
+        REQUIRE(uut != nullptr);
+        REQUIRE(uut->length() == TEST_LENGTH);
+        for (size_t i = 0; i < uut->length(); ++i)
+        {
+            REQUIRE(uut->at(i) == TEST_TEXT[i]);
+        }
+        REQUIRE_THROWS(uut->at(10000));
     }
 
     SECTION("Test EmptyString")
     {
-        runtime::String *uutEmpty = runtime::String::Empty(allocator);
+        String *uutEmpty = String::Empty(allocator);
 
         REQUIRE(uutEmpty != nullptr);
         REQUIRE(uutEmpty->length() == 0);
@@ -41,13 +43,13 @@ REQUIRE_THROWS(uut->at(10000));
 
     SECTION("Test ConcatedString")
     {
-        runtime::String *stringSliced = runtime::String::New(
+        String *stringSliced = String::New(
             allocator,
             std::begin(TEST_TEXT),
             std::begin(TEST_TEXT) + TEST_LENGTH
         );
 
-        runtime::String *uut = runtime::String::Concat(
+        String *uut = String::Concat(
             allocator,
             stringSliced,
             stringSliced
@@ -65,13 +67,13 @@ REQUIRE_THROWS(uut->at(10000));
 
     SECTION("Test SlicedString")
     {
-        runtime::String *str = runtime::String::New(
+        String *str = String::New(
             allocator,
             std::begin(TEST_TEXT),
             std::begin(TEST_TEXT) + TEST_LENGTH
         );
 
-        runtime::String *uut = runtime::String::Slice(
+        String *uut = String::Slice(
             allocator,
             str,
             4,
@@ -90,33 +92,33 @@ REQUIRE_THROWS(uut->at(10000));
 
     SECTION("Test Flatten")
     {
-        runtime::String *str = runtime::String::New(
+        String *str = String::New(
             allocator,
             std::begin(TEST_TEXT),
             std::begin(TEST_TEXT) + TEST_LENGTH
         );
 
-        runtime::String *slicedLeft = runtime::String::Slice(
+        String *slicedLeft = String::Slice(
             allocator,
             str,
             0,
             TEST_LENGTH / 2
         );
 
-        runtime::String *slicedRight = runtime::String::Slice(
+        String *slicedRight = String::Slice(
             allocator,
             str,
             TEST_LENGTH / 2,
             TEST_LENGTH / 2
         );
 
-        runtime::String *combined = runtime::String::Concat(
+        String *combined = String::Concat(
             allocator,
             slicedLeft,
             slicedRight
         );
 
-        runtime::String *flattenned = combined->Flatten(allocator);
+        String *flattenned = combined->Flatten(allocator);
 
         REQUIRE(dynamic_cast<runtime::ManagedString*>(flattenned) != nullptr);
         REQUIRE(flattenned->length() == str->length());
@@ -128,38 +130,70 @@ REQUIRE_THROWS(uut->at(10000));
 
     SECTION("Test hash")
     {
-        runtime::String *str = runtime::String::New(
+        String *str = String::New(
             allocator,
             std::begin(TEST_TEXT),
             std::begin(TEST_TEXT) + TEST_LENGTH
         );
 
-        runtime::String *slicedLeft = runtime::String::Slice(
+        String *slicedLeft = String::Slice(
             allocator,
             str,
             0,
             TEST_LENGTH / 2
         );
 
-        runtime::String *slicedRight = runtime::String::Slice(
+        String *slicedRight = String::Slice(
             allocator,
             str,
             TEST_LENGTH / 2,
             TEST_LENGTH / 2
         );
 
-        runtime::String *combined = runtime::String::Concat(
+        String *combined = String::Concat(
             allocator,
             slicedLeft,
             slicedRight
         );
 
-        runtime::String *flattenned = combined->Flatten(allocator);
+        String *flattenned = combined->Flatten(allocator);
 
         REQUIRE(combined->GetHash() == flattenned->GetHash());
         REQUIRE(combined->GetHash() != slicedLeft->GetHash());
         REQUIRE(combined->GetHash() != slicedRight->GetHash());
         REQUIRE(slicedLeft->GetHash() != slicedRight->GetHash());
+    }
+}
+
+TEST_CASE("String FastHash", "[Runtime]")
+{
+    gc::ThreadAllocator allocator(gc::Heap::GetInstance());
+
+    String *left = String::New(allocator, u"hahaha");
+    String *right = String::New(allocator, u"hohoho");
+
+    // generate hash for both left and right
+    REQUIRE(left->GetHash() != right->GetHash());
+
+    SECTION("ManagedString")
+    {
+        String *managed = String::New(allocator, u"hahahahohoho");
+
+        String *compare = String::Concat(allocator, left, right);
+        REQUIRE(compare->GetHash() == managed->GetHash());
+    }
+
+    SECTION("ConcatedString")
+    {
+        String *managed = String::New(allocator, u"hahahahohohohahahahohoho");
+
+        String *concated = String::Concat(allocator, left, right);
+
+        // generate hash
+        concated->GetHash();
+
+        String *compare = String::Concat(allocator, concated, concated);
+        REQUIRE(compare->GetHash() == managed->GetHash());
     }
 }
 

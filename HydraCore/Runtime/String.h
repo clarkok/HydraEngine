@@ -2,6 +2,8 @@
 #define _STRING_H_
 
 #include "Common/HydraCore.h"
+#include "Common/Platform.h"
+
 #include "GarbageCollection/HeapObject.h"
 #include "GarbageCollection/ThreadAllocator.h"
 
@@ -222,6 +224,13 @@ protected:
             throw OutOfRangeException(start + length, Length);
         }
 
+        if (start == 0 && length == this->length() && Hash != INVALID_HASH)
+        {
+            c += Hash * m;
+            m *= platform::powi(HASH_MULTIPLIER, length);
+            return c;
+        }
+
         for (char_t *ptr = begin() + start, *limit = begin() + start + length;
             ptr != limit;
             ptr++)
@@ -324,6 +333,13 @@ protected:
             throw OutOfRangeException(start + length, Length);
         }
 
+        if (start == 0 && length == this->length() && Hash != INVALID_HASH)
+        {
+            c += Hash * m;
+            m *= platform::powi(HASH_MULTIPLIER, length);
+            return c;
+        }
+
         if (start < LeftLength)
         {
             size_t hashLength = std::min<size_t>(length, LeftLength - start);
@@ -402,6 +418,13 @@ protected:
         if (start + length > Length)
         {
             throw OutOfRangeException(start + length, Length);
+        }
+
+        if (start == 0 && length == this->length() && Hash != INVALID_HASH)
+        {
+            c += Hash * m;
+            m *= platform::powi(HASH_MULTIPLIER, length);
+            return c;
         }
 
         return Sliced->hash(start + Start, length, m, c);

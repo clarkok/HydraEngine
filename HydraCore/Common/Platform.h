@@ -20,6 +20,20 @@ inline void *AlignedAlloc(size_t size, size_t alignment);
 inline void AlignedFree(void *ptr);
 inline size_t GetMSB(uint64_t);
 inline size_t GetLSB(uint64_t);
+inline u64 powi(u64 base, u64 exp)
+{
+    u64 res = 1;
+    while (exp)
+    {
+        if (exp & 1)
+        {
+            res *= base;
+        }
+        exp >>= 1;
+        base *= base;
+    }
+    return res;
+}
 
 template <typename T_callback>
 void ForeachWordOnStack(T_callback callback);
