@@ -148,7 +148,7 @@ private:
     }
 
     std::atomic<bool> ShouldExit;
-    concurrent::Queue<Entry> Queue;
+    concurrent::Queue<Entry, 8192> Queue;
     std::thread WriteThread;
     void Write();
 };

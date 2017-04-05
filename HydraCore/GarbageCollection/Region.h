@@ -5,6 +5,7 @@
 #include "Common/ConcurrentLinkedList.h"
 #include "Common/ConcurrentLevelHashSet.h"
 #include "Common/Constexpr.h"
+#include "Common/Logger.h"
 
 #include "GCDefs.h"
 #include "HeapObject.h"
@@ -174,6 +175,8 @@ public:
 
     inline static Region *New(size_t level)
     {
+        Logger::GetInstance()->Log() << "New Region: " << GetTotalRegionCount();
+
         Region *region = NewInternal(level);
         RegionSet.Add(region);
         return region;

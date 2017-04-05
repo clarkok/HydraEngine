@@ -135,6 +135,11 @@ public:
 
     inline void SetGCStateAndWorkingQueueEnqueue(HeapObject *obj)
     {
+        if (WorkingQueue.Count() > WorkingQueue.Capacoty() * GC_WORKING_QUEUE_FACTOR)
+        {
+            RequestYoungGC();
+        }
+
         auto originalGCState = obj->SetGCState(GCState::GC_GREY);
         if (originalGCState == GCState::GC_WHITE)
         {
@@ -180,7 +185,7 @@ private:
     concurrent::ForwardLinkedList<Region> CleaningList;
     concurrent::ForwardLinkedList<Region> FullCleaningList;
 
-    concurrent::Queue<HeapObject*> WorkingQueue;
+    concurrent::Queue<HeapObject*, 8192> WorkingQueue;
     std::atomic<size_t> GatheringWorkerCount;
 
     std::atomic<size_t> TotalThreads;

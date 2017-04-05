@@ -121,63 +121,80 @@ void Heap::GCManagement()
 
             youngGCRequested = YoungGCRequested.exchange(false, std::memory_order_acq_rel);
             fullGCRequested = FullGCRequested.exchange(false, std::memory_order_acq_rel);
+            if (WorkingQueue.Count() > WorkingQueue.Capacoty() * GC_WORKING_QUEUE_FACTOR)
+            {
+                youngGCRequested = true;
+            }
+
             ReportedThreads.store(0, std::memory_order_relaxed);
         }
 
-        if (fullGCRequested)
+        while (!ShouldExit.load() && (youngGCRequested || fullGCRequested))
         {
-            Logger::GetInstance()->Log() << "Before Full GC: " << Region::GetTotalRegionCount() << " Regions";
+            if (fullGCRequested)
+            {
+                Logger::GetInstance()->Log() << "Before Full GC: " << Region::GetTotalRegionCount() << " Regions";
 
-            auto perfSession = Logger::GetInstance()->Perf("FullGC");
+                auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
-            GCRound.fetch_add(1, std::memory_order_acq_rel);
-            FireGCPhaseAndWait(GCPhase::GC_FULL_MARK);
-            perfSession.Phase("InitialMark");
+                GCRound.fetch_add(1, std::memory_order_acq_rel);
+                FireGCPhaseAndWait(GCPhase::GC_FULL_MARK);
+                perfSession.Phase("InitialMark");
 
-            StopTheWorld();
-            perfSession.Phase("AfterStopTheWorld");
+                StopTheWorld();
+                perfSession.Phase("AfterStopTheWorld");
 
-            FireGCPhaseAndWait(GCPhase::GC_FULL_FINISH_MARK);
-            hydra_assert(WorkingQueue.Count() == 0,
-                "WorkingQueue should be empty now");
-            perfSession.Phase("FinishMark");
+                FireGCPhaseAndWait(GCPhase::GC_FULL_FINISH_MARK);
+                hydra_assert(WorkingQueue.Count() == 0,
+                    "WorkingQueue should be empty now");
+                perfSession.Phase("FinishMark");
 
-            FullCleaningList.Steal(FullList);
-            perfSession.Phase("BeforeResumeTheWorld");
-            ResumeTheWorld();
+                FullCleaningList.Steal(FullList);
+                perfSession.Phase("BeforeResumeTheWorld");
+                ResumeTheWorld();
 
-            FireGCPhaseAndWait(GCPhase::GC_FULL_SWEEP);
-            perfSession.Phase("Sweep");
+                FireGCPhaseAndWait(GCPhase::GC_FULL_SWEEP);
+                perfSession.Phase("Sweep");
 
-            RegionSizeAfterLastFullGC.store(Region::GetTotalRegionCount(), std::memory_order_relaxed);
+                RegionSizeAfterLastFullGC.store(Region::GetTotalRegionCount(), std::memory_order_relaxed);
 
-            Logger::GetInstance()->Log() << "After Full GC: " << Region::GetTotalRegionCount() << " Regions";
+                Logger::GetInstance()->Log() << "After Full GC: " << Region::GetTotalRegionCount() << " Regions";
+            }
+            else if (youngGCRequested)
+            {
+                auto perfSession = Logger::GetInstance()->Perf("YoungGC");
+
+                GCRound.fetch_add(1, std::memory_order_acq_rel);
+                FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK);
+                perfSession.Phase("InitialMark");
+
+                StopTheWorld();
+                perfSession.Phase("AfterStopTheWorld");
+
+                FireGCPhaseAndWait(GCPhase::GC_YOUNG_FINISH_MARK);
+                hydra_assert(WorkingQueue.Count() == 0,
+                    "WorkingQueue should be empty now");
+                perfSession.Phase("FinishMark");
+
+                CleaningList.Steal(FullList);
+                perfSession.Phase("BeforeResumeTheWorld");
+                ResumeTheWorld();
+
+                FireGCPhaseAndWait(GCPhase::GC_YOUNG_SWEEP);
+                perfSession.Phase("Sweep");
+            }
+
+            GCCurrentPhase.store(GCPhase::GC_IDLE);
+
+            youngGCRequested = YoungGCRequested.exchange(false, std::memory_order_acq_rel);
+            fullGCRequested = FullGCRequested.exchange(false, std::memory_order_acq_rel);
+            if (WorkingQueue.Count() > WorkingQueue.Capacoty() * GC_WORKING_QUEUE_FACTOR)
+            {
+                youngGCRequested = true;
+            }
+
+            ReportedThreads.store(0, std::memory_order_relaxed);
         }
-        else if (youngGCRequested)
-        {
-            auto perfSession = Logger::GetInstance()->Perf("YoungGC");
-
-            GCRound.fetch_add(1, std::memory_order_acq_rel);
-            FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK);
-            perfSession.Phase("InitialMark");
-
-            StopTheWorld();
-            perfSession.Phase("AfterStopTheWorld");
-
-            FireGCPhaseAndWait(GCPhase::GC_YOUNG_FINISH_MARK);
-            hydra_assert(WorkingQueue.Count() == 0,
-                "WorkingQueue should be empty now");
-            perfSession.Phase("FinishMark");
-
-            CleaningList.Steal(FullList);
-            perfSession.Phase("BeforeResumeTheWorld");
-            ResumeTheWorld();
-
-            FireGCPhaseAndWait(GCPhase::GC_YOUNG_SWEEP);
-            perfSession.Phase("Sweep");
-        }
-
-        GCCurrentPhase.store(GCPhase::GC_IDLE);
     }
 
     GCCurrentPhase.store(GCPhase::GC_EXIT);
