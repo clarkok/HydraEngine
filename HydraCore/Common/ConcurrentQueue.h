@@ -139,7 +139,7 @@ public:
         return Tail.load(std::memory_order_relaxed) - Head.load(std::memory_order_relaxed);
     }
 
-    size_t Capacoty() const
+    size_t Capacity() const
     {
         return N;
     }

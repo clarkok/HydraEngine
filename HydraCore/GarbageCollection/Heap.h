@@ -135,7 +135,7 @@ public:
 
     inline void SetGCStateAndWorkingQueueEnqueue(HeapObject *obj)
     {
-        if (WorkingQueue.Count() > WorkingQueue.Capacoty() * GC_WORKING_QUEUE_FACTOR)
+        if (WorkingQueue.Count() > WorkingQueue.Capacity() * GC_WORKING_QUEUE_FACTOR)
         {
             RequestYoungGC();
         }

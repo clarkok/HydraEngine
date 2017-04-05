@@ -121,7 +121,7 @@ void Heap::GCManagement()
 
             youngGCRequested = YoungGCRequested.exchange(false, std::memory_order_acq_rel);
             fullGCRequested = FullGCRequested.exchange(false, std::memory_order_acq_rel);
-            if (WorkingQueue.Count() > WorkingQueue.Capacoty() * GC_WORKING_QUEUE_FACTOR)
+            if (WorkingQueue.Count() > WorkingQueue.Capacity() * GC_WORKING_QUEUE_FACTOR)
             {
                 youngGCRequested = true;
             }
@@ -188,7 +188,7 @@ void Heap::GCManagement()
 
             youngGCRequested = YoungGCRequested.exchange(false, std::memory_order_acq_rel);
             fullGCRequested = FullGCRequested.exchange(false, std::memory_order_acq_rel);
-            if (WorkingQueue.Count() > WorkingQueue.Capacoty() * GC_WORKING_QUEUE_FACTOR)
+            if (WorkingQueue.Count() > WorkingQueue.Capacity() * GC_WORKING_QUEUE_FACTOR)
             {
                 youngGCRequested = true;
             }
