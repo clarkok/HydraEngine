@@ -7,6 +7,7 @@
 #include "Type.h"
 #include "String.h"
 #include "JSObject.h"   // we need sizeof(JSObject)
+#include "ManagedHashMap.h"
 
 namespace hydra
 {
@@ -18,6 +19,8 @@ class KlassTransaction;
 class Klass : public gc::HeapObject
 {
 public:
+    static constexpr size_t INVALID_OFFSET = static_cast<size_t>(-1);
+
     static inline size_t JSObjectSlotSizeOfLevel(size_t level)
     {
         hydra_assert(level < gc::LEVEL_NR, "level has a limit");
@@ -27,144 +30,122 @@ public:
     static inline size_t KlassTableSizeOfLevel(size_t level)
     {
         hydra_assert(level < gc::LEVEL_NR, "level has a limit");
-        return JSObjectSlotSizeOfLevel(level) * sizeof(Slot);
+        return JSObjectSlotSizeOfLevel(level) * sizeof(String *);
+    }
+
+    size_t Find(String *key)
+    {
+        u64 hash = key->GetHash();
+        u64 index = hash % TableSize;
+
+        do
+        {
+            if (!Table()[index])
+            {
+                return INVALID_OFFSET;
+            }
+            else if (Table()[index]->EqualsTo(key))
+            {
+                return index;
+            }
+        } while ((index = (index + 1) % TableSize) != hash % TableSize);
+    }
+
+    Klass *AddTransaction(gc::ThreadAllocator &allocator, String *key)
+    {
+        hydra_assert(Find(key) == INVALID_OFFSET,
+            "Should not have key");
+
+        KlassTransaction *currentTransaction = KlassTransaction::Latest(Transaction);
+        if (!currentTransaction)
+        {
+            KlassTransaction *newTransaction = KlassTransaction::NewOfLevel(allocator, 1);
+
+            // not care about result
+            Transaction.compare_exchange_strong(currentTransaction, newTransaction);
+        }
+    }
+
+    virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final
+    {
+        KlassTransaction *currentTransaction = KlassTransaction::Latest(Transaction);
+        if (currentTransaction)
+        {
+            scan(currentTransaction);
+        }
+
+        for (String **pKey = Table(); pKey != TableLimit(); ++pKey)
+        {
+            if (*pKey)
+            {
+                scan(*pKey);
+            }
+        }
     }
 
 private:
-    struct Slot
-    {
-    public:
-        Slot(String *key, Type type)
-            : Value(reinterpret_cast<u64>(key) | static_cast<u8>(type))
-        {
-            hydra_assert((reinterpret_cast<u64>(key) & cexpr::Mask(0, 3)) == 0,
-                "Last 3 bits of key should be zero");
-            hydra_assert(static_cast<u8>(type) < 8,
-                "Invalid type");
-        }
-
-        Type GetType() const
-        {
-            return static_cast<Type>(Value & cexpr::Mask(0, 3));
-        }
-
-        String *GetString() const
-        {
-            return reinterpret_cast<String*>(Value & ~cexpr::Mask(0, 3));
-        }
-
-        bool Empty() const
-        {
-            return !!Value;
-        }
-
-    private:
-        u64 Value;
-    };
+    using KlassTransaction = HashMap<Klass *>;
 
     Klass(u8 property, size_t level)
-        : HeapObject(property), Level(level), TableSize(JSObjectSlotSizeOfLevel(level)), KeyCount(0)
+        : HeapObject(property),
+        Level(level),
+        TableSize(JSObjectSlotSizeOfLevel(level)),
+        KeyCount(0),
+        Transaction(nullptr)
     { }
 
-    Klass(u8 property, size_t level, Klass *other, String *key, Type type)
+    Klass(u8 property, size_t level, Klass *other, String *key)
         : Klass(property, level)
     {
         if (other->Level == level)
         {
-            Slot *otherBegin = other->Table();
-            Slot *otherEnd = other->Table() + other->TableSize;
-
-            Slot *table = Table();
-            std::copy(otherBegin, otherEnd, table);
-
-            Slot newSlot(key, type);
-            u64 hash = key->GetHash();
-            u64 index = hash % TableSize;
-
-            while (!table[index].Empty() && !table[index].GetString()->EqualsTo(key))
-            {
-                index = (index + 1) % TableSize;
-                hydra_assert(index != hash % TableSize,
-                    "table is not big enough");
-            }
-
-            if (table[index].Empty())
-            {
-                table[index] = newSlot;
-                KeyCount = other->KeyCount + 1;
-            }
-            else
-            {
-                KeyCount = other->KeyCount;
-            }
+            std::copy(other->Table(), other->TableLimit(), Table());
+            Add(key);
         }
         else
         {
-            Slot *otherBegin = other->Table();
-            Slot *otherEnd = other->Table() + other->TableSize;
+            std::fill(Table(), TableLimit(), nullptr);
 
-            Slot *table = Table();
-            std::memset(table, 0, sizeof(Slot) * TableSize);
-
-            for (Slot *s = otherBegin; s != otherEnd; ++s)
+            for (String **pKey = other->Table(); pKey != other->TableLimit(); ++pKey)
             {
-                if (s->Empty())
-                {
-                    continue;
-                }
-
-                u64 hash = s->GetString()->GetHash();
-                u64 index = hash % TableSize;
-
-                while (!table[index].Empty())
-                {
-                    index = (index + 1) % TableSize;
-                    hydra_assert(index != hash % TableSize,
-                        "table is not big enough");
-                }
-
-                table[index] = *s;
+                Add(*pKey);
             }
-
-            Slot newSlot(key, type);
-            u64 hash = key->GetHash();
-            u64 index = hash % TableSize;
-
-            while (!table[index].Empty() && !table[index].GetString()->EqualsTo(key))
-            {
-                index = (index + 1) % TableSize;
-                hydra_assert(index != hash % TableSize,
-                    "table is not big enough");
-            }
-
-            if (table[index].Empty())
-            {
-                table[index] = newSlot;
-                KeyCount = other->KeyCount + 1;
-            }
-            else
-            {
-                KeyCount = other->KeyCount;
-            }
+            Add(key);
         }
 
+        for (String **pKey = Table(); pKey != TableLimit(); ++pKey)
         {
-            // invoking WriteBarrier
-            auto table = Table();
-            for (Slot *s = table; s != table + TableSize; ++s)
+            if (*pKey)
             {
-                if (s)
-                {
-                    gc::Heap::GetInstance()->WriteBarrier(this, s->GetString());
-                }
+                gc::Heap::GetInstance()->WriteBarrier(this, *pKey);
             }
         }
     }
 
-    Slot *Table()
+    inline void Add(String *key)
     {
-        return reinterpret_cast<Slot *>(
+        u64 hash = key->GetHash();
+        u64 index = hash % TableSize;
+
+        do
+        {
+            if (!Table()[index])
+            {
+                Table()[index] = key;
+                break;
+            }
+        } while ((index = (index + 1) % TableSize) != hash % TableSize);
+    }
+
+    inline String **Table()
+    {
+        return reinterpret_cast<String **>(
             reinterpret_cast<uintptr_t>(this) + sizeof(Klass));
+    }
+
+    inline String **TableLimit()
+    {
+        return Table() + TableSize;
     }
 
     size_t Level;

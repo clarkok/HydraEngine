@@ -56,9 +56,9 @@ TEST_CASE("ManagedHashMap", "[Runtime]")
         for (size_t i = 0; i < uut->Capacity() * 2; ++i)
         {
             auto result = uut->TrySet(TEST_KEY, value);
-            TestHeapObject *fetched = nullptr;
             REQUIRE(result);
 
+            TestHeapObject *fetched = nullptr;
             result = uut->Find(TEST_KEY, fetched);
             REQUIRE(result);
             REQUIRE(fetched == value);
@@ -69,6 +69,34 @@ TEST_CASE("ManagedHashMap", "[Runtime]")
             result = uut->Find(TEST_KEY, fetched);
             REQUIRE(!result);
         }
+    }
+
+    SECTION("Find Or Set")
+    {
+        auto value = allocator.AllocateAuto<TestHeapObject>();
+
+        auto result = uut->FindOrSet(TEST_KEY, value);
+        REQUIRE(result);
+
+        TestHeapObject *fetched = nullptr;
+        result = uut->Find(TEST_KEY, fetched);
+        REQUIRE(result);
+        REQUIRE(fetched == value);
+
+        auto otherValue = allocator.AllocateAuto<TestHeapObject>();
+        result = uut->FindOrSet(TEST_KEY, otherValue);
+        REQUIRE(!result);
+        REQUIRE(otherValue == value);
+
+        result = uut->Remove(TEST_KEY, value);
+        REQUIRE(result);
+        otherValue = allocator.AllocateAuto<TestHeapObject>();
+        result = uut->FindOrSet(TEST_KEY, otherValue);
+        REQUIRE(result);
+
+        result = uut->Find(TEST_KEY, fetched);
+        REQUIRE(result);
+        REQUIRE(fetched == otherValue);
     }
 
     SECTION("Enlarge")

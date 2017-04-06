@@ -28,12 +28,38 @@ public:
 
     inline static HashMap *Latest(HashMap *&ptr)
     {
+        if (!ptr)
+        {
+            return nullptr;
+        }
+
         HashMap *next = nullptr;
         while ((next = ptr->Replacement.load()) != nullptr)
         {
             ptr = next;
         }
         return ptr;
+    }
+
+    inline static HashMap *Latest(std::atomic<HashMap *> &ptr)
+    {
+        HashMap *original = ptr.load();
+        HashMap *current = original;
+        HashMap *next = nullptr;
+
+        if (!original)
+        {
+            return nullptr;
+        }
+
+        do
+        {
+            current = original;
+            while ((next = current->Replacement.load()) != nullptr)
+            {
+                current = next;
+            }
+        } while (!ptr.compare_exchange_strong(original, current));
     }
 
     inline static HashMap *New(gc::ThreadAllocator &allocator, size_t capacity)
@@ -103,19 +129,70 @@ public:
                 return false;
             }
 
-            if (slot.IsDeleted())
-            {
-                continue;
-            }
-
             if (slot.GetKey()->EqualsTo(key))
             {
+                if (slot.IsDeleted())
+                {
+                    return false;
+                }
+
                 value = slot.Value;
                 return true;
             }
         } while ((index = (index + 1) % TableSize) != hash % TableSize);
 
         return false;
+    }
+
+    // return if set
+    bool FindOrSet(String *key, T &value)
+    {
+        std::shared_lock<std::shared_mutex> lck(ReadWriteMutex);
+
+        HashMap *replacement = Replacement.load(std::memory_order_acquire);
+        if (replacement)
+        {
+            return replacement->FindOrSet(key, value);
+        }
+
+        auto hash = key->GetHash();
+        size_t index = hash % TableSize;
+        Slot slot(key, value);
+
+        do
+        {
+            std::atomic<Slot> &pos = Table()[index];
+            Slot current = pos.load(std::memory_order_acquire);
+
+            while (current.GetKey() == nullptr)
+            {
+                if (pos.compare_exchange_strong(current, slot))
+                {
+                    gc::Heap::GetInstance()->WriteBarrier(this, key);
+                    gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+
+                    return true;
+                }
+            }
+
+            while (current.IsDeleted() && current.GetKey()->EqualsTo(key))
+            {
+                if (pos.compare_exchange_strong(current, slot))
+                {
+                    gc::Heap::GetInstance()->WriteBarrier(this, key);
+                    gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+
+                    return true;
+                }
+            }
+
+            if (current.GetKey()->EqualsTo(key))
+            {
+                value = current.Value;
+
+                return false;
+            }
+        } while ((index = (index + 1) % TableSize) != hash % TableSize);
     }
 
     bool TrySet(String *key, T value)
@@ -143,37 +220,6 @@ public:
                 {
                     gc::Heap::GetInstance()->WriteBarrier(this, key);
                     gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
-
-                    return true;
-                }
-            }
-
-            while (current.IsDeleted())
-            {
-                if (pos.compare_exchange_strong(current, slot))
-                {
-                    gc::Heap::GetInstance()->WriteBarrier(this, key);
-                    gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
-
-                    while ((index = (index + 1) % TableSize) != hash % TableSize)
-                    {
-                        current = Table()[index].load(std::memory_order_acquire);
-                        if (current.GetKey() == nullptr)
-                        {
-                            return true;
-                        }
-
-                        while (current.GetKey()->EqualsTo(key))
-                        {
-                            Slot deleted = current;
-                            deleted.SetDeleted();
-
-                            if (Table()[index].compare_exchange_strong(current, deleted))
-                            {
-                                return true;
-                            }
-                        }
-                    }
 
                     return true;
                 }
@@ -276,14 +322,9 @@ public:
                 return false;
             }
 
-            if (current.IsDeleted())
-            {
-                continue;
-            }
-
             if (current.GetKey()->EqualsTo(key))
             {
-                if (current.Value != value)
+                if (current.IsDeleted())
                 {
                     return false;
                 }
