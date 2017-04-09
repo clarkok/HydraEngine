@@ -130,11 +130,11 @@ TEST_CASE("ManagedHashMap", "[Runtime]")
 
         auto original = uut;
 
-        auto enlarged = uut->Enlarge(allocator);
+        auto enlarged = uut->Rehash(allocator);
         REQUIRE(enlarged != nullptr);
         REQUIRE(enlarged->Capacity() > uut->Capacity());
 
-        auto enlargeAgain = uut->Enlarge(allocator);
+        auto enlargeAgain = uut->Rehash(allocator);
         REQUIRE(enlarged == enlargeAgain);
 
         auto latest = TestMap::Latest(uut);
@@ -193,6 +193,64 @@ TEST_CASE("ManagedHashMapGCTest", "[Runtime][!hide]")
             hydra_assert(result, "REQUIRE");
             hydra_assert(value == values[i], "REQUIRE");
         }
+    }
+}
+
+TEST_CASE("ManagedHashMultiThreadsTest", "[Runtime][!hide]")
+{
+    gc::Heap *heap = gc::Heap::GetInstance();
+    gc::ThreadAllocator allocator(heap);
+    auto uut = TestMap::New(allocator, 20);
+
+    auto ALPHABET = String::New(allocator,
+        u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+
+    REQUIRE(uut->Capacity() == 40);
+
+    auto RandomKey = [&](gc::ThreadAllocator &allocator, size_t length) -> String*
+    {
+        String *ret = String::Empty(allocator);
+        while (length--)
+        {
+            ret = String::Concat(allocator,
+                ret,
+                String::Slice(allocator, ALPHABET, std::rand() % ALPHABET->length(), 1));
+        }
+
+        return ret;
+    };
+
+    /*
+    std::thread otherThread([&]()
+    {
+        gc::ThreadAllocator allocator(heap);
+
+        for (;;) {
+            auto value = allocator.AllocateAuto<TestHeapObject>();
+            auto key = RandomKey(allocator, 16);
+            TestMap::Latest(uut)->SetAuto(allocator, key, value);
+
+            TestHeapObject *fetched = nullptr;
+            auto result = TestMap::Latest(uut)->Find(key, fetched);
+            hydra_assert(result, "REQUIRE");
+            hydra_assert(fetched == value, "REQUIRE");
+
+            TestMap::Latest(uut)->Remove(key, fetched);
+        }
+    });
+    */
+
+    for (;;) {
+        auto value = allocator.AllocateAuto<TestHeapObject>();
+        auto key = RandomKey(allocator, 15);
+        TestMap::Latest(uut)->SetAuto(allocator, key, value);
+
+        TestHeapObject *fetched = nullptr;
+        auto result = TestMap::Latest(uut)->Find(key, fetched);
+        hydra_assert(result, "REQUIRE");
+        hydra_assert(fetched == value, "REQUIRE");
+
+        TestMap::Latest(uut)->Remove(key, fetched);
     }
 }
 

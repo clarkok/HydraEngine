@@ -77,8 +77,12 @@ void Heap::StopTheWorld()
 {
     if (!PauseRequested.exchange(true))
     {
+        auto perfSession = Logger::GetInstance()->Perf("StoppingTheWorld");
+
         RunningMutex.lock();
         Logger::GetInstance()->Log() << "Stop the world";
+
+        WorldStopped = std::chrono::high_resolution_clock::now();
     }
 }
 
@@ -86,7 +90,11 @@ void Heap::ResumeTheWorld()
 {
     if (PauseRequested.exchange(false))
     {
-        Logger::GetInstance()->Log() << "Resume the world";
+        auto perfSession = Logger::GetInstance()->Perf("ResumingTheWorld");
+
+        auto now = std::chrono::high_resolution_clock::now();
+        Logger::GetInstance()->Log() << "Resume the world " <<
+            std::chrono::duration_cast<std::chrono::microseconds>(now - WorldStopped).count() / 1000. << "ms";
         RunningMutex.unlock();
         WakeupCV.notify_all();
     }
@@ -138,7 +146,7 @@ void Heap::GCManagement()
                 auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
                 GCRound.fetch_add(1, std::memory_order_acq_rel);
-                FireGCPhaseAndWait(GCPhase::GC_FULL_MARK);
+                FireGCPhaseAndWait(GCPhase::GC_FULL_MARK, true /* cannotWait */);
                 perfSession.Phase("InitialMark");
 
                 StopTheWorld();
@@ -165,7 +173,7 @@ void Heap::GCManagement()
                 auto perfSession = Logger::GetInstance()->Perf("YoungGC");
 
                 GCRound.fetch_add(1, std::memory_order_acq_rel);
-                FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK);
+                FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK, true /* cannotWait */);
                 perfSession.Phase("InitialMark");
 
                 StopTheWorld();
@@ -203,7 +211,7 @@ void Heap::GCManagement()
     Logger::GetInstance()->Log() << "GC Management shutdown";
 }
 
-void Heap::FireGCPhaseAndWait(Heap::GCPhase phase)
+void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
 {
     std::unique_lock<std::shared_mutex> lck(GCWorkerRunningMutex);
 
@@ -214,12 +222,41 @@ void Heap::FireGCPhaseAndWait(Heap::GCPhase phase)
     GCCurrentPhase.store(phase, std::memory_order_relaxed);
 
     GCWorkerRunningCV.notify_all();
-    GCWorkerCompletedCV.wait(
-        lck,
-        [this]()
+
+    if (cannotWait)
+    {
+        GCWorkerCompletedCV.wait_for(
+            lck,
+            GC_TOLERANCE,
+            [this]()
+            {
+                return GCWorkerCompletedCount.load(std::memory_order_consume) == GCWorkerCount;
+            }
+        );
+
+        StopTheWorld();
+
+        if (GCWorkerCompletedCount.load(std::memory_order_consume) != GCWorkerCount)
         {
-            return GCWorkerCompletedCount.load(std::memory_order_consume) == GCWorkerCount;
-        });
+            GCWorkerCompletedCV.wait(
+                lck,
+                [this]()
+                {
+                    return GCWorkerCompletedCount.load(std::memory_order_consume) == GCWorkerCount;
+                }
+            );
+        }
+    }
+    else
+    {
+        GCWorkerCompletedCV.wait(
+            lck,
+            [this]()
+            {
+                return GCWorkerCompletedCount.load(std::memory_order_consume) == GCWorkerCount;
+            }
+        );
+    }
 }
 
 void Heap::GCWorker()
@@ -345,6 +382,7 @@ void Heap::GCWorkerYoungMark()
 
             // feed back half of localQueue to global WorkingQueue
             size_t objectsToFeedBack = localQueue.size() / 2;
+            Logger::GetInstance()->Log() << "Feed " << objectsToFeedBack << " back to global queue (" << WorkingQueue.Count() << ")";
             while (objectsToFeedBack--)
             {
                 HeapObject *obj = localQueue.front(); localQueue.pop();
@@ -442,6 +480,7 @@ void Heap::GCWorkerFullMark()
 
             // feed back half of localQueue to global WorkingQueue
             size_t objectsToFeedBack = localQueue.size() / 2;
+            Logger::GetInstance()->Log() << "Feed " << objectsToFeedBack << " back to global queue (" << WorkingQueue.Count() << ")";
             while (objectsToFeedBack--)
             {
                 HeapObject *obj = localQueue.front(); localQueue.pop();

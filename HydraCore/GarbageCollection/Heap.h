@@ -206,9 +206,11 @@ private:
     std::condition_variable_any GCWorkerCompletedCV;
     std::atomic<GCPhase> GCCurrentPhase;
 
+    std::chrono::time_point<std::chrono::high_resolution_clock> WorldStopped;
+
     std::thread GCManagementThread;
     void GCManagement();
-    void FireGCPhaseAndWait(GCPhase phase);
+    void FireGCPhaseAndWait(GCPhase phase, bool cannotWait = false);
 
     size_t GCWorkerCount;
     std::vector<std::thread> GCWorkerThreads;

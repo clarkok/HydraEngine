@@ -38,3 +38,9 @@ add_executable( ManagedHashMapTest
 )
 target_link_libraries( ManagedHashMapTest HydraCore )
 add_test(ManagedHashMapTest ManagedHashMapTest)
+
+add_executable( KlassTest
+    KlassTest.cpp
+)
+target_link_libraries( KlassTest HydraCore )
+add_test(KlassTest KlassTest)

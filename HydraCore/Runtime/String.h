@@ -63,6 +63,11 @@ public:
             return false;
         }
 
+        if (GetHash() != other->GetHash())
+        {
+            return false;
+        }
+
         for (size_t i = 0; i < length(); ++i)
         {
             if (_at(i) != other->_at(i))
@@ -84,7 +89,7 @@ public:
 
     String *Flatten(gc::ThreadAllocator &allocator);
 
-    inline u64 GetHash()
+    inline u64 GetHash() const
     {
         if (Hash != INVALID_HASH)
         {
@@ -106,10 +111,10 @@ protected:
     virtual char_t _at(size_t) const = 0;
     virtual void StringScan(std::function<void(gc::HeapObject *)> scan) = 0;
     virtual void flatten(size_t start, size_t length, char_t *dst) const = 0;
-    virtual u64 hash(size_t start, size_t end, u64 &m, u64 c = 0) = 0;
+    virtual u64 hash(size_t start, size_t end, u64 &m, u64 c = 0) const = 0;
 
     String *Flattenned;
-    u64 Hash;
+    mutable u64 Hash;
 
 private:
     friend class ConcatedString;
@@ -152,7 +157,7 @@ protected:
         }
     }
 
-    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) override final
+    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) const override final
     {
         if (start != 0 || length != 0)
         {
@@ -217,7 +222,7 @@ protected:
         std::copy(begin() + start, begin() + start + length, dst);
     }
 
-    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) override final
+    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) const override final
     {
         if (start + length > Length)
         {
@@ -326,7 +331,7 @@ protected:
         }
     }
 
-    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) override final
+    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) const override final
     {
         if (start + length > Length)
         {
@@ -413,7 +418,7 @@ protected:
         Sliced->flatten(start + Start, length, dst);
     }
 
-    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) override final
+    virtual u64 hash(size_t start, size_t length, u64 &m, u64 c) const override final
     {
         if (start + length > Length)
         {

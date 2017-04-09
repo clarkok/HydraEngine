@@ -21,6 +21,7 @@ constexpr size_t MINIMAL_ALLOCATE_SIZE = 1u << MINIMAL_ALLOCATE_SIZE_LEVEL;
 constexpr size_t LEVEL_NR = MAXIMAL_ALLOCATE_SIZE_LEVEL - MINIMAL_ALLOCATE_SIZE_LEVEL + 1;
 
 constexpr auto GC_CHECK_INTERVAL = 1000ms;
+constexpr auto GC_TOLERANCE = 5ms;
 
 constexpr size_t GC_WORKER_MAX_NR = 8;
 

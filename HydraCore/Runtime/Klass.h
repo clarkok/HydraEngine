@@ -23,14 +23,17 @@ public:
 
     static inline size_t JSObjectSlotSizeOfLevel(size_t level)
     {
-        hydra_assert(level < gc::LEVEL_NR, "level has a limit");
         return (gc::Region::CellSizeFromLevel(level) - sizeof(JSObject)) / sizeof(JSValue);
     }
 
     static inline size_t KlassTableSizeOfLevel(size_t level)
     {
-        hydra_assert(level < gc::LEVEL_NR, "level has a limit");
         return JSObjectSlotSizeOfLevel(level) * sizeof(String *);
+    }
+
+    static inline size_t KlassObjectSizeOfLevel(size_t level)
+    {
+        return KlassTableSizeOfLevel(level) * sizeof(String*) + sizeof(Klass);
     }
 
     size_t Find(String *key)
@@ -49,6 +52,8 @@ public:
                 return index;
             }
         } while ((index = (index + 1) % TableSize) != hash % TableSize);
+
+        trap("Key not found in Klass!");
     }
 
     Klass *AddTransaction(gc::ThreadAllocator &allocator, String *key)
@@ -64,6 +69,21 @@ public:
             // not care about result
             Transaction.compare_exchange_strong(currentTransaction, newTransaction);
         }
+
+        Klass *newKlass = nullptr;
+
+        if (currentTransaction->Find(key, newKlass))
+        {
+            return newKlass;
+        }
+
+        size_t newLevel = (KeyCount == TableSize) ? Level + 1 : Level;
+        size_t newSize = KlassObjectSizeOfLevel(newLevel);
+        newKlass = allocator.AllocateWithSizeAuto<Klass>(newSize, newLevel, this, key);
+
+        // now care about result
+        currentTransaction->FindOrSet(key, newKlass);
+        return newKlass;
     }
 
     virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final
@@ -97,6 +117,21 @@ private:
     Klass(u8 property, size_t level, Klass *other, String *key)
         : Klass(property, level)
     {
+        auto Add = [this] (String *key)
+        {
+            u64 hash = key->GetHash();
+            u64 index = hash % TableSize;
+
+            do
+            {
+                if (!Table()[index])
+                {
+                    Table()[index] = key;
+                    break;
+                }
+            } while ((index = (index + 1) % TableSize) != hash % TableSize);
+        };
+
         if (other->Level == level)
         {
             std::copy(other->Table(), other->TableLimit(), Table());
@@ -122,21 +157,6 @@ private:
         }
     }
 
-    inline void Add(String *key)
-    {
-        u64 hash = key->GetHash();
-        u64 index = hash % TableSize;
-
-        do
-        {
-            if (!Table()[index])
-            {
-                Table()[index] = key;
-                break;
-            }
-        } while ((index = (index + 1) % TableSize) != hash % TableSize);
-    }
-
     inline String **Table()
     {
         return reinterpret_cast<String **>(
@@ -152,6 +172,8 @@ private:
     size_t TableSize;
     size_t KeyCount;
     std::atomic<KlassTransaction *> Transaction;
+
+    friend class gc::Region;
 };
 
 } // namespace runtime

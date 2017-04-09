@@ -15,7 +15,7 @@ class HashMap : public gc::HeapObject
 {
 public:
     HashMap(u8 property, size_t level, size_t tableSize)
-        : HeapObject(property), Replacement(nullptr), Level(level), TableSize(tableSize)
+        : HeapObject(property), Replacement(nullptr), KeyCount(0), Level(level), TableSize(tableSize)
     {
         auto table = Table();
         auto limit = table + TableSize;
@@ -171,6 +171,8 @@ public:
                     gc::Heap::GetInstance()->WriteBarrier(this, key);
                     gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
 
+                    KeyCount.fetch_add(1, std::memory_order_relaxed);
+
                     return true;
                 }
             }
@@ -181,6 +183,8 @@ public:
                 {
                     gc::Heap::GetInstance()->WriteBarrier(this, key);
                     gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+
+                    KeyCount.fetch_add(1, std::memory_order_relaxed);
 
                     return true;
                 }
@@ -221,6 +225,8 @@ public:
                     gc::Heap::GetInstance()->WriteBarrier(this, key);
                     gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
 
+                    KeyCount.fetch_add(1, std::memory_order_relaxed);
+
                     return true;
                 }
             }
@@ -245,11 +251,11 @@ public:
         HashMap *target = this;
         while (!target->TrySet(key, value))
         {
-            target = target->Enlarge(allocator);
+            target = target->Rehash(allocator);
         }
     }
 
-    HashMap *Enlarge(gc::ThreadAllocator &allocator)
+    HashMap *Rehash(gc::ThreadAllocator &allocator)
     {
         auto replacement = Replacement.load();
         if (replacement)
@@ -265,7 +271,7 @@ public:
             return replacement;
         }
 
-        replacement = NewOfLevel(allocator, Level + 1);
+        replacement = NewOfLevel(allocator, KeyCount.load(std::memory_order_relaxed) < TableSize * 0.7 ? Level : (Level + 1));
 
         std::atomic<Slot> *table = Table();
         std::atomic<Slot> *limit = table + TableSize;
@@ -333,6 +339,8 @@ public:
                 {
                     if (pos.compare_exchange_strong(current, slot))
                     {
+                        KeyCount.fetch_add(-1, std::memory_order_relaxed);
+
                         gc::Heap::GetInstance()->WriteBarrier(this, key);
                         gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
 
@@ -425,6 +433,7 @@ private:
 
     std::shared_mutex ReadWriteMutex;
     std::atomic<HashMap *> Replacement;
+    std::atomic<size_t> KeyCount;
     size_t Level;
     size_t TableSize;
 };
