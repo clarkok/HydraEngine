@@ -49,7 +49,7 @@ public:
                 if (Tail.compare_exchange_weak(tail, tail + 1, std::memory_order_relaxed))
                     break;
             }
-            else if (seq < 0)
+            else if (seq < tail)
             {
                 return false;
             }

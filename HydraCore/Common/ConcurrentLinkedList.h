@@ -32,13 +32,12 @@ template <typename T>
 class ForwardLinkedList
 {
 public:
-    template <typename T>
     using Node = ForwardLinkedListNode<T>;
 
     ForwardLinkedList()
         : Head(nullptr), Count(0)
     {
-        static_assert(std::is_base_of<Node<T>, T>::value, "Argument T of ForwardLinkedList<T> should inhert from ForwardLinkedListNode<T>");
+        static_assert(std::is_base_of<Node, T>::value, "Argument T of ForwardLinkedList<T> should inhert from ForwardLinkedListNode<T>");
     }
 
     ForwardLinkedList(std::initializer_list<T *> initializer)

@@ -29,10 +29,10 @@ class ThreadAllocator;
 //to add state(s), you must update Cell::GC_STATE_MASK accordingly in HeapObject.h
 enum GCState : u8
 {
-GC_WHITE = 0,
-GC_GREY = 1,
-GC_DARK = 2,
-GC_BLACK = 3
+    GC_WHITE = 0,
+    GC_GREY = 1,
+    GC_DARK = 2,
+    GC_BLACK = 3
 };
 
 class Heap : public Singleton<Heap>
@@ -50,9 +50,9 @@ public:
         PauseRequested(false),
         YoungGCRequested(false),
         FullGCRequested(false),
-        GCWorkerCount(std::min<size_t>(GC_WORKER_MAX_NR, std::thread::hardware_concurrency() / 2)),
+        GCWorkerCompletedCount(0),
         GCCurrentPhase(GCPhase::GC_IDLE),
-        GCWorkerCompletedCount(0)
+        GCWorkerCount(std::min<size_t>(GC_WORKER_MAX_NR, std::thread::hardware_concurrency() / 2))
     {
         GCManagementThread = std::thread(&Heap::GCManagement, this);
 

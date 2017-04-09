@@ -9,6 +9,9 @@
 #include <windows.h>
 
 #else
+
+#include <stdlib.h>
+
 #endif
 
 namespace hydra
@@ -88,6 +91,61 @@ void ForeachWordOnStack(T_callback callback)
 }
 
 #else
+
+inline void *AlignedAlloc(size_t size, size_t alignment)
+{
+    void *ret = nullptr;
+    if (posix_memalign(&ret, alignment, size))
+    {
+        return nullptr;
+    }
+    return ret;
+}
+
+inline void AlignedFree(void *ptr)
+{
+    free(ptr);
+}
+
+inline size_t GetMSB(uint64_t value)
+{
+    if (value) {
+        return 63 - __builtin_clz(value);
+    }
+    return static_cast<size_t>(-1);
+}
+
+inline size_t GetLSB(uint64_t value)
+{
+    if (value) {
+        return  __builtin_ctz(value);
+    }
+    return static_cast<size_t>(-1);
+}
+
+template <typename T_callback>
+void ForeachWordOnStack(T_callback callback)
+{
+    uintptr_t stackTop = 0;
+    uintptr_t stackEnd = 0;
+
+    {
+        asm("movq %%rbp, %0"
+            : "=r" (stackTop));
+
+        void **ptr = reinterpret_cast<void**>(stackTop);
+        while (*ptr) {
+            ptr = reinterpret_cast<void**>(*ptr);
+        }
+        stackEnd = reinterpret_cast<uintptr_t>(ptr);
+    }
+
+    for (uintptr_t ptr = stackTop; ptr < stackEnd; ptr += sizeof(void*))
+    {
+        callback(reinterpret_cast<void**>(ptr));
+    }
+}
+
 #endif
 
 
