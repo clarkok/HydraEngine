@@ -41,6 +41,42 @@ public:
         return ret;
     }
 
+    template <typename T_Iter>
+    static void WaitAll(T_Iter begin, T_Iter end)
+    {
+        while (begin != end)
+        {
+            begin->wait();
+            begin++;
+        }
+    }
+
+    template <typename T_Iter, class Rep, class Period>
+    static T_Iter WaitAllFor(
+        T_Iter begin,
+        T_Iter end,
+        const std::chrono::duration<Rep, Period>& timeout_duration)
+    {
+        auto startWaiting = std::chrono::high_resolution_clock::now();
+
+        while (begin != end)
+        {
+            auto timeElapsed = std::chrono::high_resolution_clock::now() - startWaiting;
+            auto timeRemains = std::chrono::duration_cast<decltype(timeElapsed)>(timeout_duration);
+
+            auto result = begin->wait_for(timeRemains);
+            // not considerring deferred futures
+            if (result == std::future_status::timeout)
+            {
+                return begin;
+            }
+
+            begin++;
+        }
+
+        return end;
+    }
+
 private:
     struct TaskBase
     {

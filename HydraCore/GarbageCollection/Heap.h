@@ -51,15 +51,9 @@ public:
         YoungGCRequested(false),
         FullGCRequested(false),
         GCWorkerCount(std::min<size_t>(GC_WORKER_MAX_NR, std::thread::hardware_concurrency() / 2)),
-        GCCurrentPhase(GCPhase::GC_IDLE),
-        GCWorkerCompletedCount(0)
+        GCCurrentPhase(GCPhase::GC_IDLE)
     {
         GCManagementThread = std::thread(&Heap::GCManagement, this);
-
-        for (size_t i = 0; i < GCWorkerCount; ++i)
-        {
-            GCWorkerThreads.emplace_back(&Heap::GCWorker, this);
-        }
     }
 
     ~Heap()
@@ -67,11 +61,6 @@ public:
         if (!ShouldExit.exchange(true))
         {
             GCManagementThread.join();
-
-            for (auto &worker : GCWorkerThreads)
-            {
-                worker.join();
-            }
         }
 
         Region *region;
@@ -191,6 +180,7 @@ private:
     std::atomic<size_t> TotalThreads;
     std::atomic<size_t> ReportedThreads;
 
+    // Stop-the-world
     std::atomic<bool> PauseRequested;
     std::shared_mutex RunningMutex;
     std::condition_variable_any WakeupCV;
@@ -200,10 +190,6 @@ private:
     std::atomic<bool> YoungGCRequested;
     std::atomic<bool> FullGCRequested;
 
-    std::atomic<size_t> GCWorkerCompletedCount;
-    std::shared_mutex GCWorkerRunningMutex;
-    std::condition_variable_any GCWorkerRunningCV;
-    std::condition_variable_any GCWorkerCompletedCV;
     std::atomic<GCPhase> GCCurrentPhase;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> WorldStopped;
@@ -213,8 +199,6 @@ private:
     void FireGCPhaseAndWait(GCPhase phase, bool cannotWait = false);
 
     size_t GCWorkerCount;
-    std::vector<std::thread> GCWorkerThreads;
-    void GCWorker();
     void GCWorkerYoungMark();
     void GCWorkerYoungSweep();
     void GCWorkerFullMark();

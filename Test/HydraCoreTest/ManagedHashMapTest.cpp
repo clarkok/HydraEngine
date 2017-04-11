@@ -240,7 +240,8 @@ TEST_CASE("ManagedHashMultiThreadsTest", "[Runtime][!hide]")
     });
     */
 
-    for (;;) {
+    for (;;)
+    {
         auto value = allocator.AllocateAuto<TestHeapObject>();
         auto key = RandomKey(allocator, 15);
         TestMap::Latest(uut)->SetAuto(allocator, key, value);

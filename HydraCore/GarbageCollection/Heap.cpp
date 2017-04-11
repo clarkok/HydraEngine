@@ -1,6 +1,7 @@
 #include "Heap.h"
 
 #include "Common/Logger.h"
+#include "Common/ThreadPool.h"
 
 #include <queue>
 
@@ -107,10 +108,6 @@ void Heap::Shutdown()
     if (!ShouldExit.exchange(true))
     {
         GCManagementThread.join();
-        for (auto &worker : GCWorkerThreads)
-        {
-            worker.join();
-        }
     }
 
     Logger::GetInstance()->Log() << "Heap shutdown";
@@ -206,25 +203,47 @@ void Heap::GCManagement()
     }
 
     GCCurrentPhase.store(GCPhase::GC_EXIT);
-    GCWorkerRunningCV.notify_all();
 
     Logger::GetInstance()->Log() << "GC Management shutdown";
 }
 
 void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
 {
-    std::unique_lock<std::shared_mutex> lck(GCWorkerRunningMutex);
-
-    hydra_assert(GCWorkerCompletedCount.load() == GCWorkerCount,
-        "All GCWorker should be waiting");
-
-    GCWorkerCompletedCount.store(0, std::memory_order_release);
     GCCurrentPhase.store(phase, std::memory_order_relaxed);
 
-    GCWorkerRunningCV.notify_all();
+    std::vector<std::future<void>> futures(GCWorkerCount);
+    std::generate(futures.begin(), futures.end(), [this, phase]()
+    {
+        auto threadPool = ThreadPool::GetInstance();
+
+        switch (phase)
+        {
+        case GCPhase::GC_YOUNG_MARK:
+        case GCPhase::GC_YOUNG_FINISH_MARK:
+            return threadPool->Dispatch<void>(&Heap::GCWorkerYoungMark, this);
+        case GCPhase::GC_YOUNG_SWEEP:
+            return threadPool->Dispatch<void>(&Heap::GCWorkerYoungSweep, this);
+        case GCPhase::GC_FULL_MARK:
+        case GCPhase::GC_FULL_FINISH_MARK:
+            return threadPool->Dispatch<void>(&Heap::GCWorkerFullMark, this);
+        case GCPhase::GC_FULL_SWEEP:
+            return threadPool->Dispatch<void>(&Heap::GCWorkerFullSweep, this);
+        }
+    });
 
     if (cannotWait)
     {
+        auto stopped = ThreadPool::WaitAllFor(futures.begin(), futures.end(), GC_TOLERANCE);
+        if (stopped == futures.end())
+        {
+            return;
+        }
+
+        StopTheWorld();
+
+        ThreadPool::WaitAll(stopped, futures.end());
+
+        /*
         GCWorkerCompletedCV.wait_for(
             lck,
             GC_TOLERANCE,
@@ -246,68 +265,11 @@ void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
                 }
             );
         }
+        */
     }
     else
     {
-        GCWorkerCompletedCV.wait(
-            lck,
-            [this]()
-            {
-                return GCWorkerCompletedCount.load(std::memory_order_consume) == GCWorkerCount;
-            }
-        );
-    }
-}
-
-void Heap::GCWorker()
-{
-    GCPhase phase = GCPhase::GC_IDLE;
-    GCWorkerCompletedCount.fetch_add(1);
-
-    while (true)
-    {
-        std::shared_lock<std::shared_mutex> lck(GCWorkerRunningMutex);
-        GCPhase currentPhase = GCCurrentPhase.load();
-        if (phase != currentPhase)
-        {
-            phase = currentPhase;
-        }
-        else
-        {
-            GCWorkerRunningCV.wait(lck);
-
-            phase = GCCurrentPhase.load(std::memory_order_acquire);
-        }
-
-        switch (phase)
-        {
-        case GCPhase::GC_YOUNG_MARK:
-        case GCPhase::GC_YOUNG_FINISH_MARK:
-            GCWorkerYoungMark();
-            break;
-        case GCPhase::GC_YOUNG_SWEEP:
-            GCWorkerYoungSweep();
-            break;
-        case GCPhase::GC_FULL_MARK:
-        case GCPhase::GC_FULL_FINISH_MARK:
-            GCWorkerFullMark();
-            break;
-        case GCPhase::GC_FULL_SWEEP:
-            GCWorkerFullSweep();
-            break;
-        case GCPhase::GC_IDLE:
-            continue;
-        case GCPhase::GC_EXIT:
-            return;
-        default:
-            trap("Unknown GC phase: " + std::to_string(static_cast<int>(phase)));
-        }
-
-        lck.unlock();
-        if (GCWorkerCompletedCount.fetch_add(1, std::memory_order_relaxed) + 1 == GCWorkerCount)
-        {
-            GCWorkerCompletedCV.notify_one();
-        }
+        ThreadPool::WaitAll(futures.begin(), futures.end());
     }
 }
 

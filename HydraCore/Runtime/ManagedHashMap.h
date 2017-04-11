@@ -263,6 +263,8 @@ public:
             return replacement;
         }
 
+        auto newReplacement = NewOfLevel(allocator, KeyCount.load(std::memory_order_relaxed) < TableSize * 0.7 ? Level : (Level + 1));
+
         std::unique_lock<std::shared_mutex> lck(ReadWriteMutex);
 
         replacement = Replacement.load();
@@ -271,7 +273,7 @@ public:
             return replacement;
         }
 
-        replacement = NewOfLevel(allocator, KeyCount.load(std::memory_order_relaxed) < TableSize * 0.7 ? Level : (Level + 1));
+        replacement = newReplacement;
 
         std::atomic<Slot> *table = Table();
         std::atomic<Slot> *limit = table + TableSize;
