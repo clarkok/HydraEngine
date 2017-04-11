@@ -313,6 +313,8 @@ void Heap::GCWorker()
 
 void Heap::GCWorkerYoungMark()
 {
+    auto youngMarkPerf = Logger::GetInstance()->Perf("YoungMark");
+
     std::queue<HeapObject *> localQueue;
     bool shouldWaitForWorkingThreadReported = GCCurrentPhase.load() == GCPhase::GC_YOUNG_MARK;
     std::function<void(HeapObject *)> scanner = [&](HeapObject *ref)
@@ -398,6 +400,8 @@ void Heap::GCWorkerYoungMark()
 
 void Heap::GCWorkerYoungSweep()
 {
+    auto youngSweepPerf = Logger::GetInstance()->Perf("YoungSweep");
+
     Region *region;
     while (CleaningList.Pop(region))
     {
@@ -414,6 +418,8 @@ void Heap::GCWorkerYoungSweep()
 
 void Heap::GCWorkerFullMark()
 {
+    auto fullMarkPerf = Logger::GetInstance()->Perf("FullMark");
+
     std::queue<HeapObject *> localQueue;
     bool shouldWaitForWorkingThreadReported = GCCurrentPhase.load() == GCPhase::GC_FULL_MARK;
     std::function<void(HeapObject *)> scanner = [&](HeapObject *ref)
@@ -496,6 +502,8 @@ void Heap::GCWorkerFullMark()
 
 void Heap::GCWorkerFullSweep()
 {
+    auto fullSweepPerf = Logger::GetInstance()->Perf("FullSweep");
+
     Region *region;
     while (FullCleaningList.Pop(region))
     {

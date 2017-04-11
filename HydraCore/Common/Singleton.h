@@ -8,9 +8,10 @@ template <typename T>
 class Singleton
 {
 public:
-    static T* GetInstance()
+    template <typename ...T_Args>
+    static T* GetInstance(T_Args ...args)
     {
-        static T instance;
+        static T instance(args...);
         return &instance;
     }
 

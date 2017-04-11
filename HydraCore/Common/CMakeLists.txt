@@ -10,4 +10,7 @@ add_library( HydraCore.Common OBJECT
     Platform.cpp
     Platform.h
     Singleton.h
+    ThreadPool.h
+    ThreadPool.cpp
+    AutoCounter.h
 )

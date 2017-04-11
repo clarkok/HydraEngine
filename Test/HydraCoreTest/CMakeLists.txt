@@ -44,3 +44,9 @@ add_executable( KlassTest
 )
 target_link_libraries( KlassTest HydraCore )
 add_test(KlassTest KlassTest)
+
+add_executable( ThreadPoolTest
+    ThreadPoolTest.cpp
+)
+target_link_libraries( ThreadPoolTest HydraCore )
+add_test(ThreadPoolTest ThreadPoolTest)
