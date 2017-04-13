@@ -3,6 +3,8 @@
 
 #include "Common/Platform.h"
 
+#include <cstdlib>
+
 namespace hydra
 {
 namespace gc
@@ -24,6 +26,8 @@ size_t Region::YoungSweep()
         }
 
         Allocated = AllocateBegin(Level);
+        Logger::GetInstance()->Log() << "Region " << this << " clear";
+
         return 0;
     }
 
@@ -94,11 +98,23 @@ size_t Region::FullSweep()
 Region::Region(size_t level)
     : ForwardLinkedListNode(), Level(level), Allocated(AllocateBegin(level)), OldObjectCount(0)
 {
+    for (auto cell : *this)
+    {
+        hydra_assert(!cell->IsInUse(),
+            "Cell cannot be in use");
+    }
 }
 
 Region::~Region()
 {
     FreeAll();
+
+    std::memset(
+        reinterpret_cast<void*>(
+            reinterpret_cast<uintptr_t>(this) + AllocateBegin(Level)),
+        0,
+        REGION_SIZE - AllocateBegin(Level)
+    );
 }
 
 void Region::FreeAll()

@@ -175,15 +175,17 @@ public:
 
     inline static Region *New(size_t level)
     {
-        Logger::GetInstance()->Log() << "New Region: " << GetTotalRegionCount();
-
         Region *region = NewInternal(level);
         RegionSet.Add(region);
+
+        Logger::GetInstance()->Log() << "New Region " << region << " level " << level;
         return region;
     }
 
     inline static void Delete(Region *region)
     {
+        Logger::GetInstance()->Log() << "Delete Region " << region << " level " << region->Level;
+
         RegionSet.Remove(region);
         DeleteInternal(region);
     }

@@ -22,7 +22,7 @@ public:
 
         for (auto s = table; s != limit; ++s)
         {
-            s->store(Slot());
+            new (s) std::atomic<Slot>(Slot());
         }
     }
 

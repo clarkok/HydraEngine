@@ -142,7 +142,7 @@ void Heap::GCManagement()
 
                 auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
-                GCRound.fetch_add(1, std::memory_order_acq_rel);
+                GCRound.fetch_add(1);
                 FireGCPhaseAndWait(GCPhase::GC_FULL_MARK, true /* cannotWait */);
                 perfSession.Phase("InitialMark");
 
@@ -169,7 +169,7 @@ void Heap::GCManagement()
             {
                 auto perfSession = Logger::GetInstance()->Perf("YoungGC");
 
-                GCRound.fetch_add(1, std::memory_order_acq_rel);
+                GCRound.fetch_add(1);
                 FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK, true /* cannotWait */);
                 perfSession.Phase("InitialMark");
 
@@ -242,30 +242,6 @@ void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
         StopTheWorld();
 
         ThreadPool::WaitAll(stopped, futures.end());
-
-        /*
-        GCWorkerCompletedCV.wait_for(
-            lck,
-            GC_TOLERANCE,
-            [this]()
-            {
-                return GCWorkerCompletedCount.load(std::memory_order_consume) == GCWorkerCount;
-            }
-        );
-
-        StopTheWorld();
-
-        if (GCWorkerCompletedCount.load(std::memory_order_consume) != GCWorkerCount)
-        {
-            GCWorkerCompletedCV.wait(
-                lck,
-                [this]()
-                {
-                    return GCWorkerCompletedCount.load(std::memory_order_consume) == GCWorkerCount;
-                }
-            );
-        }
-        */
     }
     else
     {

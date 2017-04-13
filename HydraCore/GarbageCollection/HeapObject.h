@@ -136,7 +136,7 @@ public:
         u8 currentProperty = Property.load();
         u8 property = currentProperty & ~IS_IN_USE;
 
-        while (!Property.compare_exchange_weak(currentProperty, property, std::memory_order_relaxed))
+        while (!Property.compare_exchange_weak(currentProperty, property))
         {
             if ((currentProperty & IS_IN_USE) == 0)
             {

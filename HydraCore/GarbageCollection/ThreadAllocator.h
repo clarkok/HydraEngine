@@ -123,8 +123,8 @@ public:
     template <typename T_Report>
     inline void Checkpoint(T_Report reportFunc)
     {
-        size_t currentGCRound = Owner->GCRound.load(std::memory_order_acquire);
-        auto currentGCPhase = Owner->GCCurrentPhase.load(std::memory_order_acquire);
+        size_t currentGCRound = Owner->GCRound.load();
+        auto currentGCPhase = Owner->GCCurrentPhase.load();
         if (ReportedGCRound != currentGCRound &&
             (currentGCPhase == Heap::GCPhase::GC_YOUNG_MARK ||
              currentGCPhase == Heap::GCPhase::GC_FULL_MARK))
@@ -133,9 +133,15 @@ public:
             reportFunc();
             Owner->ReportedThreads.fetch_add(1);
         }
-        else if (Owner->PauseRequested.load(std::memory_order_acquire))
+        else if (Owner->PauseRequested.load())
         {
             reportFunc();
+            currentGCRound = Owner->GCRound.load();
+            if (currentGCRound != ReportedGCRound)
+            {
+                ReportedGCRound = currentGCRound;
+                Owner->ReportedThreads.fetch_add(1);
+            }
             Owner->WakeupCV.wait(RunningLock,
                 [this]() { return !Owner->PauseRequested.load(std::memory_order_acquire); });
         }
