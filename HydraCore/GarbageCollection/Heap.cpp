@@ -51,15 +51,7 @@ void Heap::WriteBarrier(HeapObject *target, HeapObject *ref)
         u8 targetGCState = target->GetGCState();
         if (targetGCState == GCState::GC_DARK || targetGCState == GCState::GC_BLACK)
         {
-            auto gcPhase = GCCurrentPhase.load();
-            if (gcPhase == GCPhase::GC_FULL_SWEEP || gcPhase == GCPhase::GC_YOUNG_SWEEP)
-            {
-                SetGCStateAndWorkingQueueEnqueue(ref);
-            }
-            else
-            {
-                SetGCStateAndWorkingQueueEnqueue(target);
-            }
+            SetGCStateAndWorkingQueueEnqueue(target);
         }
     }
 }

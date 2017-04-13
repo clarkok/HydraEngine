@@ -45,12 +45,11 @@ size_t Region::YoungSweep()
         }
         else if (!Cell::CellIsInUse(currentProperty))
         {
+            // can be grey here
             FreeHead = new (cell)EmptyCell(FreeHead);
         }
         else
         {
-            hydra_assert(Cell::CellGetGCState(currentProperty) != GCState::GC_GREY,
-                "All live objects should be marked");
             oldObjectCount++;
         }
     }
@@ -71,17 +70,13 @@ size_t Region::FullSweep()
 
         if (Cell::CellIsInUse(currentProperty) && Cell::CellGetGCState(currentProperty) != GCState::GC_BLACK)
         {
-            hydra_assert(Cell::CellGetGCState(currentProperty) != GCState::GC_GREY,
-                "GC state cannot be GREY at this point");
-
+            // can be grey here
             cell->~Cell();
             FreeHead = new (cell)EmptyCell(FreeHead);
         }
         else if (Cell::CellIsInUse(currentProperty))
         {
-            hydra_assert(Cell::CellGetGCState(currentProperty) == GCState::GC_BLACK,
-                "GC state should be BLACK now");
-
+            // can be grey here
             cell->SetGCState(GCState::GC_DARK);
             oldObjectCount++;
         }
