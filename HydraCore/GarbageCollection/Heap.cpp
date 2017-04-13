@@ -127,12 +127,13 @@ void Heap::GCManagement()
             std::unique_lock<std::mutex> lck(ShouldGCMutex);
             ShouldGCCV.wait_for(lck, GC_CHECK_INTERVAL);
 
+            Scheduler.OnMonitor();
+
             youngGCRequested = YoungGCRequested.exchange(false, std::memory_order_acq_rel);
             fullGCRequested = FullGCRequested.exchange(false, std::memory_order_acq_rel);
-            if (WorkingQueue.Count() > WorkingQueue.Capacity() * GC_WORKING_QUEUE_FACTOR)
-            {
-                youngGCRequested = true;
-            }
+
+            youngGCRequested = youngGCRequested || Scheduler.ShouldYoungGC();
+            fullGCRequested = fullGCRequested || Scheduler.ShouldFullGC();
 
             ReportedThreads.store(0, std::memory_order_relaxed);
         }
@@ -142,6 +143,8 @@ void Heap::GCManagement()
             if (fullGCRequested)
             {
                 Logger::GetInstance()->Log() << "Before Full GC: " << Region::GetTotalRegionCount() << " Regions";
+
+                Scheduler.OnFullGCStart();
 
                 auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
@@ -166,11 +169,15 @@ void Heap::GCManagement()
 
                 RegionSizeAfterLastFullGC.store(Region::GetTotalRegionCount(), std::memory_order_relaxed);
 
+                Scheduler.OnFullGCEnd();
+
                 Logger::GetInstance()->Log() << "After Full GC: " << Region::GetTotalRegionCount() << " Regions";
             }
             else if (youngGCRequested)
             {
                 auto perfSession = Logger::GetInstance()->Perf("YoungGC");
+
+                Scheduler.OnYoungGCStart();
 
                 GCRound.fetch_add(1);
                 FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK, true /* cannotWait */);
@@ -190,16 +197,19 @@ void Heap::GCManagement()
 
                 FireGCPhaseAndWait(GCPhase::GC_YOUNG_SWEEP);
                 perfSession.Phase("Sweep");
+
+                Scheduler.OnYoungGCEnd();
             }
 
             GCCurrentPhase.store(GCPhase::GC_IDLE);
 
+            Scheduler.OnMonitor();
+
             youngGCRequested = YoungGCRequested.exchange(false, std::memory_order_acq_rel);
             fullGCRequested = FullGCRequested.exchange(false, std::memory_order_acq_rel);
-            if (WorkingQueue.Count() > WorkingQueue.Capacity() * GC_WORKING_QUEUE_FACTOR)
-            {
-                youngGCRequested = true;
-            }
+
+            youngGCRequested = youngGCRequested || Scheduler.ShouldYoungGC();
+            fullGCRequested = fullGCRequested || Scheduler.ShouldFullGC();
 
             ReportedThreads.store(0, std::memory_order_relaxed);
         }

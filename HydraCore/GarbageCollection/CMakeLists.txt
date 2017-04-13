@@ -8,4 +8,6 @@ add_library(HydraCore.GarbageCollection OBJECT
     Region.h
     ThreadAllocator.cpp
     ThreadAllocator.h
+    GCScheduler.cpp
+    GCScheduler.h
 )

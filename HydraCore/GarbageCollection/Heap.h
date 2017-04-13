@@ -6,6 +6,7 @@
 #include "GCDefs.h"
 #include "HeapObject.h"
 #include "Region.h"
+#include "GCScheduler.h"
 #include "Common/ConcurrentLinkedList.h"
 #include "Common/ConcurrentQueue.h"
 #include "Common/Singleton.h"
@@ -25,6 +26,7 @@ namespace gc
 {
 
 class ThreadAllocator;
+class GCScheduler;
 
 //to add state(s), you must update Cell::GC_STATE_MASK accordingly in HeapObject.h
 enum GCState : u8
@@ -51,7 +53,8 @@ public:
         YoungGCRequested(false),
         FullGCRequested(false),
         GCWorkerCount(std::min<size_t>(GC_WORKER_MAX_NR, std::thread::hardware_concurrency() / 2)),
-        GCCurrentPhase(GCPhase::GC_IDLE)
+        GCCurrentPhase(GCPhase::GC_IDLE),
+        Scheduler(this)
     {
         WaitingMutex.lock();
         GCManagementThread = std::thread(&Heap::GCManagement, this);
@@ -126,7 +129,7 @@ public:
 
     inline void SetGCStateAndWorkingQueueEnqueue(HeapObject *obj)
     {
-        if (WorkingQueue.Count() > WorkingQueue.Capacity() * GC_WORKING_QUEUE_FACTOR)
+        if (WorkingQueue.Count() > WorkingQueue.Capacity() * YOUNG_GC_TRIGGER_FACTOR_BY_WORKING_QUEUE)
         {
             RequestYoungGC();
         }
@@ -197,6 +200,8 @@ private:
 
     std::chrono::time_point<std::chrono::high_resolution_clock> WorldStopped;
 
+    GCScheduler Scheduler;
+
     std::thread GCManagementThread;
     void GCManagement();
     void FireGCPhaseAndWait(GCPhase phase, bool cannotWait = false);
@@ -210,6 +215,7 @@ private:
     bool AreAllWorkingThreadsReported();
 
     friend class ThreadAllocator;
+    friend class GCScheduler;
 };
 
 } // namespace gc
