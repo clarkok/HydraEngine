@@ -53,11 +53,13 @@ public:
         GCWorkerCount(std::min<size_t>(GC_WORKER_MAX_NR, std::thread::hardware_concurrency() / 2)),
         GCCurrentPhase(GCPhase::GC_IDLE)
     {
+        WaitingMutex.lock();
         GCManagementThread = std::thread(&Heap::GCManagement, this);
     }
 
     ~Heap()
     {
+        WaitingMutex.unlock();
         if (!ShouldExit.exchange(true))
         {
             GCManagementThread.join();
@@ -183,6 +185,7 @@ private:
     // Stop-the-world
     std::atomic<bool> PauseRequested;
     std::shared_mutex RunningMutex;
+    std::shared_mutex WaitingMutex;
     std::condition_variable_any WakeupCV;
 
     std::mutex ShouldGCMutex;

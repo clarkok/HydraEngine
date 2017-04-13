@@ -135,6 +135,8 @@ public:
         }
         else if (Owner->PauseRequested.load())
         {
+            auto checkpointPerf = Logger::GetInstance()->Perf("CheckpointPauseRequest");
+
             reportFunc();
             currentGCRound = Owner->GCRound.load();
             if (currentGCRound != ReportedGCRound)
@@ -142,8 +144,12 @@ public:
                 ReportedGCRound = currentGCRound;
                 Owner->ReportedThreads.fetch_add(1);
             }
-            Owner->WakeupCV.wait(RunningLock,
-                [this]() { return !Owner->PauseRequested.load(std::memory_order_acquire); });
+
+            {
+                std::shared_lock<std::shared_mutex> waitingLock(Owner->WaitingMutex);
+                Owner->WakeupCV.wait(RunningLock,
+                    [this]() { return !Owner->PauseRequested.load(std::memory_order_acquire); });
+            }
         }
     }
 

@@ -80,6 +80,7 @@ void Heap::StopTheWorld()
     {
         auto perfSession = Logger::GetInstance()->Perf("StoppingTheWorld");
 
+        WaitingMutex.unlock();
         RunningMutex.lock();
         Logger::GetInstance()->Log() << "Stop the world";
 
@@ -98,6 +99,8 @@ void Heap::ResumeTheWorld()
             std::chrono::duration_cast<std::chrono::microseconds>(now - WorldStopped).count() / 1000. << "ms";
         RunningMutex.unlock();
         WakeupCV.notify_all();
+
+        WaitingMutex.lock();
     }
 }
 
