@@ -156,6 +156,7 @@ private:
     Heap *Owner;
     EventHistory History;
     size_t RegionCountAfterLastYoungGC;
+    size_t RegionCountBeforeLastFullGC;
     size_t RegionCountAfterLastFullGC;
     size_t RegionCountBeforeFullGC;
 
@@ -163,7 +164,7 @@ private:
     TimePoint LastMonitor;
     TimePoint FullGCStart;
 
-    double RegionAllocatedPerSecond;
+    double RegionOldFulledPerSecond;
     double RegionProcessedInFullGCPerSecond;
 };
 

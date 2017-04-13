@@ -147,6 +147,16 @@ public:
         }
     }
 
+    inline size_t GetYoungCleaningRegionCount()
+    {
+        return CleaningList.GetCount();
+    }
+
+    inline size_t GetFullCleaningRegionCount()
+    {
+        return FullCleaningList.GetCount();
+    }
+
     void WriteBarrier(HeapObject *target, HeapObject *ref);
 
     void StopTheWorld();

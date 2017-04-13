@@ -31,16 +31,6 @@ Region *Heap::GetFreeRegion(size_t level)
     if (GCCurrentPhase.load(std::memory_order_relaxed) == GCPhase::GC_IDLE)
     {
         size_t currentRegionCount = Region::GetTotalRegionCount();
-
-        if (currentRegionCount >
-            RegionSizeAfterLastFullGC.load(std::memory_order_relaxed) * FULL_GC_TRIGGER_FACTOR_BY_INCREMENT)
-        {
-            RequestFullGC();
-        }
-        else if (currentRegionCount > MAXIMUM_REGION_COUNT * FULL_GC_TRIGGER_FACTOR_BY_HEAP_SIZE)
-        {
-            RequestFullGC();
-        }
     }
 
     return ret;
@@ -142,11 +132,14 @@ void Heap::GCManagement()
         {
             if (fullGCRequested)
             {
-                Logger::GetInstance()->Log() << "Before Full GC: " << Region::GetTotalRegionCount() << " Regions";
+                auto perfSession = Logger::GetInstance()->Perf("FullGC");
+
+                Logger::GetInstance()->Log() << "Before Full GC: "
+                    << "[Total: " << Region::GetTotalRegionCount() << "] "
+                    << "[YoungFull: " << GetYoungCleaningRegionCount() << "] "
+                    << "[OldFull: " << GetFullCleaningRegionCount() << "]";
 
                 Scheduler.OnFullGCStart();
-
-                auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
                 GCRound.fetch_add(1);
                 FireGCPhaseAndWait(GCPhase::GC_FULL_MARK, true /* cannotWait */);
@@ -171,11 +164,19 @@ void Heap::GCManagement()
 
                 Scheduler.OnFullGCEnd();
 
-                Logger::GetInstance()->Log() << "After Full GC: " << Region::GetTotalRegionCount() << " Regions";
+                Logger::GetInstance()->Log() << "After Full GC: "
+                    << "[Total: " << Region::GetTotalRegionCount() << "] "
+                    << "[YoungFull: " << GetYoungCleaningRegionCount() << "] "
+                    << "[OldFull: " << GetFullCleaningRegionCount() << "]";
             }
             else if (youngGCRequested)
             {
                 auto perfSession = Logger::GetInstance()->Perf("YoungGC");
+
+                Logger::GetInstance()->Log() << "Before Young GC: "
+                    << "[Total: " << Region::GetTotalRegionCount() << "] "
+                    << "[YoungFull: " << GetYoungCleaningRegionCount() << "] "
+                    << "[OldFull: " << GetFullCleaningRegionCount() << "]";
 
                 Scheduler.OnYoungGCStart();
 
@@ -199,6 +200,11 @@ void Heap::GCManagement()
                 perfSession.Phase("Sweep");
 
                 Scheduler.OnYoungGCEnd();
+
+                Logger::GetInstance()->Log() << "After Young GC: "
+                    << "[Total: " << Region::GetTotalRegionCount() << "] "
+                    << "[YoungFull: " << GetYoungCleaningRegionCount() << "] "
+                    << "[OldFull: " << GetFullCleaningRegionCount() << "]";
             }
 
             GCCurrentPhase.store(GCPhase::GC_IDLE);
@@ -335,7 +341,6 @@ void Heap::GCWorkerYoungMark()
 
             // feed back half of localQueue to global WorkingQueue
             size_t objectsToFeedBack = localQueue.size() / 2;
-            Logger::GetInstance()->Log() << "Feed " << objectsToFeedBack << " back to global queue (" << WorkingQueue.Count() << ")";
             while (objectsToFeedBack--)
             {
                 HeapObject *obj = localQueue.front(); localQueue.pop();
@@ -437,7 +442,6 @@ void Heap::GCWorkerFullMark()
 
             // feed back half of localQueue to global WorkingQueue
             size_t objectsToFeedBack = localQueue.size() / 2;
-            Logger::GetInstance()->Log() << "Feed " << objectsToFeedBack << " back to global queue (" << WorkingQueue.Count() << ")";
             while (objectsToFeedBack--)
             {
                 HeapObject *obj = localQueue.front(); localQueue.pop();

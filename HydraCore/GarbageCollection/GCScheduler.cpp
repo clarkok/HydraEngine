@@ -56,14 +56,15 @@ GCScheduler::GCScheduler(Heap *owner)
 void GCScheduler::OnFullGCStart()
 {
     History.Push(EventType::E_FULL_GC_START);
-    RegionCountBeforeFullGC = Region::GetTotalRegionCount();
+    RegionCountBeforeLastFullGC = RegionCountBeforeFullGC;
+    RegionCountBeforeFullGC = Owner->GetFullCleaningRegionCount();
     FullGCStart = std::chrono::high_resolution_clock::now();
 }
 
 void GCScheduler::OnFullGCEnd()
 {
     History.Push(EventType::E_FULL_GC_END);
-    RegionCountAfterLastFullGC = Region::GetTotalRegionCount();
+    RegionCountAfterLastFullGC = Owner->GetFullCleaningRegionCount();
 
     auto timeElapsed = std::chrono::duration_cast<Duration>(
             std::chrono::high_resolution_clock::now() - FullGCStart);
@@ -80,12 +81,11 @@ void GCScheduler::OnYoungGCStart()
 void GCScheduler::OnYoungGCEnd()
 {
     History.Push(EventType::E_YOUNG_GC_END);
-    RegionCountAfterLastYoungGC = Region::GetTotalRegionCount();
 }
 
 void GCScheduler::OnMonitor()
 {
-    auto regionCount = Region::GetTotalRegionCount();
+    auto regionCount = Owner->GetFullCleaningRegionCount();
     auto now = std::chrono::high_resolution_clock::now();
 
     if (RegionCountLastMonitor < regionCount)
@@ -93,7 +93,7 @@ void GCScheduler::OnMonitor()
         auto timeElapsed = std::chrono::duration_cast<Duration>(now - LastMonitor);
         double regionPerSecond = (regionCount - RegionCountLastMonitor) / timeElapsed.count();
 
-        UpdateValue(RegionAllocatedPerSecond, regionPerSecond);
+        UpdateValue(RegionOldFulledPerSecond, regionPerSecond);
     }
 
     RegionCountLastMonitor = regionCount;
@@ -103,7 +103,7 @@ void GCScheduler::OnMonitor()
 
 bool GCScheduler::ShouldYoungGC()
 {
-    size_t currentRegionCount = Region::GetTotalRegionCount();
+    size_t currentRegionCount = Owner->GetYoungCleaningRegionCount();
     size_t currentWorkingQueueLength = Owner->WorkingQueue.Count();
 
     return (currentWorkingQueueLength > Owner->WorkingQueue.Capacity() * YOUNG_GC_TRIGGER_FACTOR_BY_WORKING_QUEUE) ||
@@ -112,23 +112,38 @@ bool GCScheduler::ShouldYoungGC()
 
 bool GCScheduler::ShouldFullGC()
 {
-    size_t currentRegionCount = Region::GetTotalRegionCount();
+    size_t currentRegionCount = Owner->GetFullCleaningRegionCount();
+
+    if (!currentRegionCount)
+    {
+        return false;
+    }
 
     if (currentRegionCount > MAXIMUM_REGION_COUNT)
     {
         return true;
     }
 
-    double RegionCountToFullGC = RegionCountAfterLastFullGC * FULL_GC_TRIGGER_FACTOR_BY_INCREMENT;
-    double SecondsForAllocation = (RegionCountToFullGC - currentRegionCount) / RegionAllocatedPerSecond;
+    double RegionCountToFullGCByIncrement = RegionCountAfterLastFullGC * FULL_GC_TRIGGER_FACTOR_BY_INCREMENT;
+    double SecondsForAllocationByIncrement = (RegionCountToFullGCByIncrement - currentRegionCount) / RegionOldFulledPerSecond;
+
+    double RegionCountToFullGCByLast = RegionCountBeforeLastFullGC;
+    double SecondsForAllocationByLast = (RegionCountToFullGCByLast - currentRegionCount) / RegionOldFulledPerSecond;
+
     double SecondsForFullGC = currentRegionCount / RegionProcessedInFullGCPerSecond;
 
-    if (SecondsForFullGC + GC_SCHEDULER_FULL_GC_ADVANCE_IN_SECOND >= SecondsForAllocation)
+    bool ret = (SecondsForFullGC + GC_SCHEDULER_FULL_GC_ADVANCE_IN_SECOND >= SecondsForAllocationByIncrement) ||
+        (SecondsForFullGC >= SecondsForAllocationByLast);
+
+    if (ret)
     {
-        Logger::GetInstance()->Log() << "Predict full gc: " << SecondsForAllocation << "," << SecondsForFullGC;
+        Logger::GetInstance()->Log() << "Predict full gc: "
+            << "[NextFullGCTime: " << (SecondsForFullGC * 1000) << "ms] "
+            << "[AllocateToIncrement: " << (SecondsForAllocationByIncrement * 1000) << "ms] "
+            << "[AllocateTolast: " << (SecondsForAllocationByLast * 1000) << "ms]";
     }
 
-    return SecondsForFullGC + GC_SCHEDULER_FULL_GC_ADVANCE_IN_SECOND >= SecondsForAllocation;
+    return ret;
 }
 
 }

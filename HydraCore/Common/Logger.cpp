@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 
-#ifdef HYDRA_LOG_TO_FILE
+#if defined HYDRA_LOG_TO_FILE and defined HYDRA_ENABLE_LOG
 std::ofstream fout("./log.txt");
 #endif
 
