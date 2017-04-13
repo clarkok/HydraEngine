@@ -162,14 +162,21 @@ TEST_CASE("ManagedHashMapGCTest", "[Runtime][!hide]")
     auto uut = TestMap::New(allocator, 20);
 
     auto TEST_KEY = String::New(allocator,
-        u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567890");
+        u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
 
     REQUIRE(uut->Capacity() == 40);
     std::array<TestHeapObject *, 40> values;
     std::fill(values.begin(), values.end(), nullptr);
 
+    size_t count = 0;
+
     while (true)
     {
+        if (count++ % 8192 == 0)
+        {
+            std::cout << std::chrono::high_resolution_clock::now().time_since_epoch().count() << std::endl;
+        }
+
         for (size_t i = 0; i < 40; ++i)
         {
             auto key = String::Slice(allocator, TEST_KEY, i, 1);

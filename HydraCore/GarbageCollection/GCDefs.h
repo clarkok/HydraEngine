@@ -9,7 +9,7 @@ namespace hydra
 namespace gc
 {
 
-constexpr size_t REGION_SIZE_LEVEL = 19;
+constexpr size_t REGION_SIZE_LEVEL = 21;
 constexpr size_t REGION_SIZE = 1u << REGION_SIZE_LEVEL;     // 512 KB
 
 constexpr size_t MAXIMAL_ALLOCATE_SIZE_LEVEL = REGION_SIZE_LEVEL - 2;

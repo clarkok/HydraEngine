@@ -14,7 +14,7 @@
 namespace hydra
 {
 
-// #define HYDRA_ENABLE_LOG
+#define HYDRA_ENABLE_LOG
 #define HYDRA_LOG_TO_FILE
 
 using namespace std::chrono_literals;

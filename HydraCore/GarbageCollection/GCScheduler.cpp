@@ -3,6 +3,8 @@
 #include "Heap.h"
 #include "Region.h"
 
+#include "Common/Logger.h"
+
 namespace hydra
 {
 namespace gc
@@ -120,6 +122,11 @@ bool GCScheduler::ShouldFullGC()
     double RegionCountToFullGC = RegionCountAfterLastFullGC * FULL_GC_TRIGGER_FACTOR_BY_INCREMENT;
     double SecondsForAllocation = (RegionCountToFullGC - currentRegionCount) / RegionAllocatedPerSecond;
     double SecondsForFullGC = currentRegionCount / RegionProcessedInFullGCPerSecond;
+
+    if (SecondsForFullGC + GC_SCHEDULER_FULL_GC_ADVANCE_IN_SECOND >= SecondsForAllocation)
+    {
+        Logger::GetInstance()->Log() << "Predict full gc: " << SecondsForAllocation << "," << SecondsForFullGC;
+    }
 
     return SecondsForFullGC + GC_SCHEDULER_FULL_GC_ADVANCE_IN_SECOND >= SecondsForAllocation;
 }
