@@ -99,6 +99,21 @@ public:
         return (property & GC_STATE_MASK);
     }
 
+    inline static void SetNotInUse(Cell *cell)
+    {
+        u8 currentProperty = cell->Property.load();
+        u8 property = currentProperty & ~IS_IN_USE;
+
+        while (!cell->Property.compare_exchange_weak(currentProperty, property))
+        {
+            if ((currentProperty & IS_IN_USE) == 0)
+            {
+                break;
+            }
+            property = currentProperty & ~IS_IN_USE;
+        }
+    }
+
     static constexpr u8 IS_IN_USE = 1u << 7;
     static constexpr u8 IS_LARGE = 1u << 6;
     static constexpr u8 GC_STATE_MASK = (1u << 2) - 1;
@@ -133,17 +148,7 @@ public:
 
     virtual ~HeapObject()
     {
-        u8 currentProperty = Property.load();
-        u8 property = currentProperty & ~IS_IN_USE;
-
-        while (!Property.compare_exchange_weak(currentProperty, property))
-        {
-            if ((currentProperty & IS_IN_USE) == 0)
-            {
-                break;
-            }
-            property = currentProperty & ~IS_IN_USE;
-        }
+        SetNotInUse(this);
     }
 
     virtual void Scan(std::function<void(HeapObject *)>) = 0;
