@@ -62,7 +62,7 @@ public:
         while (begin != end)
         {
             auto timeElapsed = std::chrono::high_resolution_clock::now() - startWaiting;
-            auto timeRemains = std::chrono::duration_cast<decltype(timeElapsed)>(timeout_duration);
+            auto timeRemains = std::chrono::duration_cast<decltype(timeElapsed)>(timeout_duration - timeElapsed);
 
             auto result = begin->wait_for(timeRemains);
             // not considerring deferred futures
