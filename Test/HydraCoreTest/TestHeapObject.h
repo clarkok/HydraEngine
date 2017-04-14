@@ -19,9 +19,11 @@ struct TestHeapObject : public hydra::gc::HeapObject
         Ref3(ref3),
         Id(Count())
     {
-        if (ref1) hydra::gc::Heap::GetInstance()->WriteBarrier(this, ref1);
-        if (ref2) hydra::gc::Heap::GetInstance()->WriteBarrier(this, ref2);
-        if (ref3) hydra::gc::Heap::GetInstance()->WriteBarrier(this, ref3);
+        auto heap = hydra::gc::Heap::GetInstance();
+
+        if (ref1) heap->WriteBarrier(this, ref1);
+        if (ref2) heap->WriteBarrier(this, ref2);
+        if (ref3) heap->WriteBarrier(this, ref3);
     }
 
     ~TestHeapObject()

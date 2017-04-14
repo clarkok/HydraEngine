@@ -14,7 +14,7 @@
 namespace hydra
 {
 
-#define HYDRA_ENABLE_LOG
+// #define HYDRA_ENABLE_LOG
 #define HYDRA_LOG_TO_FILE
 
 using namespace std::chrono_literals;
@@ -93,25 +93,18 @@ struct AssertFailureException : Exception
             + "\n  " + message)
     { }
 
-    static inline void TestAndRaise(
+    static void Raise(
         const char *source,
         int lineNumber,
-        bool condition,
         const char *expression,
-        const char *message)
-    {
-        if (!condition)
-        {
-            throw AssertFailureException(
-                source,
-                lineNumber,
-                expression,
-                message);
-        }
-    }
+        const char *message);
 };
 
-#define hydra_assert(expr, msg) ::hydra::AssertFailureException::TestAndRaise(__FILE__, __LINE__, (expr), #expr, msg)
+#define hydra_assert(expr, msg)                                                     \
+    do {                                                                            \
+        if (!(expr))                                                                \
+            ::hydra::AssertFailureException::Raise(__FILE__, __LINE__, #expr, msg); \
+    } while (false)
 
 }
 

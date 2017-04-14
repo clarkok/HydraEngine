@@ -174,7 +174,7 @@ TEST_CASE("ManagedHashMapGCTest", "[Runtime][!hide]")
     {
         if (count++ % 8192 == 0)
         {
-            std::cout << std::chrono::high_resolution_clock::now().time_since_epoch().count() << std::endl;
+            // std::cout << std::chrono::high_resolution_clock::now().time_since_epoch().count() << std::endl;
         }
 
         for (size_t i = 0; i < 40; ++i)

@@ -87,6 +87,12 @@ size_t Region::FullSweep()
     }
 
     OldObjectCount.store(oldObjectCount, std::memory_order_relaxed);
+
+    if (oldObjectCount == 0)
+    {
+        Allocated = AllocateBegin(Level);
+    }
+
     return oldObjectCount;
 }
 

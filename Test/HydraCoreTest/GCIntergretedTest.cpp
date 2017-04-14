@@ -21,32 +21,25 @@ int main()
 
     constexpr size_t ROUND = 10000000;
 
-    size_t round = ROUND;
+    size_t round = 0;
 
     // std::vector<TestHeapObject *> headers;
     std::array<TestHeapObject *, 10> headers;
     std::fill(headers.begin(), headers.end(), nullptr);
 
-    while (round-- <= ROUND)
-    // while (true)
+    while (true)
     {
+        if (round++ % 8192 == 0)
+        {
+            std::cout << std::chrono::high_resolution_clock::now().time_since_epoch().count() << std::endl;
+        }
+
         TestHeapObject *head = nullptr;
         size_t count = 1000;
 
         while (count--)
         {
             head = allocator.AllocateAuto<TestHeapObject>(head);
-            /*
-            head = allocator.Allocate<TestHeapObject>([&]()
-            {
-                heap->Remember(head);
-                for (auto &header : headers)
-                {
-                    heap->Remember(header);
-                }
-            },
-            head);
-            */
         }
 
         TestHeapObject *ptr = head;
