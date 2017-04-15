@@ -227,7 +227,6 @@ TEST_CASE("ManagedHashMultiThreadsTest", "[Runtime][!hide]")
         return ret;
     };
 
-    /*
     std::thread otherThread([&]()
     {
         gc::ThreadAllocator allocator(heap);
@@ -245,10 +244,16 @@ TEST_CASE("ManagedHashMultiThreadsTest", "[Runtime][!hide]")
             TestMap::Latest(uut)->Remove(key, fetched);
         }
     });
-    */
+
+    size_t count = 0;
 
     for (;;)
     {
+        if (count++ % 8192 == 0)
+        {
+            std::cout << count << std::endl;
+        }
+
         auto value = allocator.AllocateAuto<TestHeapObject>();
         auto key = RandomKey(allocator, 15);
         TestMap::Latest(uut)->SetAuto(allocator, key, value);
