@@ -36,6 +36,124 @@ public:
         return KlassTableSizeOfLevel(level) * sizeof(String*) + sizeof(Klass);
     }
 
+    struct iterator
+    {
+        iterator(Klass *owner = nullptr, size_t index = 0)
+            : Owner(owner),
+            Table(Owner ? Owner->Table() : nullptr),
+            Limit(Owner ? Owner->TableLimit() - Owner->Table() : 0),
+            Index(index)
+        {
+            if (Owner)
+            {
+                FindFirst();
+            }
+        }
+        iterator(const iterator &) = default;
+        iterator(iterator &&) = default;
+        iterator & operator = (const iterator &) = default;
+        iterator & operator = (iterator &&) = default;
+
+        String * operator * () const
+        {
+            return Table[Index];
+        }
+
+        bool operator == (iterator other) const
+        {
+            return Owner == other.Owner && Index == other.Index;
+        }
+
+        bool operator != (iterator other) const
+        {
+            return !this->operator==(other);
+        }
+
+        iterator & operator ++()
+        {
+            FindNext();
+            return *this;
+        }
+
+        iterator & operator --()
+        {
+            FindLast();
+            return *this;
+        }
+
+        iterator operator ++(int)
+        {
+            auto ret = *this;
+            this->operator++();
+            return ret;
+        }
+
+        iterator operator --(int)
+        {
+            auto ret = *this;
+            this->operator--();
+            return ret;
+        }
+
+        bool Valid() const
+        {
+            return Owner && Index <= Limit;
+        }
+
+    private:
+        inline void FindFirst()
+        {
+            hydra_assert(Owner, "Must have a valid Owner");
+
+            for (; Index < Limit; ++Index)
+            {
+                if (Table[Index])
+                {
+                    break;
+                }
+            }
+        }
+
+        inline void FindNext()
+        {
+            if (!Valid())
+            {
+                return;
+            }
+
+            for (++Index; Index < Limit; ++Index)
+            {
+                if (Table[Index])
+                {
+                    return;
+                }
+            }
+        }
+
+        inline void FindLast()
+        {
+            if (!Valid())
+            {
+                return;
+            }
+
+            while (Index--)
+            {
+                if (Table[Index])
+                {
+                    return;
+                }
+            }
+
+            Index = 0;
+        }
+
+        Klass *Owner;
+        String **Table;
+        size_t Limit;
+        size_t Index;
+    };
+
     size_t Find(String *key)
     {
         u64 hash = key->GetHash();
@@ -53,7 +171,7 @@ public:
             }
         } while ((index = (index + 1) % TableSize) != hash % TableSize);
 
-        hydra_trap("Key not found in Klass!");
+        return INVALID_OFFSET;
     }
 
     Klass *AddTransaction(gc::ThreadAllocator &allocator, String *key)
@@ -79,12 +197,17 @@ public:
             return newKlass;
         }
 
-        size_t newLevel = (KeyCount == TableSize) ? Level + 1 : Level;
+        size_t newLevel = (KeyCount + 1 == TableSize) ? Level + 1 : Level;
         size_t newSize = KlassObjectSizeOfLevel(newLevel);
         newKlass = allocator.AllocateWithSizeAuto<Klass>(newSize, newLevel, this, key);
 
-        // now care about result
-        currentTransaction->FindOrSet(key, newKlass);
+        bool found = false;
+        bool set = false;
+        while (!currentTransaction->FindOrSet(key, newKlass, found, set))
+        {
+            currentTransaction = currentTransaction->Rehash(allocator);
+        }
+
         return newKlass;
     }
 
@@ -95,7 +218,25 @@ public:
 
     static Klass *EmptyKlass(gc::ThreadAllocator &allocator);
 
-    JSObject *NewObject(gc::ThreadAllocator &allocator);
+    template <typename T, typename ...T_Args>
+    T *NewObject(gc::ThreadAllocator &allocator, T_Args ...args)
+    {
+        static_assert(std::is_base_of<JSObject, T>::value,
+            "T must be devired from JSObject");
+
+        return allocator.AllocateWithSizeAuto<T>(
+            gc::Region::CellSizeFromLevel(Level), this, args...);
+    }
+
+    inline iterator begin()
+    {
+        return iterator(this);
+    }
+
+    inline iterator end()
+    {
+        return iterator(this, TableSize);
+    }
 
     virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final
     {
@@ -123,7 +264,9 @@ private:
         TableSize(JSObjectSlotSizeOfLevel(level)),
         KeyCount(0),
         Transaction(nullptr)
-    { }
+    {
+        std::memset(Table(), 0, TableSize * sizeof(String*));
+    }
 
     Klass(u8 property, size_t level, Klass *other, String *key)
         : Klass(property, level)
@@ -141,31 +284,19 @@ private:
                     break;
                 }
             } while ((index = (index + 1) % TableSize) != hash % TableSize);
+
+            gc::Heap::GetInstance()->WriteBarrier(this, key);
+            KeyCount++;
         };
 
-        if (other->Level == level)
-        {
-            std::copy(other->Table(), other->TableLimit(), Table());
-            Add(key);
-        }
-        else
-        {
-            std::fill(Table(), TableLimit(), nullptr);
-
-            for (String **pKey = other->Table(); pKey != other->TableLimit(); ++pKey)
-            {
-                Add(*pKey);
-            }
-            Add(key);
-        }
-
-        for (String **pKey = Table(); pKey != TableLimit(); ++pKey)
+        for (String **pKey = other->Table(); pKey != other->TableLimit(); ++pKey)
         {
             if (*pKey)
             {
-                gc::Heap::GetInstance()->WriteBarrier(this, *pKey);
+                Add(*pKey);
             }
         }
+        Add(key);
     }
 
     inline String **Table()

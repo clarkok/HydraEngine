@@ -19,16 +19,15 @@ TEST_CASE("JSObjectTest", "[Runtime]")
     gc::ThreadAllocator allocator(heap);
 
     Klass *emptyKlass = Klass::EmptyKlass(allocator);
-    JSObject *uut = emptyKlass->NewObject(allocator);
+    JSObject *uut = emptyKlass->NewObject<JSObject>(allocator);
+    String *key = String::New(allocator, u"key");
+    JSValue fetched;
+    bool result = false;
 
     SECTION("Basic Test")
     {
-        String *key = String::New(allocator, u"key");
         JSValue value = JSValue::FromNumber(10);
-        JSValue fetched;
-        bool result = false;
 
-        result = uut->Has(key);
         fetched = uut->Get(key);
         REQUIRE(!result);
         REQUIRE(fetched == JSValue());
@@ -37,17 +36,58 @@ TEST_CASE("JSObjectTest", "[Runtime]")
         auto originalUut = uut;
         REQUIRE(JSObject::Latest(uut) == originalUut);
 
-        result = uut->Has(key);
-        REQUIRE(result);
-
         fetched = uut->Get(key);
         REQUIRE(fetched == value);
 
         uut->Delete(key);
-        result = uut->Has(key);
+        fetched = uut->Get(key);
+        REQUIRE(fetched == JSValue());
+    }
+
+    SECTION("Undefined Test")
+    {
+        JSValue undefined = JSValue::Undefined();
+
         fetched = uut->Get(key);
         REQUIRE(!result);
         REQUIRE(fetched == JSValue());
+
+        uut->Add(allocator, key, undefined);
+        fetched = uut->Get(key);
+        REQUIRE(fetched == undefined);
+
+        uut->Delete(key);
+        fetched = uut->Get(key);
+        REQUIRE(fetched == JSValue());
+
+        result = uut->Set(key, undefined);
+        REQUIRE(result);
+
+        fetched = uut->Get(key);
+        REQUIRE(fetched == undefined);
+    }
+
+    SECTION("Enlarge Test")
+    {
+        String *ALPHABET = String::New(allocator, u"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        auto originalUut = uut;
+
+        for (size_t i = 0; i < ALPHABET->length(); ++i)
+        {
+            auto key = String::Slice(allocator, ALPHABET, i, 1);
+            auto value = JSValue::FromSmallInt(i);
+
+            JSObject::Latest(uut)->Add(allocator, key, value);
+        }
+
+        REQUIRE(uut != originalUut);
+
+        for (size_t i = 0; i < ALPHABET->length(); ++i)
+        {
+            auto key = String::Slice(allocator, ALPHABET, i, 1);
+
+            REQUIRE(uut->Get(key) == JSValue::FromSmallInt(i));
+        }
     }
 }
 

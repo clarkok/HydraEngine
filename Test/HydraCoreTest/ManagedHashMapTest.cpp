@@ -75,8 +75,11 @@ TEST_CASE("ManagedHashMap", "[Runtime]")
     {
         auto value = allocator.AllocateAuto<TestHeapObject>();
 
-        auto result = uut->FindOrSet(TEST_KEY, value);
+        bool found = false;
+        bool set = false;
+        auto result = uut->FindOrSet(TEST_KEY, value, found, set);
         REQUIRE(result);
+        REQUIRE((set && !found) == true);
 
         TestHeapObject *fetched = nullptr;
         result = uut->Find(TEST_KEY, fetched);
@@ -84,15 +87,17 @@ TEST_CASE("ManagedHashMap", "[Runtime]")
         REQUIRE(fetched == value);
 
         auto otherValue = allocator.AllocateAuto<TestHeapObject>();
-        result = uut->FindOrSet(TEST_KEY, otherValue);
-        REQUIRE(!result);
+        result = uut->FindOrSet(TEST_KEY, otherValue, found, set);
+        REQUIRE(result);
         REQUIRE(otherValue == value);
+        REQUIRE((found && !set) == true);
 
         result = uut->Remove(TEST_KEY, value);
         REQUIRE(result);
         otherValue = allocator.AllocateAuto<TestHeapObject>();
-        result = uut->FindOrSet(TEST_KEY, otherValue);
+        result = uut->FindOrSet(TEST_KEY, otherValue, found, set);
         REQUIRE(result);
+        REQUIRE((set && !found) == true);
 
         result = uut->Find(TEST_KEY, fetched);
         REQUIRE(result);

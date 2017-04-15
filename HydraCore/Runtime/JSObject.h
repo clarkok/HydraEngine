@@ -41,7 +41,6 @@ public:
     }
 
     JSValue Get(String *key);
-    bool Has(String *key);
     bool Set(String *key, JSValue value);
     void Add(gc::ThreadAllocator &allocator, String *key, JSValue value);
     void Delete(String *key);
@@ -61,6 +60,8 @@ public:
     virtual void Scan(std::function<void(HeapObject*)> scan) override;
 
 private:
+    JSObject(u8 property, Klass *klass, JSObject *other);
+
     JSValue &Slot(size_t index);
     JSValue *Table();
     JSValue *TableLimit();
@@ -72,6 +73,8 @@ private:
 
     Klass *Klass;
     JSObject *Replacement;
+
+    friend class gc::Region;
 };
 
 static_assert((sizeof(JSObject) + 3 * sizeof(JSValue)) <= gc::MINIMAL_ALLOCATE_SIZE,

@@ -13,6 +13,22 @@ JSObject::JSObject(u8 property, runtime::Klass *klass)
     gc::Heap::GetInstance()->WriteBarrier(this, klass);
 }
 
+JSObject::JSObject(u8 property, runtime::Klass *klass, JSObject *other)
+    : JSObject(property, klass)
+{
+    auto deleted = JSValue();
+
+    for (auto key : *klass)
+    {
+        JSValue value = other->Get(key);
+        if (value != deleted)
+        {
+            auto result = Set(key, value);
+            hydra_assert(result, "Must succeed");
+        }
+    }
+}
+
 void JSObject::Scan(std::function<void(HeapObject*)> scan)
 {
     scan(Klass);
@@ -62,17 +78,6 @@ JSValue JSObject::Get(String *key)
     return JSValue();
 }
 
-bool JSObject::Has(String *key)
-{
-    if (Replacement)
-    {
-        return Replacement->Has(key);
-    }
-
-    size_t index;
-    return Index(key, index) && Slot(index) != JSValue();
-}
-
 bool JSObject::Set(String *key, JSValue value)
 {
     if (Replacement)
@@ -84,6 +89,10 @@ bool JSObject::Set(String *key, JSValue value)
     if (Index(key, index))
     {
         Slot(index) = value;
+        if (value.IsReference())
+        {
+            gc::Heap::GetInstance()->WriteBarrier(this, value.ToReference());
+        }
         return true;
     }
 
@@ -114,18 +123,16 @@ void JSObject::Add(gc::ThreadAllocator &allocator, String *key, JSValue value)
     }
     else
     {
-        hydra_trap("TODO: enlarge object");
+        Replacement = newKlass->NewObject<JSObject>(allocator, this);
+        auto result = Replacement->Set(key, value);
+        hydra_assert(result, "must succeeded");
+
+        gc::Heap::GetInstance()->WriteBarrier(this, Replacement);
     }
 }
 
 void JSObject::Delete(String *key)
 {
-    if (Replacement)
-    {
-        Replacement->Delete(key);
-        return;
-    }
-
     Set(key, JSValue());
 }
 
