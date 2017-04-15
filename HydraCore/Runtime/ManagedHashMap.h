@@ -60,6 +60,8 @@ public:
                 current = next;
             }
         } while (!ptr.compare_exchange_strong(original, current));
+
+        return current;
     }
 
     inline static HashMap *New(gc::ThreadAllocator &allocator, size_t capacity)
@@ -144,15 +146,15 @@ public:
         return false;
     }
 
-    // return if set
-    bool FindOrSet(String *key, T &value)
+    // return either found or set
+    bool FindOrSet(String *key, T &value, bool &found, bool &set)
     {
         std::shared_lock<std::shared_mutex> lck(ReadWriteMutex);
 
         HashMap *replacement = Replacement.load(std::memory_order_acquire);
         if (replacement)
         {
-            return replacement->FindOrSet(key, value);
+            return replacement->FindOrSet(key, value, found, set);
         }
 
         auto hash = key->GetHash();
@@ -172,7 +174,8 @@ public:
                     gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
 
                     KeyCount.fetch_add(1, std::memory_order_relaxed);
-
+                    found = false;
+                    set = true;
                     return true;
                 }
             }
@@ -185,7 +188,8 @@ public:
                     gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
 
                     KeyCount.fetch_add(1, std::memory_order_relaxed);
-
+                    found = false;
+                    set = true;
                     return true;
                 }
             }
@@ -193,10 +197,15 @@ public:
             if (current.GetKey()->EqualsTo(key))
             {
                 value = current.Value;
-
-                return false;
+                found = true;
+                set = false;
+                return true;
             }
         } while ((index = (index + 1) % TableSize) != hash % TableSize);
+
+        found = false;
+        set = false;
+        return false;
     }
 
     bool TrySet(String *key, T value)
