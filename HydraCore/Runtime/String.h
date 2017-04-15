@@ -435,7 +435,7 @@ protected:
         return Sliced->hash(start + Start, length, m, c);
     }
 
-public:
+private:
     String *Sliced;
     size_t Start;
     size_t Length;

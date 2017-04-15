@@ -18,6 +18,7 @@ enum class Type
 {
                     // 63-----56 55-----48 47-----40 39-----32 31-----24 23-----16 15------8 7-------0
     T_UNDEFINE,     // 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 
+    T_NOT_EXISTS,   // 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1110 
     T_BOOLEAN,      // 1111 1111 1111 1001 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
 
     T_SMALL_INT,    // 1111 1111 1111 1000 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
@@ -38,6 +39,12 @@ struct JSValue
     u64 Payload;
 
     static constexpr u64 NAN_PAYLOAD = 0xFFF4'0000'0000'0000ull;
+    static constexpr u64 UNDEFINED_PAYLOAD = 0xFFFF'FFFF'FFFF'FFFFull;
+    static constexpr u64 NOT_EXISTS_PAYLOAD = 0xFFFF'FFFF'FFFF'FFFEull;
+
+    JSValue()
+        : JSValue(NOT_EXISTS_PAYLOAD)
+    { }
 
     explicit JSValue(u64 payload)
         : Payload(payload)
@@ -182,6 +189,16 @@ struct JSValue
             "JSObject pointer must be in 48bits");
 
         return FromLast48Bit(Type::T_OBJECT, reinterpret_cast<uintptr_t>(value));
+    }
+
+    inline bool operator == (JSValue other) const
+    {
+        return Payload == other.Payload;
+    }
+
+    inline bool operator != (JSValue other) const
+    {
+        return !operator == (other);
     }
 };
 
