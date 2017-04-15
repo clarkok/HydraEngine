@@ -44,6 +44,7 @@ public:
     bool Has(String *key);
     bool Set(String *key, JSValue value);
     void Add(gc::ThreadAllocator &allocator, String *key, JSValue value);
+    void Delete(String *key);
     bool Index(String *key, size_t &index);
 
     inline bool Offset(String *key, size_t &offset)
@@ -61,6 +62,8 @@ public:
 
 private:
     JSValue &Slot(size_t index);
+    JSValue *Table();
+    JSValue *TableLimit();
 
     static size_t Index2Offset(size_t index)
     {
@@ -70,6 +73,9 @@ private:
     Klass *Klass;
     JSObject *Replacement;
 };
+
+static_assert((sizeof(JSObject) + 3 * sizeof(JSValue)) <= gc::MINIMAL_ALLOCATE_SIZE,
+    "MINIMAL_ALLOCATE_SIZE is too small");
 
 } // namespace runtime
 } // namespace hydra

@@ -121,6 +121,11 @@ struct JSValue
         );
     }
 
+    inline static JSValue Undefined()
+    {
+        return JSValue(UNDEFINED_PAYLOAD);
+    }
+
     inline double Number() const
     {
         return *reinterpret_cast<const double *>(&Payload);
@@ -189,6 +194,17 @@ struct JSValue
             "JSObject pointer must be in 48bits");
 
         return FromLast48Bit(Type::T_OBJECT, reinterpret_cast<uintptr_t>(value));
+    }
+
+    inline gc::HeapObject *ToReference() const
+    {
+        return reinterpret_cast<gc::HeapObject *>(GetLast48Bit());
+    }
+
+    inline bool IsReference() const
+    {
+        auto type = Type();
+        return type == Type::T_STRING || type == Type::T_OBJECT;
     }
 
     inline bool operator == (JSValue other) const

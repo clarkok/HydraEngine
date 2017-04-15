@@ -18,13 +18,32 @@ void JSObject::Scan(std::function<void(HeapObject*)> scan)
     scan(Klass);
     if (Replacement) { scan(Replacement); }
 
-    // TODO scan properties
+    auto limit = TableLimit();
+    for (auto *ptr = Table(); ptr != limit; ++ptr)
+    {
+        if (ptr->IsReference())
+        {
+            scan(ptr->ToReference());
+        }
+    }
 }
 
 JSValue &JSObject::Slot(size_t index)
 {
+    return Table()[index];
+}
+
+JSValue *JSObject::Table()
+{
     return reinterpret_cast<JSValue*>(
-        reinterpret_cast<uintptr_t>(this) + sizeof(JSObject))[index];
+        reinterpret_cast<uintptr_t>(this) + sizeof(JSObject));
+}
+
+JSValue *JSObject::TableLimit()
+{
+    return reinterpret_cast<JSValue*>(
+        reinterpret_cast<uintptr_t>(this) +
+        gc::Region::CellSizeFromLevel(Klass->GetLevel()));
 }
 
 JSValue JSObject::Get(String *key)
@@ -89,10 +108,25 @@ void JSObject::Add(gc::ThreadAllocator &allocator, String *key, JSValue value)
     {
         Klass = newKlass;
         gc::Heap::GetInstance()->WriteBarrier(this, Klass);
+
+        auto result = Set(key, value);
+        hydra_assert(result, "must succeeded");
+    }
+    else
+    {
+        hydra_trap("TODO: enlarge object");
+    }
+}
+
+void JSObject::Delete(String *key)
+{
+    if (Replacement)
+    {
+        Replacement->Delete(key);
+        return;
     }
 
-    auto result = Set(key, value);
-    hydra_assert(result, "must succeeded");
+    Set(key, JSValue());
 }
 
 bool JSObject::Index(String *key, size_t &index)

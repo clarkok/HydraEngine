@@ -50,3 +50,9 @@ add_executable( ThreadPoolTest
 )
 target_link_libraries( ThreadPoolTest HydraCore )
 add_test(ThreadPoolTest ThreadPoolTest)
+
+add_executable( JSObjectTest
+    JSObjectTest.cpp
+)
+target_link_libraries( JSObjectTest HydraCore )
+add_test(JSObjectTest JSObjectTest)

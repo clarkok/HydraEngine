@@ -10,12 +10,12 @@ namespace gc
 {
 
 constexpr size_t REGION_SIZE_LEVEL = 21;
-constexpr size_t REGION_SIZE = 1u << REGION_SIZE_LEVEL;     // 512 KB
+constexpr size_t REGION_SIZE = 1u << REGION_SIZE_LEVEL;     // 2MB
 
 constexpr size_t MAXIMAL_ALLOCATE_SIZE_LEVEL = REGION_SIZE_LEVEL - 2;
 constexpr size_t MAXIMAL_ALLOCATE_SIZE = 1u << MAXIMAL_ALLOCATE_SIZE_LEVEL;
 
-constexpr size_t MINIMAL_ALLOCATE_SIZE_LEVEL = 5;
+constexpr size_t MINIMAL_ALLOCATE_SIZE_LEVEL = 6;
 constexpr size_t MINIMAL_ALLOCATE_SIZE = 1u << MINIMAL_ALLOCATE_SIZE_LEVEL;
 
 constexpr size_t LEVEL_NR = MAXIMAL_ALLOCATE_SIZE_LEVEL - MINIMAL_ALLOCATE_SIZE_LEVEL + 1;

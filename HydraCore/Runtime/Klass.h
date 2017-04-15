@@ -66,8 +66,10 @@ public:
         {
             KlassTransaction *newTransaction = KlassTransaction::NewOfLevel(allocator, 1);
 
-            // not care about result
-            Transaction.compare_exchange_strong(currentTransaction, newTransaction);
+            if (Transaction.compare_exchange_strong(currentTransaction, newTransaction))
+            {
+                currentTransaction = newTransaction;
+            }
         }
 
         Klass *newKlass = nullptr;
@@ -90,6 +92,10 @@ public:
     {
         return Level;
     }
+
+    static Klass *EmptyKlass(gc::ThreadAllocator &allocator);
+
+    JSObject *NewObject(gc::ThreadAllocator &allocator);
 
     virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final
     {
