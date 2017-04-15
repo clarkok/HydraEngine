@@ -59,7 +59,7 @@ public:
 
         if (size > MAXIMAL_ALLOCATE_SIZE)
         {
-            trap("TODO Allocate large object not implemented");
+            hydra_trap("TODO Allocate large object not implemented");
         }
 
         size_t level = GetLevelFromSize(size);

@@ -53,7 +53,7 @@ public:
             }
         } while ((index = (index + 1) % TableSize) != hash % TableSize);
 
-        trap("Key not found in Klass!");
+        hydra_trap("Key not found in Klass!");
     }
 
     Klass *AddTransaction(gc::ThreadAllocator &allocator, String *key)
@@ -84,6 +84,11 @@ public:
         // now care about result
         currentTransaction->FindOrSet(key, newKlass);
         return newKlass;
+    }
+
+    inline size_t GetLevel() const
+    {
+        return Level;
     }
 
     virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final

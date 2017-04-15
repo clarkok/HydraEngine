@@ -110,7 +110,7 @@ private:
     {
         virtual void Execute() override final
         {
-            trap("SelfDestroyTask should not be executed");
+            hydra_trap("SelfDestroyTask should not be executed");
         }
     };
 

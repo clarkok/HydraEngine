@@ -78,7 +78,7 @@ struct TrappedException : Exception
     }
 };
 
-#define trap(msg)   ::hydra::TrappedException::Trap(__FILE__, __LINE__, msg)
+#define hydra_trap(msg)   ::hydra::TrappedException::Trap(__FILE__, __LINE__, msg)
 
 struct AssertFailureException : Exception
 {
