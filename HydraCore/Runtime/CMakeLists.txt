@@ -1,4 +1,5 @@
 add_library(HydraCore.Runtime OBJECT
+    RuntimeDefs.h
     JSObject.cpp
     JSObject.h
     Klass.cpp

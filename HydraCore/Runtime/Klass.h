@@ -4,6 +4,7 @@
 #include "Common/HydraCore.h"
 #include "GarbageCollection/GC.h"
 
+#include "RuntimeDefs.h"
 #include "Type.h"
 #include "String.h"
 #include "JSObject.h"   // we need sizeof(JSObject)
@@ -14,243 +15,114 @@ namespace hydra
 namespace runtime
 {
 
-class KlassTransaction;
-
 class Klass : public gc::HeapObject
 {
 public:
-    static constexpr size_t INVALID_OFFSET = static_cast<size_t>(-1);
+    static constexpr size_t INVALID_INDEX = static_cast<size_t>(-1);
 
-    static inline size_t JSObjectSlotSizeOfLevel(size_t level)
+    static inline size_t TableSizeFromLevel(size_t level)
     {
-        return (gc::Region::CellSizeFromLevel(level) - sizeof(JSObject)) / sizeof(JSValue);
-    }
-
-    static inline size_t KlassTableSizeOfLevel(size_t level)
-    {
-        return JSObjectSlotSizeOfLevel(level) * sizeof(String *);
-    }
-
-    static inline size_t KlassObjectSizeOfLevel(size_t level)
-    {
-        return KlassTableSizeOfLevel(level) * sizeof(String*) + sizeof(Klass);
-    }
-
-    struct iterator
-    {
-        iterator(Klass *owner = nullptr, size_t index = 0)
-            : Owner(owner),
-            Table(Owner ? Owner->Table() : nullptr),
-            Limit(Owner ? Owner->TableLimit() - Owner->Table() : 0),
-            Index(index)
-        {
-            if (Owner)
-            {
-                FindFirst();
-            }
-        }
-        iterator(const iterator &) = default;
-        iterator(iterator &&) = default;
-        iterator & operator = (const iterator &) = default;
-        iterator & operator = (iterator &&) = default;
-
-        String * operator * () const
-        {
-            return Table[Index];
-        }
-
-        bool operator == (iterator other) const
-        {
-            return Owner == other.Owner && Index == other.Index;
-        }
-
-        bool operator != (iterator other) const
-        {
-            return !this->operator==(other);
-        }
-
-        iterator & operator ++()
-        {
-            FindNext();
-            return *this;
-        }
-
-        iterator & operator --()
-        {
-            FindLast();
-            return *this;
-        }
-
-        iterator operator ++(int)
-        {
-            auto ret = *this;
-            this->operator++();
-            return ret;
-        }
-
-        iterator operator --(int)
-        {
-            auto ret = *this;
-            this->operator--();
-            return ret;
-        }
-
-        bool Valid() const
-        {
-            return Owner && Index <= Limit;
-        }
-
-    private:
-        inline void FindFirst()
-        {
-            hydra_assert(Owner, "Must have a valid Owner");
-
-            for (; Index < Limit; ++Index)
-            {
-                if (Table[Index])
-                {
-                    break;
-                }
-            }
-        }
-
-        inline void FindNext()
-        {
-            if (!Valid())
-            {
-                return;
-            }
-
-            for (++Index; Index < Limit; ++Index)
-            {
-                if (Table[Index])
-                {
-                    return;
-                }
-            }
-        }
-
-        inline void FindLast()
-        {
-            if (!Valid())
-            {
-                return;
-            }
-
-            while (Index--)
-            {
-                if (Table[Index])
-                {
-                    return;
-                }
-            }
-
-            Index = 0;
-        }
-
-        Klass *Owner;
-        String **Table;
-        size_t Limit;
-        size_t Index;
-    };
-
-    size_t Find(String *key)
-    {
-        u64 hash = key->GetHash();
-        u64 index = hash % TableSize;
-
-        do
-        {
-            if (!Table()[index])
-            {
-                return INVALID_OFFSET;
-            }
-            else if (Table()[index]->EqualsTo(key))
-            {
-                return index;
-            }
-        } while ((index = (index + 1) % TableSize) != hash % TableSize);
-
-        return INVALID_OFFSET;
+        return (gc::Region::CellSizeFromLevel(level) - sizeof(Klass)) / sizeof(String *);
     }
 
     Klass *AddTransaction(gc::ThreadAllocator &allocator, String *key)
     {
-        hydra_assert(Find(key) == INVALID_OFFSET,
-            "Should not have key");
+        auto currentTransaction = Transaction.load();
 
-        KlassTransaction *currentTransaction = KlassTransaction::Latest(Transaction);
         if (!currentTransaction)
         {
-            KlassTransaction *newTransaction = KlassTransaction::NewOfLevel(allocator, 1);
+            auto newTransaction = KlassTransaction::New(
+                allocator, DEFAULT_TRANSACTION_SIZE_IN_KLASS);
 
-            if (Transaction.compare_exchange_strong(currentTransaction, newTransaction))
-            {
-                currentTransaction = newTransaction;
-            }
+            Transaction.compare_exchange_strong(currentTransaction, newTransaction);
+            currentTransaction = Transaction.load();
         }
 
-        Klass *newKlass = nullptr;
-
-        if (currentTransaction->Find(key, newKlass))
+        auto newLevel = Level;
+        if (KeyCount == TableSize)
         {
-            return newKlass;
+            newLevel = Level + 1;
         }
 
-        size_t newLevel = (KeyCount + 1 == TableSize) ? Level + 1 : Level;
-        size_t newSize = KlassObjectSizeOfLevel(newLevel);
-        newKlass = allocator.AllocateWithSizeAuto<Klass>(newSize, newLevel, this, key);
+        auto newKlass = allocator.AllocateWithSizeAuto<Klass>(
+            gc::Region::CellSizeFromLevel(newLevel),
+            newLevel,
+            this,
+            key,
+            std::ref(allocator)
+        );
 
         bool found = false;
         bool set = false;
+        
         while (!currentTransaction->FindOrSet(key, newKlass, found, set))
         {
-            currentTransaction = currentTransaction->Rehash(allocator);
+            currentTransaction->Rehash(allocator);
         }
 
         return newKlass;
     }
 
-    inline size_t GetLevel() const
+    bool Find(String *key, size_t &index)
     {
-        return Level;
+        if (KeyCount <= MINIMAL_KEY_COUNT_TO_ENABLE_HASH_IN_KLASS)
+        {
+            for (size_t i = 0; i < KeyCount; ++i)
+            {
+                if (Table()[i]->EqualsTo(key))
+                {
+                    index = i;
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            hydra_assert(IndexMap, "IndexMap must not null");
+
+            if (IndexMap->Find(key, index))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     static Klass *EmptyKlass(gc::ThreadAllocator &allocator);
 
-    template <typename T, typename ...T_Args>
-    T *NewObject(gc::ThreadAllocator &allocator, T_Args ...args)
+    inline String **begin()
     {
-        static_assert(std::is_base_of<JSObject, T>::value,
-            "T must be devired from JSObject");
-
-        return allocator.AllocateWithSizeAuto<T>(
-            gc::Region::CellSizeFromLevel(Level), this, args...);
+        return Table();
     }
 
-    inline iterator begin()
+    inline String **end()
     {
-        return iterator(this);
+        return Table() + KeyCount;
     }
 
-    inline iterator end()
+    inline size_t size() const
     {
-        return iterator(this, TableSize);
+        return KeyCount;
     }
 
     virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final
     {
-        KlassTransaction *currentTransaction = KlassTransaction::Latest(Transaction);
-        if (currentTransaction)
+        if (IndexMap)
         {
-            scan(currentTransaction);
+            scan(IndexMap);
         }
 
-        for (String **pKey = Table(); pKey != TableLimit(); ++pKey)
+        if (Transaction)
         {
-            if (*pKey)
+            scan(Transaction);
+        }
+
+        for (auto key : *this)
+        {
+            if (key)
             {
-                scan(*pKey);
+                scan(key);
             }
         }
     }
@@ -261,42 +133,39 @@ private:
     Klass(u8 property, size_t level)
         : HeapObject(property),
         Level(level),
-        TableSize(JSObjectSlotSizeOfLevel(level)),
+        TableSize(TableSizeFromLevel(level)),
         KeyCount(0),
+        IndexMap(nullptr),
         Transaction(nullptr)
     {
         std::memset(Table(), 0, TableSize * sizeof(String*));
     }
 
-    Klass(u8 property, size_t level, Klass *other, String *key)
+    Klass(u8 property, size_t level, Klass *other, String *key, gc::ThreadAllocator &allocator)
         : Klass(property, level)
     {
-        auto Add = [this] (String *key)
+        auto heap = gc::Heap::GetInstance();
+
+        for (auto otherKey : *other)
         {
-            u64 hash = key->GetHash();
-            u64 index = hash % TableSize;
+            Table()[KeyCount++] = otherKey;
+            heap->WriteBarrier(this, otherKey);
+        }
 
-            do
-            {
-                if (!Table()[index])
-                {
-                    Table()[index] = key;
-                    break;
-                }
-            } while ((index = (index + 1) % TableSize) != hash % TableSize);
+        Table()[KeyCount++] = key;
+        heap->WriteBarrier(this, key);
 
-            gc::Heap::GetInstance()->WriteBarrier(this, key);
-            KeyCount++;
-        };
-
-        for (String **pKey = other->Table(); pKey != other->TableLimit(); ++pKey)
+        if (KeyCount > MINIMAL_KEY_COUNT_TO_ENABLE_HASH_IN_KLASS)
         {
-            if (*pKey)
+            IndexMap = HashMap<size_t>::New(allocator, KeyCount);
+            heap->WriteBarrier(this, IndexMap);
+
+            for (size_t i = 0; i < KeyCount; ++i)
             {
-                Add(*pKey);
+                auto result = IndexMap->TrySet(Table()[i], i);
+                hydra_assert(result, "Must succeed");
             }
         }
-        Add(key);
     }
 
     inline String **Table()
@@ -313,6 +182,7 @@ private:
     size_t Level;
     size_t TableSize;
     size_t KeyCount;
+    HashMap<size_t> *IndexMap;
     std::atomic<KlassTransaction *> Transaction;
 
     friend class gc::Region;

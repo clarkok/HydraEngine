@@ -7,7 +7,7 @@ namespace runtime
 
 Klass *Klass::EmptyKlass(gc::ThreadAllocator &allocator)
 {
-    return allocator.AllocateWithSizeAuto<Klass>(KlassObjectSizeOfLevel(0), 0);
+    return allocator.AllocateAuto<Klass>(gc::Region::GetLevelFromSize(sizeof(Klass)));
 }
 
 } // runtime
