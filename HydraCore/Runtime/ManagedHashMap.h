@@ -171,7 +171,10 @@ public:
                 if (pos.compare_exchange_strong(current, slot))
                 {
                     gc::Heap::GetInstance()->WriteBarrier(this, key);
-                    gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+                    if (ValueToRef(value))
+                    {
+                        gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+                    }
 
                     KeyCount.fetch_add(1, std::memory_order_relaxed);
                     found = false;
@@ -185,7 +188,10 @@ public:
                 if (pos.compare_exchange_strong(current, slot))
                 {
                     gc::Heap::GetInstance()->WriteBarrier(this, key);
-                    gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+                    if (ValueToRef(value))
+                    {
+                        gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+                    }
 
                     KeyCount.fetch_add(1, std::memory_order_relaxed);
                     found = false;
@@ -232,7 +238,11 @@ public:
                 if (pos.compare_exchange_strong(current, slot))
                 {
                     gc::Heap::GetInstance()->WriteBarrier(this, key);
-                    gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+
+                    if (ValueToRef(value))
+                    {
+                        gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+                    }
 
                     KeyCount.fetch_add(1, std::memory_order_relaxed);
 
@@ -245,7 +255,11 @@ public:
                 if (pos.compare_exchange_strong(current, slot))
                 {
                     gc::Heap::GetInstance()->WriteBarrier(this, key);
-                    gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+
+                    if (ValueToRef(value))
+                    {
+                        gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+                    }
 
                     return true;
                 }
@@ -353,7 +367,10 @@ public:
                         KeyCount.fetch_add(-1, std::memory_order_relaxed);
 
                         gc::Heap::GetInstance()->WriteBarrier(this, key);
-                        gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+                        if (ValueToRef(value))
+                        {
+                            gc::Heap::GetInstance()->WriteBarrier(this, ValueToRef(value));
+                        }
 
                         return true;
                     }
@@ -415,6 +432,9 @@ private:
         value->ScanValue(scan);
     }
 
+    static void ScanValue(...)
+    { }
+
     template <typename T>
     static std::enable_if_t<std::is_base_of<gc::HeapObject, typename std::remove_pointer<T>::type>::value, gc::HeapObject *>
         ValueToRef(T value)
@@ -434,6 +454,11 @@ private:
         -> decltype(value->ToRef(), (gc::HeapObject*)(0))
     {
         return value->ToRef();
+    }
+
+    static gc::HeapObject *ValueToRef(...)
+    {
+        return nullptr;
     }
 
     std::atomic<Slot> *Table()
