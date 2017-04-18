@@ -44,8 +44,8 @@ public:
     bool Set(String *key, JSValue value);
     void Add(gc::ThreadAllocator &allocator, String *key, JSValue value);
     void Delete(String *key);
-    bool Index(String *key, size_t &index);
 
+    bool Index(String *key, size_t &index);
     inline bool Offset(String *key, size_t &offset)
     {
         size_t index;

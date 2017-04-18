@@ -56,3 +56,9 @@ add_executable( JSObjectTest
 )
 target_link_libraries( JSObjectTest HydraCore )
 add_test(JSObjectTest JSObjectTest)
+
+add_executable( ManagedArrayTest
+    ManagedArrayTest.cpp
+)
+target_link_libraries( ManagedArrayTest HydraCore )
+add_test(ManagedArrayTest ManagedArrayTest)
