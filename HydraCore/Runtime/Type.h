@@ -198,6 +198,7 @@ struct JSValue
 
     inline gc::HeapObject *ToReference() const
     {
+        hydra_assert(IsReference(), "Only a reference value can be convert to reference");
         return reinterpret_cast<gc::HeapObject *>(GetLast48Bit());
     }
 
@@ -205,6 +206,14 @@ struct JSValue
     {
         auto type = Type();
         return type == Type::T_STRING || type == Type::T_OBJECT;
+    }
+
+    inline void ScanValue(std::function<void(gc::HeapObject*)> scan) const
+    {
+        if (IsReference())
+        {
+            scan(ToReference());
+        }
     }
 
     inline bool operator == (JSValue other) const
