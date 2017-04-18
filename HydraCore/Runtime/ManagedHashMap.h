@@ -67,7 +67,7 @@ public:
     inline static HashMap *New(gc::ThreadAllocator &allocator, size_t capacity)
     {
         size_t sizeRequest = sizeof(HashMap) + sizeof(std::atomic<Slot>) * capacity;
-        size_t levelRequest = gc::ThreadAllocator::GetLevelFromSize(sizeRequest);
+        size_t levelRequest = gc::Region::GetLevelFromSize(sizeRequest);
 
         return NewOfLevel(allocator, levelRequest);
     }

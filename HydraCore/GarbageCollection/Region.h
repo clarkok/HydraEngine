@@ -200,6 +200,18 @@ public:
         return (AllocateEnd(level) - AllocateBegin(level)) / CellSizeFromLevel(level);
     }
 
+    static inline size_t GetLevelFromSize(size_t size)
+    {
+        hydra_assert(size <= MAXIMAL_ALLOCATE_SIZE, "'size' is too large");
+
+        if (size < MINIMAL_ALLOCATE_SIZE)
+        {
+            return 0;
+        }
+
+        return (platform::GetMSB(size - 1) + 1) - MINIMAL_ALLOCATE_SIZE_LEVEL;
+    }
+
     static constexpr size_t AllocateBegin(size_t level)
     {
         return (sizeof(Region) + CellSizeFromLevel(level) - 1) & ~(CellSizeFromLevel(level) - 1);
