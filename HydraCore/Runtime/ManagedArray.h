@@ -69,7 +69,9 @@ public:
 private:
     ManagedArray(u8 property, size_t level)
         : HeapObject(property), Level(level)
-    { }
+    {
+        std::fill(begin(), end(), JSValue());
+    }
 
     JSValue *Table() const
     {
