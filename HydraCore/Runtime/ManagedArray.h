@@ -10,17 +10,17 @@ namespace hydra
 namespace runtime
 {
 
-class ManagedArray : public gc::HeapObject
+class Array : public gc::HeapObject
 {
 public:
     inline static size_t CapacityFromLevel(size_t level)
     {
-        return (gc::Region::CellSizeFromLevel(level) - sizeof(ManagedArray)) / sizeof(JSValue);
+        return (gc::Region::CellSizeFromLevel(level) - sizeof(Array)) / sizeof(JSValue);
     }
 
     inline static size_t LevelFromCapacity(size_t capacity)
     {
-        return gc::Region::GetLevelFromSize(sizeof(ManagedArray) + sizeof(JSValue) * capacity);
+        return gc::Region::GetLevelFromSize(sizeof(Array) + sizeof(JSValue) * capacity);
     }
 
     inline size_t Capacity() const
@@ -55,19 +55,19 @@ public:
         }
     }
 
-    static ManagedArray *New(gc::ThreadAllocator &allocator, size_t capacity)
+    static Array *New(gc::ThreadAllocator &allocator, size_t capacity)
     {
         return NewOfLevel(allocator, LevelFromCapacity(capacity));
     }
 
-    static ManagedArray *NewOfLevel(gc::ThreadAllocator &allocator, size_t level)
+    static Array *NewOfLevel(gc::ThreadAllocator &allocator, size_t level)
     {
-        return allocator.AllocateWithSizeAuto<ManagedArray>(
+        return allocator.AllocateWithSizeAuto<Array>(
             gc::Region::CellSizeFromLevel(level), level);
     }
 
 private:
-    ManagedArray(u8 property, size_t level)
+    Array(u8 property, size_t level)
         : HeapObject(property), Level(level)
     {
         std::fill(begin(), end(), JSValue());
@@ -76,7 +76,7 @@ private:
     JSValue *Table() const
     {
         return reinterpret_cast<JSValue *>(
-            reinterpret_cast<uintptr_t>(this) + sizeof(ManagedArray));
+            reinterpret_cast<uintptr_t>(this) + sizeof(Array));
     }
 
     JSValue *TableLimit() const

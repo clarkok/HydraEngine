@@ -6,15 +6,15 @@
 namespace hydra
 {
 
-using runtime::ManagedArray;
+using runtime::Array;
 using runtime::JSValue;
 
-TEST_CASE("ManagedArray", "[Runtime]")
+TEST_CASE("Array", "[Runtime]")
 {
     gc::Heap *heap = gc::Heap::GetInstance();
     gc::ThreadAllocator allocator(heap);
 
-    ManagedArray *uut = ManagedArray::New(allocator, 16);
+    Array *uut = Array::New(allocator, 16);
     REQUIRE(uut->Capacity() >= 16);
 
     for (auto value : *uut)
