@@ -59,7 +59,13 @@ public:
 
         if (size > MAXIMAL_ALLOCATE_SIZE)
         {
-            hydra_trap("TODO Allocate large object not implemented");
+            void *ptr = malloc(size);
+            hydra_assert(ptr, "failed to allocate memory");
+
+            T *allocated = new (ptr) T(HeapObject::IS_LARGE, args...);
+            Owner->RegisterLargeObject(allocated);
+
+            return allocated;
         }
 
         size_t level = Region::GetLevelFromSize(size);

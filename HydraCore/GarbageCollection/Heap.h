@@ -14,10 +14,12 @@
 
 #include <array>
 #include <vector>
+#include <set>
 #include <mutex>
 #include <shared_mutex>
 #include <condition_variable>
 #include <thread>
+#include <future>
 
 namespace hydra
 {
@@ -31,10 +33,10 @@ class GCScheduler;
 //to add state(s), you must update Cell::GC_STATE_MASK accordingly in HeapObject.h
 enum GCState : u8
 {
-GC_WHITE = 0,
-GC_GREY = 1,
-GC_DARK = 2,
-GC_BLACK = 3
+    GC_WHITE = 0,
+    GC_GREY = 1,
+    GC_DARK = 2,
+    GC_BLACK = 3
 };
 
 class Heap : public Singleton<Heap>
@@ -137,7 +139,10 @@ public:
         auto originalGCState = obj->SetGCState(GCState::GC_GREY);
         if (originalGCState == GCState::GC_WHITE)
         {
-            Region::GetRegionOfObject(obj)->IncreaseOldObjectCount();
+            if (!obj->IsLarge())
+            {
+                Region::GetRegionOfObject(obj)->IncreaseOldObjectCount();
+            }
             WorkingQueue.Enqueue(obj);
         }
         else if (originalGCState != GCState::GC_GREY)
@@ -164,6 +169,18 @@ public:
 
     void Shutdown();
 
+    inline bool IsLargeObject(void *ptr)
+    {
+        std::shared_lock<std::shared_mutex> lck(LargeSetMutex);
+        return LargeSet.find(reinterpret_cast<HeapObject*>(ptr)) != LargeSet.end();
+    }
+
+    inline void RegisterLargeObject(HeapObject *ptr)
+    {
+        std::unique_lock<std::shared_mutex> lck(LargeSetMutex);
+        LargeSet.insert(ptr);
+    }
+
 private:
     enum class GCPhase
     {
@@ -188,6 +205,9 @@ private:
     concurrent::ForwardLinkedList<Region> FullList;
     concurrent::ForwardLinkedList<Region> CleaningList;
     concurrent::ForwardLinkedList<Region> FullCleaningList;
+
+    std::set<HeapObject *> LargeSet;
+    std::shared_mutex LargeSetMutex;
 
     concurrent::Queue<HeapObject*, 8192> WorkingQueue;
     std::atomic<size_t> GatheringWorkerCount;
@@ -214,7 +234,10 @@ private:
 
     std::thread GCManagementThread;
     void GCManagement();
+    void Fire(Heap::GCPhase phase, std::vector<std::future<void>> &futures);
+    void Wait(std::vector<std::future<void>> &futures, bool cannotWait = false);
     void FireGCPhaseAndWait(GCPhase phase, bool cannotWait = false);
+    void FireGCPhaseAndWait(GCPhase phase, std::function<void()> whenWaiting);
 
     size_t GCWorkerCount;
     void GCWorkerYoungMark();

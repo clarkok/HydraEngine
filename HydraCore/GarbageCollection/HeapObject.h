@@ -34,6 +34,11 @@ public:
         return (Property.load() & IS_LARGE) != 0;
     }
 
+    inline bool IsPermanent() const
+    {
+        return (Property.load() & IS_PERMANENT) != 0;
+    }
+
     inline u8 GetGCState() const
     {
         return Property.load() & GC_STATE_MASK;
@@ -94,6 +99,11 @@ public:
         return (property & IS_LARGE) != 0;
     }
 
+    inline static bool CellIsPermanent(u8 property)
+    {
+        return (property & IS_PERMANENT) != 0;
+    }
+
     inline static u8 CellGetGCState(u8 property)
     {
         return (property & GC_STATE_MASK);
@@ -116,6 +126,7 @@ public:
 
     static constexpr u8 IS_IN_USE = 1u << 7;
     static constexpr u8 IS_LARGE = 1u << 6;
+    static constexpr u8 IS_PERMANENT = 1u << 5;
     static constexpr u8 GC_STATE_MASK = (1u << 2) - 1;
 
 protected:

@@ -68,7 +68,9 @@ size_t Region::FullSweep()
     {
         u8 currentProperty = cell->GetProperty();
 
-        if (Cell::CellIsInUse(currentProperty) && Cell::CellGetGCState(currentProperty) != GCState::GC_BLACK)
+        if (Cell::CellIsInUse(currentProperty) &&
+            (Cell::CellGetGCState(currentProperty) == GCState::GC_WHITE ||
+             Cell::CellGetGCState(currentProperty) == GCState::GC_DARK))
         {
             // can be grey here
             cell->~Cell();
@@ -76,8 +78,14 @@ size_t Region::FullSweep()
         }
         else if (Cell::CellIsInUse(currentProperty))
         {
-            // can be grey here
-            cell->SetGCState(GCState::GC_DARK);
+            auto gcState = cell->GetGCState();
+            while (gcState == GCState::GC_BLACK)
+            {
+                if (cell->TrySetGCState(gcState, GCState::GC_DARK))
+                {
+                    break;
+                }
+            }
             oldObjectCount++;
         }
         else

@@ -196,6 +196,7 @@ private:
     std::atomic<KlassTransaction *> Transaction;
 
     friend class gc::Region;
+    friend class gc::ThreadAllocator;
 };
 
 } // namespace runtime

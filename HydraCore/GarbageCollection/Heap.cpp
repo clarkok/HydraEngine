@@ -149,7 +149,34 @@ void Heap::GCManagement()
                 perfSession.Phase("BeforeResumeTheWorld");
                 ResumeTheWorld();
 
-                FireGCPhaseAndWait(GCPhase::GC_FULL_SWEEP);
+                FireGCPhaseAndWait(GCPhase::GC_FULL_SWEEP, [this]()
+                {
+                    std::unique_lock<std::shared_mutex> lck(LargeSetMutex);
+
+                    for (auto it = LargeSet.begin(); it != LargeSet.end();)
+                    {
+                        auto gcState = (*it)->GetGCState();
+                        if (gcState == GC_WHITE || gcState == GC_DARK)
+                        {
+                            auto obj = dynamic_cast<Cell*>(*it);
+                            obj->~Cell();
+                            std::free(obj);
+                            it = LargeSet.erase(it);
+                        }
+                        else
+                        {
+                            while (gcState == GC_BLACK)
+                            {
+                                if ((*it)->TrySetGCState(gcState, GC_DARK))
+                                {
+                                    break;
+                                }
+                            }
+
+                            ++it;
+                        }
+                    }
+                });
                 perfSession.Phase("Sweep");
 
                 RegionSizeAfterLastFullGC.store(Region::GetTotalRegionCount(), std::memory_order_relaxed);
@@ -188,7 +215,25 @@ void Heap::GCManagement()
                 perfSession.Phase("BeforeResumeTheWorld");
                 ResumeTheWorld();
 
-                FireGCPhaseAndWait(GCPhase::GC_YOUNG_SWEEP);
+                FireGCPhaseAndWait(GCPhase::GC_YOUNG_SWEEP, [this]()
+                {
+                    std::unique_lock<std::shared_mutex> lck(LargeSetMutex);
+
+                    for (auto it = LargeSet.begin(); it != LargeSet.end();)
+                    {
+                        if ((*it)->GetGCState() == GC_WHITE)
+                        {
+                            auto obj = dynamic_cast<Cell*>(*it);
+                            obj->~Cell();
+                            std::free(obj);
+                            it = LargeSet.erase(it);
+                        }
+                        else
+                        {
+                            ++it;
+                        }
+                    }
+                });
                 perfSession.Phase("Sweep");
 
                 Scheduler.OnYoungGCEnd();
@@ -218,11 +263,9 @@ void Heap::GCManagement()
     Logger::GetInstance()->Log() << "GC Management shutdown";
 }
 
-void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
+void Heap::Fire(Heap::GCPhase phase, std::vector<std::future<void>> &futures)
 {
     GCCurrentPhase.store(phase, std::memory_order_relaxed);
-
-    std::vector<std::future<void>> futures(GCWorkerCount);
     std::generate(futures.begin(), futures.end(), [this, phase]()
     {
         auto threadPool = ThreadPool::GetInstance();
@@ -241,7 +284,10 @@ void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
             return threadPool->Dispatch<void>(&Heap::GCWorkerFullSweep, this);
         }
     });
+}
 
+void Heap::Wait(std::vector<std::future<void>> &futures, bool cannotWait)
+{
     if (cannotWait)
     {
         auto stopped = ThreadPool::WaitAllFor(futures.begin(), futures.end(), GC_TOLERANCE);
@@ -258,6 +304,21 @@ void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
     {
         ThreadPool::WaitAll(futures.begin(), futures.end());
     }
+}
+
+void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
+{
+    std::vector<std::future<void>> futures(GCWorkerCount);
+    Fire(phase, futures);
+    Wait(futures, cannotWait);
+}
+
+void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, std::function<void()> whenWaiting)
+{
+    std::vector<std::future<void>> futures(GCWorkerCount);
+    Fire(phase, futures);
+    whenWaiting();
+    Wait(futures, false);
 }
 
 void Heap::GCWorkerYoungMark()
@@ -278,7 +339,10 @@ void Heap::GCWorkerYoungMark()
             {
                 if (ref->TrySetGCState(gcState, GCState::GC_GREY))
                 {
-                    Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
+                    if (!ref->IsLarge())
+                    {
+                        Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
+                    }
                     localQueue.push(ref);
                     break;
                 }
@@ -379,7 +443,10 @@ void Heap::GCWorkerFullMark()
             auto originalGCState = ref->SetGCState(GCState::GC_GREY);
             if (originalGCState == GCState::GC_WHITE)
             {
-                Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
+                if (!ref->IsLarge())
+                {
+                    Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
+                }
                 localQueue.push(ref);
             }
             else if (originalGCState != GCState::GC_GREY)

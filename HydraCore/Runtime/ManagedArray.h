@@ -92,6 +92,7 @@ private:
     size_t Level;
 
     friend class gc::Region;
+    friend class gc::ThreadAllocator;
 };
 
 } // namespace runtime

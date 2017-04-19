@@ -40,6 +40,10 @@ void ThreadAllocator::ThreadScan()
                 Heap::GetInstance()->Remember(dynamic_cast<HeapObject*>(cell));
             }
         }
+        else if (Heap::GetInstance()->IsLargeObject(ptr))
+        {
+            Heap::GetInstance()->Remember(reinterpret_cast<HeapObject*>(ptr));
+        }
     });
 }
 
