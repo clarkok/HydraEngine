@@ -28,6 +28,11 @@ public:
         return CapacityFromLevel(Level);
     }
 
+    inline size_t GetLevel() const
+    {
+        return Level;
+    }
+
     inline JSValue &at(size_t index)
     {
         hydra_assert(index < Capacity(), "Out of range");

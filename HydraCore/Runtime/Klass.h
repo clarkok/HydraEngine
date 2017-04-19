@@ -106,6 +106,16 @@ public:
         return KeyCount;
     }
 
+    template <typename T, typename ...T_Args>
+    T *NewObject(gc::ThreadAllocator &allocator, T_Args ...args)
+    {
+        static_assert(std::is_base_of<JSObject, T>::value,
+            "T must be inheritted from JSObject");
+        auto table = Array::New(allocator, KeyCount * 2);
+
+        return allocator.AllocateAuto<T>(this, table, args...);
+    }
+
     virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final
     {
         if (IndexMap)

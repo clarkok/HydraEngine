@@ -7,139 +7,79 @@ namespace hydra
 namespace runtime
 {
 
-JSObject::JSObject(u8 property, runtime::Klass *klass)
-    : HeapObject(property), Klass(klass), Replacement(nullptr)
+bool JSObject::Get(String *key, JSValue &value, JSObjectPropertyAttribute &attribute)
 {
-    gc::Heap::GetInstance()->WriteBarrier(this, klass);
-}
-
-JSObject::JSObject(u8 property, runtime::Klass *klass, JSObject *other)
-    : JSObject(property, klass)
-{
-    auto deleted = JSValue();
-
-    for (auto key : *klass)
-    {
-        JSValue value = other->Get(key);
-        if (value != deleted)
-        {
-            auto result = Set(key, value);
-            hydra_assert(result, "Must succeed");
-        }
-    }
-}
-
-void JSObject::Scan(std::function<void(HeapObject*)> scan)
-{
-    scan(Klass);
-    if (Replacement) { scan(Replacement); }
-
-    auto limit = TableLimit();
-    for (auto *ptr = Table(); ptr != limit; ++ptr)
-    {
-        if (ptr->IsReference())
-        {
-            scan(ptr->ToReference());
-        }
-    }
-}
-
-JSValue &JSObject::Slot(size_t index)
-{
-    return Table()[index];
-}
-
-JSValue *JSObject::Table()
-{
-    return reinterpret_cast<JSValue*>(
-        reinterpret_cast<uintptr_t>(this) + sizeof(JSObject));
-}
-
-JSValue *JSObject::TableLimit()
-{
-    return reinterpret_cast<JSValue*>(
-        reinterpret_cast<uintptr_t>(this) +
-        gc::Region::CellSizeFromLevel(Klass->GetLevel()));
-}
-
-JSValue JSObject::Get(String *key)
-{
-    if (Replacement)
-    {
-        return Replacement->Get(key);
-    }
-
-    size_t index;
+    size_t index = 0;
     if (Index(key, index))
     {
-        return Slot(index);
-    }
-
-    return JSValue();
-}
-
-bool JSObject::Set(String *key, JSValue value)
-{
-    if (Replacement)
-    {
-        return Replacement->Set(key, value);
-    }
-
-    size_t index;
-    if (Index(key, index))
-    {
-        Slot(index) = value;
-        if (value.IsReference())
+        attribute = Table->at(index << 1).SmallInt();
+        if (!attribute.HasValue())
         {
-            gc::Heap::GetInstance()->WriteBarrier(this, value.ToReference());
+            return false;
         }
+
+        value = Table->at((index << 1) + 1);
         return true;
     }
-
     return false;
 }
 
-void JSObject::Add(gc::ThreadAllocator &allocator, String *key, JSValue value)
+void JSObject::Set(gc::ThreadAllocator &allocator,
+    String *key,
+    JSValue value,
+    JSObjectPropertyAttribute attribute)
 {
-    if (Replacement)
+    auto heap = gc::Heap::GetInstance();
+
+    size_t index = 0;
+    if (!Index(key, index))
     {
-        Replacement->Add(allocator, key, value);
-        return;
+        Klass = Klass->AddTransaction(allocator, key);
+        heap->WriteBarrier(this, Klass);
+
+        auto result = Index(key, index);
+        hydra_assert(result, "Must have an index");
+
+        if (Klass->size() * 2 > Table->Capacity())
+        {
+            auto newTable = Array::NewOfLevel(allocator, Table->GetLevel() + 1);
+            std::copy(Table->begin(), Table->end(), newTable->begin());
+            newTable->Scan([&](gc::HeapObject *ref)
+            {
+                heap->WriteBarrier(newTable, ref);
+            });
+            Table = newTable;
+            heap->WriteBarrier(this, newTable);
+        }
     }
 
-    if (Set(key, value))
+    Table->at(index << 1) = JSValue::FromSmallInt(attribute);
+    Table->at((index << 1) + 1) = value;
+    if (value.IsReference())
     {
-        return;
-    }
-
-    auto newKlass = Klass->AddTransaction(allocator, key);
-    if (newKlass->GetLevel() == Klass->GetLevel())
-    {
-        Klass = newKlass;
-        gc::Heap::GetInstance()->WriteBarrier(this, Klass);
-
-        auto result = Set(key, value);
-        hydra_assert(result, "must succeeded");
-    }
-    else
-    {
-        Replacement = newKlass->NewObject<JSObject>(allocator, this);
-        auto result = Replacement->Set(key, value);
-        hydra_assert(result, "must succeeded");
-
-        gc::Heap::GetInstance()->WriteBarrier(this, Replacement);
+        heap->WriteBarrier(Table, value.ToReference());
     }
 }
 
 void JSObject::Delete(String *key)
 {
-    Set(key, JSValue());
+    size_t index = 0;
+    if (Index(key, index))
+    {
+        Table->at(index << 1) = JSObjectPropertyAttribute();
+        Table->at((index << 1) + 1) = JSValue();
+    }
 }
 
 bool JSObject::Index(String *key, size_t &index)
 {
-    index = Klass->Find(key);
-    return index != runtime::Klass::INVALID_OFFSET;
+    return Klass->Find(key, index);
+}
+
+void JSObject::Scan(std::function<void(gc::HeapObject*)> scan)
+{
+    scan(Klass);
+    scan(Table);
 }
 
 }

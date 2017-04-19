@@ -5,6 +5,7 @@
 #include "GarbageCollection/GC.h"
 
 #include "ManagedHashMap.h"
+#include "ManagedArray.h"
 #include "Type.h"
 #include "String.h"
 
@@ -15,70 +16,107 @@ namespace runtime
 
 class Klass;
 
+enum class ObjectType
+{
+    OT_OBJECT,
+    OT_ARRAY,
+    OT_FUNCTION
+};
+
+struct JSObjectPropertyAttribute
+{
+    constexpr static u64 HAS_VALUE = 1;
+    constexpr static u64 IS_DATA_MASK = 1u << 1;
+    constexpr static u64 IS_CONFIGURABLE_MASK = 1u << 2;
+    constexpr static u64 IS_ENUMERABLE_MASK = 1u << 3;
+    constexpr static u64 IS_WRITABLE_MASK = 1u << 4;
+
+    constexpr static u64 DEFAULT_DATA_ATTRIBUTE =
+        HAS_VALUE | IS_DATA_MASK | IS_CONFIGURABLE_MASK | IS_ENUMERABLE_MASK | IS_WRITABLE_MASK;
+
+    JSObjectPropertyAttribute(u64 payload = 0)
+        : Payload(payload)
+    { }
+
+    operator u64 () const
+    {
+        return Payload;
+    }
+
+    operator JSValue () const
+    {
+        return JSValue::FromSmallInt(Payload);
+    }
+
+    inline bool HasValue() const
+    {
+        return (Payload & HAS_VALUE) != 0;
+    }
+
+    inline bool IsData() const
+    {
+        return (Payload & IS_DATA_MASK) != 0;
+    }
+
+    inline bool IsConfigurable() const
+    {
+        return (Payload & IS_CONFIGURABLE_MASK) != 0;
+    }
+
+    inline bool IsEnumerable() const
+    {
+        return (Payload & IS_ENUMERABLE_MASK) != 0;
+    }
+
+    inline bool IsWritable() const
+    {
+        return (Payload & IS_WRITABLE_MASK) != 0;
+    }
+
+    u64 Payload;
+};
+
 /* This class is not completely thread-safe */
 class JSObject : public gc::HeapObject
 {
 public:
-    JSObject(u8 property, Klass *klass);
+    JSObject(u8 property, Klass *klass, Array *table)
+        : HeapObject(property), Klass(klass), Table(table)
+    { }
 
     inline Klass *GetKlass() const
     {
-        if (Replacement)
-        {
-            return Replacement->GetKlass();
-        }
-
         return Klass;
     }
 
-    static JSObject *Latest(JSObject *& obj)
+    virtual ObjectType GetType() const
     {
-        while (obj->Replacement)
-        {
-            obj = obj->Replacement;
-        }
-        return obj;
+        return ObjectType::OT_OBJECT;
     }
 
-    JSValue Get(String *key);
-    bool Set(String *key, JSValue value);
-    void Add(gc::ThreadAllocator &allocator, String *key, JSValue value);
+    bool Get(String *key, JSValue &value, JSObjectPropertyAttribute &attribute);
+    void Set(gc::ThreadAllocator &allocator,
+        String *key,
+        JSValue value,
+        JSObjectPropertyAttribute attribute = JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE);
     void Delete(String *key);
 
     bool Index(String *key, size_t &index);
-    inline bool Offset(String *key, size_t &offset)
+
+    inline static auto GetTable()
     {
-        size_t index;
-        if (Index(key, index))
-        {
-            offset = Index2Offset(index);
-            return true;
-        }
-        return false;
+        return &JSObject::Table;
     }
 
     virtual void Scan(std::function<void(HeapObject*)> scan) override;
 
 private:
-    JSObject(u8 property, Klass *klass, JSObject *other);
-
-    JSValue &Slot(size_t index);
-    JSValue *Table();
-    JSValue *TableLimit();
-
-    static size_t Index2Offset(size_t index)
-    {
-        return sizeof(JSObject) + sizeof(JSValue) * index;
-    }
-
     Klass *Klass;
-    JSObject *Replacement;
+    Array *Table;
 
+    friend class Klass;
     friend class gc::Region;
 };
-
-static_assert((sizeof(JSObject) + 3 * sizeof(JSValue)) <= gc::MINIMAL_ALLOCATE_SIZE,
-    "MINIMAL_ALLOCATE_SIZE is too small");
 
 } // namespace runtime
 } // namespace hydra

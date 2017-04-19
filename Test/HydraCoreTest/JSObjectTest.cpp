@@ -10,6 +10,7 @@ namespace hydra
 
 using runtime::Klass;
 using runtime::JSObject;
+using runtime::JSObjectPropertyAttribute;
 using runtime::JSValue;
 using runtime::String;
 
@@ -22,71 +23,75 @@ TEST_CASE("JSObjectTest", "[Runtime]")
     JSObject *uut = emptyKlass->NewObject<JSObject>(allocator);
     String *key = String::New(allocator, u"key");
     JSValue fetched;
+    JSObjectPropertyAttribute attribute;
     bool result = false;
 
     SECTION("Basic Test")
     {
         JSValue value = JSValue::FromNumber(10);
 
-        fetched = uut->Get(key);
+        result = uut->Get(key, fetched, attribute);
         REQUIRE(!result);
-        REQUIRE(fetched == JSValue());
 
-        uut->Add(allocator, key, value);
-        auto originalUut = uut;
-        REQUIRE(JSObject::Latest(uut) == originalUut);
+        uut->Set(allocator, key, value);
 
-        fetched = uut->Get(key);
+        result = uut->Get(key, fetched, attribute);
+        REQUIRE(result);
         REQUIRE(fetched == value);
+        REQUIRE(attribute == JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE);
 
         uut->Delete(key);
-        fetched = uut->Get(key);
-        REQUIRE(fetched == JSValue());
+        result = uut->Get(key, fetched, attribute);
+        REQUIRE(!result);
     }
 
     SECTION("Undefined Test")
     {
         JSValue undefined = JSValue::Undefined();
 
-        fetched = uut->Get(key);
+        result = uut->Get(key, fetched, attribute);
         REQUIRE(!result);
-        REQUIRE(fetched == JSValue());
 
-        uut->Add(allocator, key, undefined);
-        fetched = uut->Get(key);
+        uut->Set(allocator, key, undefined);
+
+        result = uut->Get(key, fetched, attribute);
+        REQUIRE(result);
         REQUIRE(fetched == undefined);
+        REQUIRE(attribute == JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE);
 
         uut->Delete(key);
-        fetched = uut->Get(key);
-        REQUIRE(fetched == JSValue());
 
-        result = uut->Set(key, undefined);
+        result = uut->Get(key, fetched, attribute);
+        REQUIRE(!result);
+
+        uut->Set(allocator, key, undefined);
+
+        result = uut->Get(key, fetched, attribute);
         REQUIRE(result);
-
-        fetched = uut->Get(key);
         REQUIRE(fetched == undefined);
+        REQUIRE(attribute == JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE);
     }
 
     SECTION("Enlarge Test")
     {
         String *ALPHABET = String::New(allocator, u"ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-        auto originalUut = uut;
 
         for (size_t i = 0; i < ALPHABET->length(); ++i)
         {
             auto key = String::Slice(allocator, ALPHABET, i, 1);
             auto value = JSValue::FromSmallInt(i);
 
-            JSObject::Latest(uut)->Add(allocator, key, value);
+            uut->Set(allocator, key, value);
         }
-
-        REQUIRE(uut != originalUut);
 
         for (size_t i = 0; i < ALPHABET->length(); ++i)
         {
             auto key = String::Slice(allocator, ALPHABET, i, 1);
+            auto result = uut->Get(key, fetched, attribute);
 
-            REQUIRE(uut->Get(key) == JSValue::FromSmallInt(i));
+            REQUIRE(result);
+            REQUIRE(fetched == JSValue::FromSmallInt(i));
+            REQUIRE(attribute == JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE);
         }
     }
 
@@ -99,21 +104,14 @@ TEST_CASE("JSObjectTest", "[Runtime]")
             auto key = String::Slice(allocator, ALPHABET, i, 1);
             auto value = JSValue::FromSmallInt(i);
 
-            JSObject::Latest(uut)->Add(allocator, key, value);
+            uut->Set(allocator, key, value);
         }
+
+        auto pTable = JSObject::GetTable();
 
         auto visitUutByIndex = [&](size_t index) -> JSValue
         {
-            auto latest = JSObject::Latest(uut);
-            return *reinterpret_cast<JSValue*>(
-                reinterpret_cast<uintptr_t>(latest) + sizeof(JSObject) + sizeof(JSValue) * index);
-        };
-
-        auto visitUutByOffset = [&](size_t offset) -> JSValue
-        {
-            auto latest = JSObject::Latest(uut);
-            return *reinterpret_cast<JSValue*>(
-                reinterpret_cast<uintptr_t>(latest) + offset);
+            return (uut->*pTable)->at((index << 1) + 1);
         };
 
         for (size_t i = 0; i < ALPHABET->length(); ++i)
@@ -121,18 +119,14 @@ TEST_CASE("JSObjectTest", "[Runtime]")
             auto key = String::Slice(allocator, ALPHABET, i, 1);
             auto expected = JSValue::FromSmallInt(i);
 
-            auto fetched = uut->Get(key);
+            result = uut->Get(key, fetched, attribute);
+            REQUIRE(result);
             REQUIRE(fetched == expected);
 
             size_t index = 0;
             result = uut->Index(key, index);
             REQUIRE(result);
             REQUIRE(visitUutByIndex(index) == expected);
-
-            size_t offset = 0;
-            result = uut->Offset(key, offset);
-            REQUIRE(result);
-            REQUIRE(visitUutByOffset(offset) == expected);
         }
     }
 }
