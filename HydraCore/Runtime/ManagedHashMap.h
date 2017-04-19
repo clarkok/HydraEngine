@@ -322,6 +322,7 @@ public:
         }
 
         auto original = Replacement.exchange(replacement);
+        gc::Heap::GetInstance()->WriteBarrier(this, replacement);
         hydra_assert(original == nullptr,
             "No race condition would occur");
 
