@@ -2,7 +2,7 @@
 #include <iostream>
 #include <fstream>
 
-#if defined HYDRA_LOG_TO_FILE and defined HYDRA_ENABLE_LOG
+#if defined(HYDRA_LOG_TO_FILE) && defined(HYDRA_ENABLE_LOG)
 std::ofstream fout("./log.txt");
 #endif
 
@@ -42,6 +42,7 @@ void Logger::Shutdown()
 
 void Logger::Write()
 {
+#ifdef HYDRA_ENABLE_LOG
     auto StartTime = std::chrono::high_resolution_clock::now();
 
     auto writeTime = [&](decltype(StartTime) time)
@@ -76,7 +77,7 @@ void Logger::Write()
 #else
         std::cout
 #endif
-            << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
+            << "\t" << entry.ThreadId << "\t" << entry.Message << "\t{" << Queue.Count() << "}" << std::endl;;
     }
 
     Entry entry;
@@ -92,6 +93,7 @@ void Logger::Write()
     }
 
     std::cout << "Logger shutdown" << std::endl;
+#endif
 }
 
 } // namespace hydra

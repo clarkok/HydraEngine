@@ -97,6 +97,11 @@ public:
 
     inline void RequestYoungGC()
     {
+        if (FullList.GetCount() == 0)
+        {
+            return;
+        }
+
         Logger::GetInstance()->Log() << "Young GC requested";
 
         YoungGCRequested.store(true, std::memory_order_relaxed);
@@ -105,6 +110,11 @@ public:
 
     inline void RequestFullGC()
     {
+        if (FullList.GetCount() == 0)
+        {
+            return;
+        }
+
         Logger::GetInstance()->Log() << "Full GC requested";
 
         FullGCRequested.store(true, std::memory_order_relaxed);
@@ -150,6 +160,11 @@ public:
             // the originalGCState can be GC_BLACK, but we still add it to WorkingQueue
             WorkingQueue.Enqueue(obj);
         }
+    }
+
+    inline size_t GetFullListRegionCount()
+    {
+        return FullList.GetCount();
     }
 
     inline size_t GetYoungCleaningRegionCount()

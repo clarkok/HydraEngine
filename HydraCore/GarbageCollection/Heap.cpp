@@ -122,13 +122,15 @@ void Heap::GCManagement()
 
         while (!ShouldExit.load() && (youngGCRequested || fullGCRequested))
         {
+            Logger::GetInstance()->Log() << "WorkingQueue: " << WorkingQueue.Count();
+
             if (fullGCRequested)
             {
                 auto perfSession = Logger::GetInstance()->Perf("FullGC");
 
                 Logger::GetInstance()->Log() << "Before Full GC: "
                     << "[Total: " << Region::GetTotalRegionCount() << "] "
-                    << "[YoungFull: " << GetYoungCleaningRegionCount() << "] "
+                    << "[YoungFull: " << GetFullListRegionCount() << "] "
                     << "[OldFull: " << GetFullCleaningRegionCount() << "]";
 
                 Scheduler.OnFullGCStart();
@@ -185,7 +187,7 @@ void Heap::GCManagement()
 
                 Logger::GetInstance()->Log() << "After Full GC: "
                     << "[Total: " << Region::GetTotalRegionCount() << "] "
-                    << "[YoungFull: " << GetYoungCleaningRegionCount() << "] "
+                    << "[YoungFull: " << GetFullListRegionCount() << "] "
                     << "[OldFull: " << GetFullCleaningRegionCount() << "]";
             }
             else if (youngGCRequested)
@@ -194,7 +196,7 @@ void Heap::GCManagement()
 
                 Logger::GetInstance()->Log() << "Before Young GC: "
                     << "[Total: " << Region::GetTotalRegionCount() << "] "
-                    << "[YoungFull: " << GetYoungCleaningRegionCount() << "] "
+                    << "[YoungFull: " << GetFullListRegionCount() << "] "
                     << "[OldFull: " << GetFullCleaningRegionCount() << "]";
 
                 Scheduler.OnYoungGCStart();
@@ -240,7 +242,7 @@ void Heap::GCManagement()
 
                 Logger::GetInstance()->Log() << "After Young GC: "
                     << "[Total: " << Region::GetTotalRegionCount() << "] "
-                    << "[YoungFull: " << GetYoungCleaningRegionCount() << "] "
+                    << "[YoungFull: " << GetFullListRegionCount() << "] "
                     << "[OldFull: " << GetFullCleaningRegionCount() << "]";
             }
 

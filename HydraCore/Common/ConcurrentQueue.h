@@ -20,24 +20,10 @@ public:
         {
             Buffer[i].Seq.store(i, std::memory_order_relaxed);
         }
-
-        Initialized.store(true, std::memory_order_release);
-    }
-
-    bool IsInitialized()
-    {
-        return Initialized.load(std::memory_order_acquire);
-    }
-
-    void WaitForInitialize()
-    {
-        while (!IsInitialized());
     }
 
     bool TryEnqueue(const T &value)
     {
-        WaitForInitialize();
-
         Cell *cell;
         size_t tail = Tail.load(std::memory_order_acquire);
         while (true)
@@ -66,8 +52,6 @@ public:
 
     bool TryDequeue(T &value)
     {
-        WaitForInitialize();
-
         Cell *cell;
         size_t head = Head.load(std::memory_order_relaxed);
         while (true)
@@ -157,7 +141,6 @@ private:
     std::mutex WaitMutex;
     std::condition_variable ReadCV;
     std::condition_variable WriteCV;
-    std::atomic<bool> Initialized;
 };
 
 } // namespace concurrent

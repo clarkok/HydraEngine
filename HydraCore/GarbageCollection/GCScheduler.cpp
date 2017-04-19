@@ -103,11 +103,11 @@ void GCScheduler::OnMonitor()
 
 bool GCScheduler::ShouldYoungGC()
 {
-    size_t currentRegionCount = Owner->GetYoungCleaningRegionCount();
+    size_t currentRegionCount = Owner->GetFullListRegionCount();
     size_t currentWorkingQueueLength = Owner->WorkingQueue.Count();
 
     return (currentWorkingQueueLength > Owner->WorkingQueue.Capacity() * YOUNG_GC_TRIGGER_FACTOR_BY_WORKING_QUEUE) ||
-        (currentRegionCount > RegionCountAfterLastYoungGC);
+        (currentRegionCount > 0);
 }
 
 bool GCScheduler::ShouldFullGC()
