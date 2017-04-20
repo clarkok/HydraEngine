@@ -19,13 +19,9 @@ void ThreadAllocator::ThreadScan()
         void *ptr = nullptr;
         const JSValue &value = JSValue::AtAddress(stackPtr);
 
-        if (value.Type() == runtime::Type::T_OBJECT)
+        if (value.IsReference())
         {
-            ptr = value.Object();
-        }
-        else if (value.Type() == runtime::Type::T_STRING)
-        {
-            ptr = value.String();
+            ptr = value.ToReference();
         }
         else
         {
@@ -37,6 +33,8 @@ void ThreadAllocator::ThreadScan()
         {
             if (cell && cell->IsInUse())
             {
+                hydra_assert(dynamic_cast<HeapObject*>(cell),
+                    "must be an HeapObject");
                 Heap::GetInstance()->Remember(dynamic_cast<HeapObject*>(cell));
             }
         }

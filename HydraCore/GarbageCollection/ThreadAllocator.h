@@ -15,6 +15,9 @@
 
 namespace hydra
 {
+
+class ThreadAllocatorTester;
+
 namespace gc
 {
 
@@ -142,7 +145,7 @@ public:
             {
                 std::shared_lock<std::shared_mutex> waitingLock(Owner->WaitingMutex);
                 Owner->WakeupCV.wait(RunningLock,
-                    [this]() { return !Owner->PauseRequested.load(std::memory_order_acquire); });
+                    [this]() { return !Owner->PauseRequested.load(); });
             }
         }
     }
@@ -155,6 +158,8 @@ private:
     std::atomic<bool> Active;
 
     static void ThreadScan();
+
+    friend class hydra::ThreadAllocatorTester;
 };
 
 } // namespace gc

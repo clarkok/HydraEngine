@@ -51,6 +51,8 @@ public:
 
         u8 currentProperty = Property.load();
 
+        hydra_assert(CellIsInUse(currentProperty), "GCState can only be set on living objects");
+
         if ((currentProperty & GC_STATE_MASK) != expected)
         {
             expected = currentProperty & GC_STATE_MASK;

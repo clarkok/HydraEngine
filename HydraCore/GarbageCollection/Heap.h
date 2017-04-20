@@ -125,6 +125,9 @@ public:
     {
         if (obj)
         {
+            hydra_assert(obj->IsInUse(),
+                "can only remember living objects");
+
             u8 currentGCState = obj->GetGCState();
 
             if (currentGCState == GCState::GC_WHITE)
@@ -177,7 +180,17 @@ public:
         return FullCleaningList.GetCount();
     }
 
-    void WriteBarrier(HeapObject *target, HeapObject *ref);
+    inline void WriteBarrier(HeapObject *target, HeapObject *ref)
+    {
+        if (ref && ref->GetGCState() == GCState::GC_WHITE)
+        {
+            u8 targetGCState = target->GetGCState();
+            if (targetGCState == GCState::GC_DARK || targetGCState == GCState::GC_BLACK)
+            {
+                SetGCStateAndWorkingQueueEnqueue(target);
+            }
+        }
+    }
 
     void StopTheWorld();
     void ResumeTheWorld();

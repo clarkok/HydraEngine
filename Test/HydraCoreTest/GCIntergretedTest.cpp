@@ -10,6 +10,18 @@
 using namespace hydra;
 using namespace std::chrono_literals;
 
+namespace hydra
+{
+class ThreadAllocatorTester
+{
+public:
+    static void ThreadScan()
+    {
+        gc::ThreadAllocator::ThreadScan();
+    }
+};
+}
+
 int main()
 {
     std::cout << "Hello World" << std::endl;
@@ -23,7 +35,6 @@ int main()
 
     size_t round = 0;
 
-    // std::vector<TestHeapObject *> headers;
     std::array<TestHeapObject *, 10> headers;
     std::fill(headers.begin(), headers.end(), nullptr);
 
@@ -40,6 +51,28 @@ int main()
         while (count--)
         {
             head = allocator.AllocateAuto<TestHeapObject>(head);
+            /*
+            hydra::ThreadAllocatorTester::ThreadScan();
+            hydra_assert(head->GetGCState() != gc::GCState::GC_WHITE,
+                "must be scanned");
+            /*
+            head = allocator.Allocate<TestHeapObject>([&]()
+            {
+                auto heap = gc::Heap::GetInstance();
+
+                for (auto &header : headers)
+                {
+                    if (header)
+                    {
+                        heap->Remember(header);
+                    }
+                }
+                if (head)
+                {
+                    heap->Remember(head);
+                }
+            }, head);
+            */
         }
 
         TestHeapObject *ptr = head;

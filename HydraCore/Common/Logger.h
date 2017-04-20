@@ -144,11 +144,11 @@ private:
         std::string message,
         std::thread::id threadId)
     {
-        Queue.Enqueue({ timePoint, message, threadId });
+        Queue.Enqueue(new Entry{ timePoint, message, threadId });
     }
 
     std::atomic<bool> ShouldExit;
-    concurrent::Queue<Entry, 8192> Queue;
+    concurrent::Queue<Entry *, 8192> Queue;
     std::thread WriteThread;
     void Write();
 };

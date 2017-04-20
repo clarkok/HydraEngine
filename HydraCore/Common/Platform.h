@@ -81,6 +81,10 @@ void ForeachWordOnStack(T_callback callback)
     u64 low = 0, high = 0;
     GetCurrentThreadStackLimits(&low, &high);
 
+    hydra_assert(reinterpret_cast<uintptr_t>(&threadContext) >= threadContext.Rsp &&
+        reinterpret_cast<uintptr_t>(&threadContext) < high,
+        "threadContext must in stack");
+
     for (uintptr_t ptr = threadContext.Rsp; ptr < high; ptr += sizeof(void*))
     {
         callback(reinterpret_cast<void**>(ptr));

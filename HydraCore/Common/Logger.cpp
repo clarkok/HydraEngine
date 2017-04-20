@@ -68,28 +68,31 @@ void Logger::Write()
 
     while (!ShouldExit.load())
     {
-        Entry entry;
+        Entry *entry;
         Queue.Dequeue(entry);
 
-        writeTime(entry.TimePoint);
+        writeTime(entry->TimePoint);
 #ifdef HYDRA_LOG_TO_FILE
         fout
 #else
         std::cout
 #endif
-            << "\t" << entry.ThreadId << "\t" << entry.Message << "\t{" << Queue.Count() << "}" << std::endl;;
+            << "\t" << entry->ThreadId << "\t" << entry->Message << "\t{" << Queue.Count() << "}" << std::endl;;
+
+        delete entry;
     }
 
-    Entry entry;
+    Entry *entry;
     while (Queue.TryDequeue(entry))
     {
-        writeTime(entry.TimePoint);
+        writeTime(entry->TimePoint);
 #ifdef HYDRA_LOG_TO_FILE
         fout
 #else
         std::cout
 #endif
-            << "\t" << entry.ThreadId << "\t" << entry.Message << std::endl;;
+            << "\t" << entry->ThreadId << "\t" << entry->Message << std::endl;;
+        delete entry;
     }
 
     std::cout << "Logger shutdown" << std::endl;

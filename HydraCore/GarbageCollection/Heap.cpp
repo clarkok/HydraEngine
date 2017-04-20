@@ -38,22 +38,12 @@ Region *Heap::GetFreeRegion(size_t level)
 
 void Heap::CommitFullRegion(Region *&region)
 {
+    Logger::GetInstance()->Log() << "Commit Region " << region;
+
     auto level = region->Level;
 
     FullList.Push(region);
     region = GetFreeRegion(level);
-}
-
-void Heap::WriteBarrier(HeapObject *target, HeapObject *ref)
-{
-    if (ref && ref->GetGCState() == GCState::GC_WHITE)
-    {
-        u8 targetGCState = target->GetGCState();
-        if (targetGCState == GCState::GC_DARK || targetGCState == GCState::GC_BLACK)
-        {
-            SetGCStateAndWorkingQueueEnqueue(target);
-        }
-    }
 }
 
 void Heap::StopTheWorld()
