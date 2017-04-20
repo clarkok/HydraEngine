@@ -7,13 +7,14 @@
 #include "RuntimeDefs.h"
 #include "Type.h"
 #include "String.h"
-#include "JSObject.h"   // we need sizeof(JSObject)
 #include "ManagedHashMap.h"
 
 namespace hydra
 {
 namespace runtime
 {
+
+class JSObject;
 
 class Klass : public gc::HeapObject
 {

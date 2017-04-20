@@ -8,13 +8,12 @@
 #include "ManagedArray.h"
 #include "Type.h"
 #include "String.h"
+#include "Klass.h"
 
 namespace hydra
 {
 namespace runtime
 {
-
-class Klass;
 
 enum class ObjectType
 {
@@ -33,6 +32,8 @@ struct JSObjectPropertyAttribute
 
     constexpr static u64 DEFAULT_DATA_ATTRIBUTE =
         HAS_VALUE | IS_DATA_MASK | IS_CONFIGURABLE_MASK | IS_ENUMERABLE_MASK | IS_WRITABLE_MASK;
+
+    constexpr static size_t USED_BITS = 5;
 
     JSObjectPropertyAttribute(u64 payload = 0)
         : Payload(payload)
