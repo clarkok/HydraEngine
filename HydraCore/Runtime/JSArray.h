@@ -50,6 +50,8 @@ public:
         return SplitPoint;
     }
 
+    static JSArray *New(gc::ThreadAllocator &allocator);
+
 private:
     bool GetSlowInternal(size_t key, JSValue &value, JSObjectPropertyAttribute &attribute);
     void SetSlowInternal(gc::ThreadAllocator &allocator,
@@ -58,7 +60,7 @@ private:
         JSObjectPropertyAttribute attribute = JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE);
     void DeleteSlowInternal(size_t key);
 
-    static inline void SplitAttrSlot(JSValue slot, JSObjectPropertyAttribute &attribute, size_t key)
+    static inline void SplitAttrSlot(JSValue slot, JSObjectPropertyAttribute &attribute, size_t &key)
     {
         auto smallInt = slot.SmallInt();
         attribute = smallInt & cexpr::Mask(0, JSObjectPropertyAttribute::USED_BITS);

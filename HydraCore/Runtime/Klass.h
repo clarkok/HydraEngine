@@ -114,6 +114,12 @@ public:
             "T must be inheritted from JSObject");
         auto table = Array::New(allocator, KeyCount * 2);
 
+        for (size_t i = 0; i + 1 < table->Capacity(); i += 2)
+        {
+            table->at(i) = JSObjectPropertyAttribute();
+            table->at(i + 1) = JSValue();
+        }
+
         return allocator.AllocateAuto<T>(this, table, args...);
     }
 

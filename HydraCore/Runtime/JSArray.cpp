@@ -5,6 +5,27 @@ namespace hydra
 namespace runtime
 {
 
+JSArray *JSArray::New(gc::ThreadAllocator &allocator)
+{
+    Array *tablePart = Array::New(allocator, DEFAULT_JSARRAY_SPLIT_POINT * 2);
+    Array *hashPart = Array::New(allocator, DEFAULT_JSARRAY_SPLIT_POINT * 2);
+
+    for (size_t i = 0; i + 1 < tablePart->Capacity(); i += 2)
+    {
+        tablePart->at(i) = JSObjectPropertyAttribute();
+        tablePart->at(i + 1) = JSValue();
+    }
+
+    for (size_t i = 0; i + 1 < tablePart->Capacity(); i += 2)
+    {
+        hashPart->at(i) = JSObjectPropertyAttribute();
+        hashPart->at(i + 1) = JSValue();
+    }
+
+    auto emptyKlass = Klass::EmptyKlass(allocator);
+    return emptyKlass->NewObject<JSArray>(allocator, tablePart, hashPart);
+}
+
 bool JSArray::Get(size_t key, JSValue &value, JSObjectPropertyAttribute &attribute)
 {
     if (key < SplitPoint)
@@ -28,8 +49,6 @@ void JSArray::Set(
     JSValue value,
     JSObjectPropertyAttribute attribute)
 {
-    auto heap = gc::Heap::GetInstance();
-
     if (key < SplitPoint)
     {
         TablePart->at(key << 1) = attribute;
@@ -37,6 +56,7 @@ void JSArray::Set(
 
         if (value.IsReference())
         {
+            auto heap = gc::Heap::GetInstance();
             heap->WriteBarrier(this, value.ToReference());
         }
     }
@@ -52,6 +72,21 @@ void JSArray::Delete(size_t key)
     {
         TablePart->at(key << 1) = JSObjectPropertyAttribute();
         TablePart->at((key << 1) + 1) = JSValue();
+
+        if (key == SplitPoint - 1)
+        {
+            SplitPoint--;
+        }
+        else if ((key == SplitPoint - 2) &&
+            !JSObjectPropertyAttribute(TablePart->at((key + 1) << 1).SmallInt()).HasValue())
+        {
+            SplitPoint -= 2;
+        }
+
+        if (SplitPoint < DEFAULT_JSARRAY_SPLIT_POINT)
+        {
+            SplitPoint = DEFAULT_JSARRAY_SPLIT_POINT;
+        }
     }
     else
     {
@@ -61,7 +96,11 @@ void JSArray::Delete(size_t key)
 
 bool JSArray::GetSlowInternal(size_t key, JSValue &value, JSObjectPropertyAttribute &attribute)
 {
-    return GetInHash(HashPart, key, value, attribute);
+    if (!GetInHash(HashPart, key, value, attribute))
+    {
+        return false;
+    }
+    return (value != JSValue());
 }
 
 void JSArray::SetSlowInternal(
@@ -74,7 +113,7 @@ void JSArray::SetSlowInternal(
 
     if (key < SplitPoint + 2)
     {
-        auto newSplitPoint = key;
+        auto newSplitPoint = key + 1;
         if (TablePart->Capacity() <= newSplitPoint * 2)
         {
             auto newTablePart = Array::NewOfLevel(allocator, TablePart->GetLevel() + 1);
@@ -88,15 +127,15 @@ void JSArray::SetSlowInternal(
             heap->WriteBarrier(this, TablePart);
         }
 
-        if (SplitPoint + 1 != key)
+        if (SplitPoint != key)
         {
             JSValue value;
             JSObjectPropertyAttribute attribute;
-            if (GetSlowInternal(SplitPoint + 1, value, attribute))
+            if (GetSlowInternal(SplitPoint, value, attribute))
             {
-                TablePart->at(((SplitPoint + 1) << 1)) = attribute;
-                TablePart->at(((SplitPoint + 1) << 1) + 1) = value;
-                DeleteSlowInternal(SplitPoint + 1);
+                TablePart->at(((SplitPoint) << 1)) = attribute;
+                TablePart->at(((SplitPoint) << 1) + 1) = value;
+                DeleteSlowInternal(SplitPoint);
 
                 if (value.IsReference())
                 {
@@ -136,7 +175,7 @@ void JSArray::DeleteSlowInternal(size_t key)
     JSObjectPropertyAttribute attribute;
     if (GetInHash(HashPart, key, value, attribute))
     {
-        SetInHash(HashPart, key, JSValue(), attribute);
+        SetInHash(HashPart, key, JSValue(), JSObjectPropertyAttribute::HAS_VALUE);
     }
 }
 

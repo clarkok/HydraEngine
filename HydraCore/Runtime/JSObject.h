@@ -41,7 +41,7 @@ struct JSObjectPropertyAttribute
 
     operator u64 () const
     {
-        return Payload;
+        return Payload & cexpr::Mask(0, USED_BITS);
     }
 
     operator JSValue () const
