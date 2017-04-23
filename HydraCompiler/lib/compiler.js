@@ -24,7 +24,7 @@ class Scope
 
     /**
      * @param {string} name 
-     * @returns {{index : number, type : 'direct'|'capture'}}
+     * @returns {{index : number, type : 'direct'|'capture', inst : number}}
      */
     Lookup(name, tolerantForwardDeclare = false, upperTolerantForwardDeclare = true)
     {
@@ -90,7 +90,7 @@ class Scope
         };
     }
 
-    Declare(name, inst)
+    Declare(name, inst = null)
     {
         if (this.map.hasOwnProperty(name))
         {
@@ -98,6 +98,14 @@ class Scope
             {
                 throw SyntaxError(`Identifier '${name}' has been already defined`);
             }
+
+            this.map[name].type = 'let';
+            if (inst)
+            {
+                this.map[name].inst = inst;
+            }
+
+            return;
         }
 
         this.map[name] = {
@@ -194,12 +202,159 @@ function CompileExpression(node, func, last, scope)
             }
             break;
         case 'ArrayExpression':
+            {
+                let compileValueRange = (elements) =>
+                {
+                    let values = elements.map((ele) => {
+                        last = CompileExpression(ele, func, last, scope);
+                        return last.LastInst();
+                    });
+
+                    last.Array(values);
+                    return last.LastInst();
+                };
+
+                let compileArrayConcat = (left, arrays) =>
+                {
+                    let $Array = last.GetGlobal('Array');
+                    let $prototype = last.String('prototype');
+                    let $Array_prototype = last.GetItem($Array, $prototype);
+                    let $concat = last.String('concat');
+                    let $Array_prototype_concat = last.GetItem($Array_prototype, $concat);
+                    last.Array(arrays);
+                    last.Call($Array_prototype_concat, left, last.LastInst());
+                    return last.LastInst();
+                };
+
+                let compileArrayFromSpread = (ele) =>
+                {
+                    last = CompileExpression(ele.argument, func, last, scope);
+                    let $arrayLike = last.LastInst();
+
+                    let $Array = last.GetGlobal('Array');
+                    let $from = last.String('from');
+                    let $Array_from = last.GetItem($Array, $from);
+                    last.Array([$arrayLike]);
+                    last.Call($Array_from, $Array, last.LastInst());
+                    return last.LastInst();
+                };
+
+                if (node.elements.some((e) => e.type === 'SpreadElement'))
+                {
+                    let currentValues = [];
+                    let arrays = [];
+                    for (let ele of node.elements)
+                    {
+                        if (ele.type === 'SpreadElement')
+                        {
+                            if (currentValues.length !== 0)
+                            {
+                                arrays.push(compileValueRange(currentValues));
+                                currentValues = [];
+                            }
+
+                            arrays.push(compileArrayFromSpread(ele));
+                        }
+                        else
+                        {
+                            currentValues.push(ele);
+                        }
+                    }
+
+                    if (currentValues.length !== 0)
+                    {
+                        arrays.push(compileValueRange(currentValues));
+                    }
+
+                    if (arrays.length <= 1)
+                    {
+                        throw Error("Internal");
+                    }
+
+                    compileArrayConcat(arrays[0], arrays.slice(1));
+                }
+                else
+                {
+                    compileValueRange(node.elements);
+                }
+            }
+            break;
         case 'ObjectExpression':
+            {
+                let initialize = [];
+
+                node.properties.forEach((p) =>
+                {
+                    if (p.kind !== 'init')
+                    {
+                        throw Error(`Property kind ${p.kind} is not supported`);
+                    }
+
+                    if (p.method)
+                    {
+                        throw Error('Property method is not supported');
+                    }
+
+                    let $key, $value;
+
+                    if (p.computed)
+                    {
+                        last = CompileExpression(p.key, func, last, scope);
+                        $key = last.LastInst();
+
+                        last = CompileExpression(p.value, func, last, scope);
+                        $value = last.LastInst();
+                    }
+                    else
+                    {
+                        if (p.key.type === 'Identifier') {
+                            last.String(p.key.name);
+                        }
+                        else if (p.key.type === 'Literal') {
+                            last.String(p.key.value.toString());
+                        }
+                        else {
+                            throw Error('Internal');
+                        }
+
+                        $key = last.LastInst();
+
+                        last = CompileExpression(p.value, func, last, scope);
+                        $value = last.LastInst();
+                    }
+
+                    initialize.push({$key, $value});
+                });
+
+                last.Object(initialize);
+            }
+            break;
         case 'FunctionExpression':
         case 'ArrowFunctionExpression':
         case 'ClassExpression':
         case 'TaggedExpression':
         case 'MemberExpression':
+            {
+                let $obj, $key;
+                last = CompileExpression(node.key, func, last, scope);
+                $obj = last.LastInst();
+                if (node.computed)
+                {
+                    last = CompileExpression(node.value, func, last, scope);
+                    $key = last.LastInst();
+                }
+                else
+                {
+                    if (node.property.type !== 'Identifier')
+                    {
+                        throw Error('Internal');
+                    }
+                    $key = last.String(node.property.name);
+                }
+
+                last.GetItem($obj, $key);
+            }
+            break;
         case 'Super':
         case 'MetaProperty':
         case 'NewExpression':
@@ -454,6 +609,44 @@ function CompileStatement(node, func, last, scope)
                 return last;
             }
         case 'VariableDeclaration':
+            {
+                if (node.kind !== 'let')
+                {
+                    throw Error(`Declaration kind ${node.kind} is not supported`);
+                }
+
+                for (let decl of node.declarations)
+                {
+                    if (decl.type !== 'VariableDeclarator')
+                    {
+                        throw Error(`Declaration type ${decl.type} is not supported`);
+                    }
+
+                    if (decl.id.type !== 'Identifier')
+                    {
+                        throw Error(`Declaration ID type ${decl.id.type} is not supported`);
+                    }
+
+                    scope.Declare(decl.id.name);
+                }
+
+                for (let decl of node.declarations)
+                {
+                    if (decl.init)
+                    {
+                        let result = scope.Lookup(decl.id.name)
+                        if (result.type !== 'direct')
+                        {
+                            throw Error('Internal');
+                        }
+
+                        last = CompileExpression(decl.init, func, last, scope);
+                        last.Store(result.inst, last.LastInst());
+                    }
+                }
+
+                break;
+            }
         case 'WhileStatement':
             {
                 let loopEntry = func.NewBlock();

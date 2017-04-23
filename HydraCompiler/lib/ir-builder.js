@@ -109,7 +109,7 @@ const Insts =
             case Insts.REGEX:
                 return `$${inst.name}\t= regex ${inst.value}`;
             case Insts.OBJECT:
-                return `$${inst.name}\t= object {${inst.initialize.map((i) => `"$${i.$key.name}:$${i.$value.name}"`).join()}}`;
+                return `$${inst.name}\t= object {${inst.initialize.map((i) => `$${i.$key.name}:$${i.$value.name}`).join(',')}}`;
             case Insts.ARRAY:
                 return `$${inst.name}\t= array [${inst.initialize.map((i) => '$' + i.name).join(',')}]`;
             case Insts.FUNC:
@@ -167,14 +167,13 @@ const Insts =
             case Insts.POP_SCOPE:
                 return `\t  pop_scope ${inst.count}`;
             case Insts.ALLOCA:
-                return `\t  alloca`;
+                return `$${inst.name}\t= alloca`;
             case Insts.ARG:
                 return `$${inst.name}\t= arg $${inst.$index.name}`;
             case Insts.CAPTURE:
                 return `$${inst.name}\t= capture ${inst.index}`;
             case Insts.THIS:
                 return `$${inst.name}\t= this`;
-            
             case Insts.PHI:
                 return `$${inst.name}\t= phi ` + inst.branches.map((b) => `[blk_${b.precedence.index} $${b.$value.name}]`).join(' ')
 
@@ -223,7 +222,7 @@ class BlockBuilder
         return this.PushInst(
             {
                 name,
-                type : Insts.LOAD_UPPER,
+                type : Insts.LOAD,
                 $addr,
             });
     }
@@ -232,7 +231,7 @@ class BlockBuilder
     {
         return this.PushInst(
             {
-                type : Insts.STORE_UPPER,
+                type : Insts.STORE,
                 $addr, $value
             });
     }
@@ -256,7 +255,7 @@ class BlockBuilder
             });
     }
 
-    New($callee, $args, name)
+    New($callee, $args, name = null)
     {
         return this.PushInst(
             {
@@ -266,7 +265,7 @@ class BlockBuilder
             });
     }
 
-    Call($callee, $this_arg, $args, name)
+    Call($callee, $this_arg, $args, name = null)
     {
         return this.PushInst(
             {
@@ -453,6 +452,15 @@ class BlockBuilder
                 name,
                 type : Insts.CAPTURE,
                 index
+            });
+    }
+
+    This(name = null)
+    {
+        return this.PushInst(
+            {
+                name,
+                type : Insts.THIS
             });
     }
 
