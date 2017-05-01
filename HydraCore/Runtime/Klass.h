@@ -107,6 +107,16 @@ public:
         return KeyCount;
     }
 
+    inline bool IsBaseOf(Klass *other) const
+    {
+        while (other && other != this)
+        {
+            other = other->Parent;
+        }
+
+        return other == this;
+    }
+
     template <typename T, typename ...T_Args>
     T *NewObject(gc::ThreadAllocator &allocator, T_Args ...args)
     {
@@ -130,6 +140,11 @@ public:
             scan(IndexMap);
         }
 
+        if (Parent)
+        {
+            scan(Parent);
+        }
+
         if (Transaction)
         {
             scan(Transaction);
@@ -147,11 +162,12 @@ public:
 private:
     using KlassTransaction = HashMap<Klass *>;
 
-    Klass(u8 property, size_t level)
+    Klass(u8 property, size_t level, Klass *parent)
         : HeapObject(property),
         Level(level),
         TableSize(TableSizeFromLevel(level)),
         KeyCount(0),
+        Parent(parent),
         IndexMap(nullptr),
         Transaction(nullptr)
     {
@@ -159,7 +175,7 @@ private:
     }
 
     Klass(u8 property, size_t level, Klass *other, String *key, gc::ThreadAllocator &allocator)
-        : Klass(property, level)
+        : Klass(property, level, other)
     {
         auto heap = gc::Heap::GetInstance();
 
@@ -199,6 +215,7 @@ private:
     size_t Level;
     size_t TableSize;
     size_t KeyCount;
+    Klass *Parent;
     HashMap<size_t> *IndexMap;
     std::atomic<KlassTransaction *> Transaction;
 
