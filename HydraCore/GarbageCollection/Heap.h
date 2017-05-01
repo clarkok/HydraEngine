@@ -209,6 +209,13 @@ public:
         LargeSet.insert(ptr);
     }
 
+    inline void RegisterRootScanFunc(std::function<void(std::function<void(HeapObject *)>)> scanFunc)
+    {
+        std::unique_lock<std::mutex> lck(RootScanFuncMutex);
+
+        RootScanFunc.push_back(scanFunc);
+    }
+
 private:
     enum class GCPhase
     {
@@ -233,6 +240,9 @@ private:
     concurrent::ForwardLinkedList<Region> FullList;
     concurrent::ForwardLinkedList<Region> CleaningList;
     concurrent::ForwardLinkedList<Region> FullCleaningList;
+
+    std::mutex RootScanFuncMutex;
+    std::vector<std::function<void(std::function<void(HeapObject *)>)>> RootScanFunc;
 
     std::set<HeapObject *> LargeSet;
     std::shared_mutex LargeSetMutex;
@@ -265,7 +275,7 @@ private:
     void Fire(Heap::GCPhase phase, std::vector<std::future<void>> &futures);
     void Wait(std::vector<std::future<void>> &futures, bool cannotWait = false);
     void FireGCPhaseAndWait(GCPhase phase, bool cannotWait = false);
-    void FireGCPhaseAndWait(GCPhase phase, std::function<void()> whenWaiting);
+    void FireGCPhaseAndWait(GCPhase phase, std::function<void()> whenWaiting, bool cannotWait = false);
 
     size_t GCWorkerCount;
     void GCWorkerYoungMark();

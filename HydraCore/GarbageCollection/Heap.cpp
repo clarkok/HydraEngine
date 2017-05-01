@@ -126,7 +126,19 @@ void Heap::GCManagement()
                 Scheduler.OnFullGCStart();
 
                 GCRound.fetch_add(1);
-                FireGCPhaseAndWait(GCPhase::GC_FULL_MARK, true /* cannotWait */);
+                FireGCPhaseAndWait(GCPhase::GC_FULL_MARK,
+                    [this]()
+                    {
+                        std::unique_lock<std::mutex> lck(RootScanFuncMutex);
+                        for (auto &func : RootScanFunc)
+                        {
+                            func([this](HeapObject *obj)
+                            {
+                                this->Remember(obj);
+                            });
+                        }
+                    },
+                    true /*  */ );
                 perfSession.Phase("InitialMark");
 
                 StopTheWorld();
@@ -192,7 +204,23 @@ void Heap::GCManagement()
                 Scheduler.OnYoungGCStart();
 
                 GCRound.fetch_add(1);
-                FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK, true /* cannotWait */);
+                //FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK, true /* cannotWait */);
+                FireGCPhaseAndWait(GCPhase::GC_YOUNG_MARK,
+                    [this]()
+                    {
+                        std::unique_lock<std::mutex> lck(RootScanFuncMutex);
+                        for (auto &func : RootScanFunc)
+                        {
+                            func([this](HeapObject *obj)
+                            {
+                                if (obj->GetGCState() == GCState::GC_WHITE)
+                                {
+                                    SetGCStateAndWorkingQueueEnqueue(obj);
+                                }
+                            });
+                        }
+                    },
+                    true /* cannotWait */);
                 perfSession.Phase("InitialMark");
 
                 StopTheWorld();
@@ -305,12 +333,12 @@ void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, bool cannotWait)
     Wait(futures, cannotWait);
 }
 
-void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, std::function<void()> whenWaiting)
+void Heap::FireGCPhaseAndWait(Heap::GCPhase phase, std::function<void()> whenWaiting, bool cannotWait)
 {
     std::vector<std::future<void>> futures(GCWorkerCount);
     Fire(phase, futures);
     whenWaiting();
-    Wait(futures, false);
+    Wait(futures, cannotWait);
 }
 
 void Heap::GCWorkerYoungMark()
