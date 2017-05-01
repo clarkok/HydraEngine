@@ -89,6 +89,28 @@ TEST_CASE("Klass", "[Runtime]")
             }
         }
     }
+
+    SECTION("Inheritance Test")
+    {
+        auto uut = emptyKlass->AddTransaction(
+            allocator,
+            String::New(allocator, u"key"));
+        REQUIRE(emptyKlass->IsBaseOf(uut));
+        REQUIRE(uut->IsBaseOf(uut));
+
+        auto inherited = uut->AddTransaction(
+            allocator,
+            String::New(allocator, u"key2"));
+        REQUIRE(emptyKlass->IsBaseOf(inherited));
+        REQUIRE(uut->IsBaseOf(inherited));
+
+        auto fromEmptyKlass = emptyKlass->AddTransaction(
+            allocator,
+            String::New(allocator, u"key2"));
+        REQUIRE(emptyKlass->IsBaseOf(fromEmptyKlass));
+        REQUIRE(!uut->IsBaseOf(fromEmptyKlass));
+        REQUIRE(!inherited->IsBaseOf(fromEmptyKlass));
+    }
 }
 
 }

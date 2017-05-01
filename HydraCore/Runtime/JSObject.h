@@ -109,6 +109,23 @@ public:
         return &JSObject::Table;
     }
 
+    inline void GetIndex(size_t index, JSValue &value, JSObjectPropertyAttribute &attribute)
+    {
+        attribute = Table->at(index << 1).SmallInt();
+        value = Table->at((index << 1) + 1);
+    }
+
+    inline void SetIndex(size_t index, JSValue value, JSObjectPropertyAttribute attribute)
+    {
+        Table->at(index << 1) = attribute;
+        Table->at((index << 1) + 1) = value;
+
+        if (value.IsReference())
+        {
+            gc::Heap::GetInstance()->WriteBarrier(this, value.ToReference());
+        }
+    }
+
     virtual void Scan(std::function<void(HeapObject*)> scan) override;
 
 private:

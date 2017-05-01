@@ -12,5 +12,7 @@ add_library(HydraCore.Runtime OBJECT
     ManagedHashMap.h
     String.cpp
     String.h
+    Semantic.cpp
+    Semantic.h
     Type.h
 )
