@@ -8,6 +8,7 @@
 #include "GCDefs.h"
 
 #include "Common/Platform.h"
+#include "Common/AutoCounter.h"
 #include "Heap.h"
 
 #include <algorithm>
@@ -144,6 +145,7 @@ public:
 
             {
                 std::shared_lock<std::shared_mutex> waitingLock(Owner->WaitingMutex);
+                AutoCounter<size_t> autoWaitingThreadCount(Owner->WaitingThreadsCount);
                 Owner->WakeupCV.wait(RunningLock,
                     [this]() { return !Owner->PauseRequested.load(); });
             }

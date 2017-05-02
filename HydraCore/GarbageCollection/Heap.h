@@ -258,6 +258,7 @@ private:
     std::shared_mutex RunningMutex;
     std::shared_mutex WaitingMutex;
     std::condition_variable_any WakeupCV;
+    std::atomic<size_t> WaitingThreadsCount;
 
     std::mutex ShouldGCMutex;
     std::condition_variable ShouldGCCV;

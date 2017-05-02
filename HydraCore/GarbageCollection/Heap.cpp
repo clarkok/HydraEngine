@@ -50,6 +50,9 @@ void Heap::StopTheWorld()
 {
     if (!PauseRequested.exchange(true))
     {
+        hydra_assert(WaitingThreadsCount == 0,
+            "waiting thread must equal to zero");
+
         auto perfSession = Logger::GetInstance()->Perf("StoppingTheWorld");
 
         WaitingMutex.unlock();
@@ -57,6 +60,9 @@ void Heap::StopTheWorld()
         Logger::GetInstance()->Log() << "Stop the world";
 
         WorldStopped = std::chrono::high_resolution_clock::now();
+
+        hydra_assert(WaitingThreadsCount == TotalThreads,
+            "waiting thread must equal to total threads");
     }
 }
 
@@ -64,6 +70,9 @@ void Heap::ResumeTheWorld()
 {
     if (PauseRequested.exchange(false))
     {
+        hydra_assert(WaitingThreadsCount == TotalThreads,
+            "waiting thread must equal to total threads");
+
         auto perfSession = Logger::GetInstance()->Perf("ResumingTheWorld");
 
         auto now = std::chrono::high_resolution_clock::now();
@@ -73,6 +82,9 @@ void Heap::ResumeTheWorld()
         WakeupCV.notify_all();
 
         WaitingMutex.lock();
+
+        hydra_assert(WaitingThreadsCount == 0,
+            "waiting thread must equal to zero");
     }
 }
 
