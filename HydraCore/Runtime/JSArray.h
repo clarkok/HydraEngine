@@ -50,7 +50,7 @@ public:
         return SplitPoint;
     }
 
-    static JSArray *New(gc::ThreadAllocator &allocator);
+    static JSArray *New(gc::ThreadAllocator &allocator, size_t splitPoint = DEFAULT_JSARRAY_SPLIT_POINT);
 
 private:
     bool GetSlowInternal(size_t key, JSValue &value, JSObjectPropertyAttribute &attribute);

@@ -5,18 +5,13 @@ namespace hydra
 namespace runtime
 {
 
-bool JSNativeFunction::Call(JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
+bool JSNativeFunction::Call(gc::ThreadAllocator &allocator,
+    JSValue thisArg,
+    JSArray *arguments,
+    JSValue &retVal,
+    JSValue &error)
 {
-    try
-    {
-        retVal = Func(thisArg, arguments);
-        return true;
-    }
-    catch (const JSValue &err)
-    {
-        error = err;
-        return false;
-    }
+    return Func(allocator, thisArg, arguments, retVal, error);
 }
 
 } // namespace runtime

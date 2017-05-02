@@ -5,10 +5,10 @@ namespace hydra
 namespace runtime
 {
 
-JSArray *JSArray::New(gc::ThreadAllocator &allocator)
+JSArray *JSArray::New(gc::ThreadAllocator &allocator, size_t splitPoint)
 {
-    Array *tablePart = Array::New(allocator, DEFAULT_JSARRAY_SPLIT_POINT * 2);
-    Array *hashPart = Array::New(allocator, DEFAULT_JSARRAY_SPLIT_POINT * 2);
+    Array *tablePart = Array::New(allocator, splitPoint * 2);
+    Array *hashPart = Array::New(allocator, splitPoint * 2);
 
     for (size_t i = 0; i + 1 < tablePart->Capacity(); i += 2)
     {

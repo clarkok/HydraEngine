@@ -16,6 +16,9 @@ namespace hydra
 namespace runtime
 {
 
+#define js_return(__value)  do { retVal = __value; return true; } while (false)
+#define js_throw(__error)   do { error = __error; return false; } while (false)
+
 class JSFunction : public JSObject
 {
 public:
@@ -23,20 +26,20 @@ public:
         : JSObject(property, klass, table)
     { }
 
-    virtual bool Call(JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) = 0;
+    virtual bool Call(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) = 0;
 };
 
 class JSNativeFunction : public JSFunction
 {
 public:
-    using Functor = std::function<JSValue(JSValue, JSArray *)>;
+    using Functor = std::function<bool(gc::ThreadAllocator&, JSValue, JSArray*, JSValue&, JSValue&)>;
 
     JSNativeFunction(u8 property, runtime::Klass *klass, Array *table, Functor func)
         : JSFunction(property, klass, table),
         Func(func)
     { }
 
-    virtual bool Call(JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) override final;
+    virtual bool Call(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) override final;
 
 private:
     Functor Func;

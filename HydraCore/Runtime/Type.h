@@ -17,7 +17,7 @@ class JSObject;
 enum class Type
 {
                     // 63-----56 55-----48 47-----40 39-----32 31-----24 23-----16 15------8 7-------0
-    T_UNDEFINE,     // 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 
+    T_UNDEFINED,    // 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 
     T_NOT_EXISTS,   // 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1111 1110 
     T_BOOLEAN,      // 1111 1111 1111 1001 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
 
@@ -81,7 +81,7 @@ struct JSValue
             Type::T_SYMBOL,
             Type::T_UNKNOWN,
             Type::T_UNKNOWN,
-            Type::T_UNDEFINE
+            Type::T_UNDEFINED
         };
 
         return LOOKUP_TABLE[cexpr::SubBits(flag, 0, 3)];

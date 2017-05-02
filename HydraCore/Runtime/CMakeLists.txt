@@ -1,6 +1,8 @@
 add_library(HydraCore.Runtime OBJECT
     JSArray.cpp
     JSArray.h
+    JSError.cpp
+    JSError.h
     JSFunction.cpp
     JSFunction.h
     JSObject.cpp
