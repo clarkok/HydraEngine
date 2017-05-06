@@ -20,7 +20,8 @@ public:
         : JSObject(property, klass, table),
         TablePart(tablePart),
         HashPart(hashPart),
-        SplitPoint(DEFAULT_JSARRAY_SPLIT_POINT)
+        SplitPoint(DEFAULT_JSARRAY_SPLIT_POINT),
+        Length(0)
     {
         hydra_assert(TablePart->Capacity() >= SplitPoint * 2,
             "TablePart should be large enough");
@@ -52,6 +53,16 @@ public:
 
     static JSArray *New(gc::ThreadAllocator &allocator, size_t splitPoint = DEFAULT_JSARRAY_SPLIT_POINT);
 
+    inline size_t GetLength() const
+    {
+        return Length;
+    }
+
+    inline void SetLength(size_t newLength)
+    {
+        Length = newLength;
+    }
+
 private:
     bool GetSlowInternal(size_t key, JSValue &value, JSObjectPropertyAttribute &attribute);
     void SetSlowInternal(gc::ThreadAllocator &allocator,
@@ -82,6 +93,7 @@ private:
     Array *TablePart;
     Array *HashPart;
     size_t SplitPoint;
+    size_t Length;
 };
 
 } // namespace runtime

@@ -54,10 +54,14 @@ bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSVa
 bool ObjectGetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, String *key, JSValue &retVal, JSValue &error);
 bool ObjectGetSafeArray(gc::ThreadAllocator &allocator, JSArray *array, size_t key, JSValue &retVal, JSValue &error);
 
+bool ObjectSet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSValue value, JSValue &error);
+bool ObjectSetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, String *key, JSValue value, JSValue &error);
+bool ObjectSetSafeArray(gc::ThreadAllocator &allocator, JSArray *array, size_t key, JSValue value, JSValue &error);
+
+bool ObjectDelete(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSValue &error);
 
 /********************************** String ******************************/
 bool IsStringIntegral(String *str, i64 &value);
-bool IsStringNumeric(String *str, double &value, bool integral);
 bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error);
 
 } // namespace semantic

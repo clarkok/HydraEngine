@@ -64,6 +64,11 @@ void JSArray::Set(
     {
         SetSlowInternal(allocator, key, value, attribute);
     }
+
+    if (key >= Length)
+    {
+        Length = key + 1;
+    }
 }
 
 void JSArray::Delete(size_t key)
