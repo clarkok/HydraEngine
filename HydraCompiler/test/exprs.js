@@ -24,3 +24,7 @@ t[0]++;
 ++t[0];
 b.b--;
 --b.b;
+
+'logical expression';
+a && b;
+a || b;

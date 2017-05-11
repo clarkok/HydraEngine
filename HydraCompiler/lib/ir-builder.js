@@ -8,34 +8,35 @@ const Insts =
     STORE : 2,          // <addr> <value>
     GET_ITEM : 3,       // <object> <key>
     SET_ITEM : 4,       // <object> <key> <value>
-    NEW : 5,            // <callee> <args>
-    CALL : 6,           // <callee> <this_arg> <args>
+    DEL_ITEM : 5,       // <object> <key>
+    NEW : 6,            // <callee> <args>
+    CALL : 7,           // <callee> <this_arg> <args>
 
-    JUMP : 7,           // <dst>
-    BRANCH : 8,         // <condition> <consequence> <alternative>
-    GET_GLOBAL : 9,     // <name>
+    JUMP : 8,           // <dst>
+    BRANCH : 9,         // <condition> <consequence> <alternative>
+    GET_GLOBAL : 10,     // <name>
 
-    UNDEFINED : 10,
-    NULL : 11,
-    TRUE : 12,
-    FALSE : 13,
-    NUMBER : 14,        // <value>
-    STRING : 15,        // <stringPoolIndex>
-    REGEX : 16,         // <regexLiteral>
-    OBJECT : 17,        // <num> [<key> <value>]
-    ARRAY : 18,         // <num> [<value>]
-    FUNC : 19,          // <id>
+    UNDEFINED : 11,
+    NULL : 12,
+    TRUE : 13,
+    FALSE : 14,
+    NUMBER : 15,        // <value>
+    STRING : 16,        // <stringPoolIndex>
+    REGEX : 17,         // <regexLiteral>
+    OBJECT : 18,        // <num> [<key> <value>]
+    ARRAY : 19,         // <num> [<value>]
+    FUNC : 20,          // <id>
 
-    ADD : 20,           // <a> <b>
-    SUB : 21,           // <a> <b>
-    MUL : 22,           // <a> <b>
-    DIV : 23,           // <a> <b>
-    MOD : 24,           // <a> <b>
+    ADD : 21,           // <a> <b>
+    SUB : 22,           // <a> <b>
+    MUL : 23,           // <a> <b>
+    DIV : 24,           // <a> <b>
+    MOD : 25,           // <a> <b>
 
-    BAND : 25,          // <a> <b>
-    BOR : 26,           // <a> <b>
-    BXOR : 27,          // <a> <b>
-    BNOT : 28,          // <a>
+    BAND : 26,          // <a> <b>
+    BOR : 27,           // <a> <b>
+    BXOR : 28,          // <a> <b>
+    BNOT : 29,          // <a>
 
     LNOT : 31,          // <a>
 
@@ -85,6 +86,8 @@ const Insts =
                 return `$${inst.name}\t= get_item $${inst.$object.name} $${inst.$key.name}`;
             case Insts.SET_ITEM:
                 return `\t  set_item $${inst.$object.name} $${inst.$key.name} $${inst.$value.name}`;
+            case Insts.DEL_ITEM:
+                return `\t  del_item $${inst.$object.name} $${inst.$key.name}`;
             case Insts.NEW:
                 return `$${inst.name}\t= new $${inst.$callee.name} $${inst.$args.name}`;
             case Insts.CALL:
@@ -255,6 +258,15 @@ class BlockBuilder
             {
                 type : Insts.SET_ITEM,
                 $object, $key, $value
+            });
+    }
+
+    DelItem($object, $key)
+    {
+        return this.PushInst(
+            {
+                type : Insts.DEL_ITEM,
+                $object, $key
             });
     }
 

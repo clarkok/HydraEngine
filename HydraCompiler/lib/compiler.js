@@ -516,12 +516,360 @@ function CompileExpression(node, func, last, scope)
             break;
         case 'AwaitExpression':
         case 'UnaryExpression':
+            {
+                if (node.operator === 'delete')
+                {
+                    if (node.argument.type !== 'MemberExpression')
+                    {
+                        throw Error(`Cannot delete a ${node.argument.type}`);
+                    }
+
+                    let $obj, $key;
+                    last = CompileExpression(node.argument.object, func, last, scope);
+                    $obj = last.LastInst();
+
+                    if (node.computed)
+                    {
+                        last = CompileExpression(node.argument.property, func, last, scope);
+                        $key = last.LastInst();
+                    }
+                    else
+                    {
+                        if (node.property.type !== 'Identifier')
+                        {
+                            throw Error('Internal');
+                        }
+                        $key = last.String(node.property.name);
+                    }
+
+                    last.DelItem($obj, $key);
+                }
+                else
+                {
+                    last = CompileExpression(node.argument, func, last, scope);
+                    let $operand = last.LastInst();
+
+                    switch(node.operator)
+                    {
+                        case '+':
+                        case '-':
+                            {
+                                let $left = last.Number(0);
+                                if (node.operator === '+')
+                                {
+                                    last.Binary(IRBuilder.Insts.ADD, $left, $operand);
+                                }
+                                else
+                                {
+                                    last.Binary(IRBuilder.Insts.SUB, $left, $operand);
+                                }
+                            }
+                            break;
+                        case '~':
+                            last.Unary(IRBuilder.Insts.BNOT, $operand);
+                            break;
+                        case '!':
+                            last.Unary(IRBuilder.Insts.LNOT, $operand);
+                            break;
+                        case 'void':
+                            last.Undefined();
+                            break;
+                        case 'typeof':
+                            last.Unary(IRBuilder.Insts.TYPEOF, $operand);
+                            break;
+                        default:
+                            throw Error('Internal');
+                    }
+                }
+            }
+            break;
         case 'BinaryExpression':
+            {
+                last = CompileExpression(node.left, func, last, scope);
+                let $left = last.LastInst();
+
+                last = CompileExpression(node.right, func, last, scope);
+                let $right = last.LastInst();
+
+                switch (node.operator)
+                {
+                    case 'instanceof':
+                        last.Binary(IRBuilder.Insts.INSTANTCEOF, $left, $right);
+                        break;
+                    case 'in':
+                        last.Binary(IRBuilder.Insts.IN, $left, $right);
+                        break;
+                    case '+':
+                        last.Binary(IRBuilder.Insts.ADD, $left, $right);
+                        break;
+                    case '-':
+                        last.Binary(IRBuilder.Insts.SUB, $left, $right);
+                        break;
+                    case '*':
+                        last.Binary(IRBuilder.Insts.MUL, $left, $right);
+                        break;
+                    case '/':
+                        last.Binary(IRBuilder.Insts.DIV, $left, $right);
+                        break;
+                    case '%':
+                        last.Binary(IRBuilder.Insts.MOD, $left, $right);
+                        break;
+                    case '|':
+                        last.Binary(IRBuilder.Insts.BOR, $left, $right);
+                        break;
+                    case '^':
+                        last.Binary(IRBuilder.Insts.BXOR, $left, $right);
+                        break;
+                    case '&':
+                        last.Binary(IRBuilder.Insts.BAND, $left, $right);
+                        break;
+                    case '==':
+                        last.Binary(IRBuilder.Insts.EQ, $left, $right);
+                        break;
+                    case '!=':
+                        last.Binary(IRBuilder.Insts.NE, $left, $right);
+                        break;
+                    case '===':
+                        last.Binary(IRBuilder.Insts.EQQ, $left, $right);
+                        break;
+                    case '!==':
+                        last.Binary(IRBuilder.Insts.NEE, $left, $right);
+                        break;
+                    case '<':
+                        last.Binary(IRBuilder.Insts.LT, $left, $right);
+                        break;
+                    case '>':
+                        last.Binary(IRBuilder.Insts.GT, $left, $right);
+                        break;
+                    case '<=':
+                        last.Binary(IRBuilder.Insts.LE, $left, $right);
+                        break;
+                    case '>=':
+                        last.Binary(IRBuilder.Insts.GE, $left, $right);
+                        break;
+                    case '<<':
+                        last.Binary(IRBuilder.Insts.SLL, $left, $right);
+                        break;
+                    case '>>':
+                        last.Binary(IRBuilder.Insts.SRL, $left, $right);
+                        break;
+                    case '>>>':
+                        last.Binary(IRBuilder.Insts.SRR, $left, $right);
+                        break;
+                    default:
+                        throw Error('Internal');
+                }
+            }
+            break;
         case 'LogicalExpression':
+            {
+                let leftBlock = last;
+                let rightBlock = func.NewBlock();
+                let followingBlock = func.NewBlock();
+
+                leftBlock = CompileExpression(node.left, func, leftBlock, scope);
+                let $left = leftBlock.LastInst();
+
+                if (node.operator === '&&')
+                {
+                    leftBlock.Branch($left, rightBlock, followingBlock);
+                }
+                else
+                {
+                    leftBlock.Branch($left, followingBlock, rightBlock);
+                }
+
+                rightBlock = CompileExpression(node.right, func, rightBlock, scope);
+                let $right = rightBlock.LastInst();
+                rightBlock.Jump(followingBlock);
+
+                followingBlock.Phi([
+                    {
+                        precedence : leftBlock,
+                        $value : $left
+                    },
+                    {
+                        precedence : rightBlock,
+                        $value : $right
+                    }
+                ]);
+
+                last = followingBlock;
+            }
+            break;
         case 'ConditionalExpression':
-        case 'YieldExpression':
+            {
+                last = CompileExpression(node.test, func, last, scope);
+                let $test = last.LastInst();
+
+                let leftBlock = func.NewBlock();
+                let rightBlock = func.NewBlock();
+
+                last.Branch($test, leftBlock, rightBlock);
+
+                leftBlock = CompileExpression(node.consequent, func, leftBlock, scope);
+                rightBlock = CompileExpression(node.alternate, func, rightBlock, scope);
+
+                let $left = leftBlock.LastInst();
+                let $right = rightBlock.LastInst();
+
+                let followingBlock = func.NewBlock();
+                followingBlock.Phi([
+                    {
+                        precedence : leftBlock,
+                        $value : $left
+                    },
+                    {
+                        precedence : rightBlock,
+                        $value : $right
+                    }
+                ]);
+
+                last = followingBlock;
+            }
+            break;
         case 'AssignmentExpression':
+            {
+                let isIdentifier = false;
+                if (node.left.type === 'Identifier')
+                {
+                    isIdentifier = true;
+                }
+                else if (node.left.type === 'MemberExpression')
+                {
+                    isIdentifier = false;
+                }
+                else
+                {
+                    throw Error(`Cannot assign to a ${node.left.type}`);
+                }
+
+                last = CompileExpression(node.right, func, last, scope);
+                let $right = last.LastInst();
+
+                let $value, $newValue;
+                let $addr, $obj, $key;
+                if (isIdentifier)
+                {
+                    let result = scope.Lookup(node.left.name);
+                    if (!result)
+                    {
+                        $addr = last.GetGlobal(node.left.name);
+                    }
+                    else if (result.type === 'capture')
+                    {
+                        $addr = last.Capture(result.index);
+                    }
+                    else if (result.type === 'direct')
+                    {
+                        $addr = result.inst;
+                    }
+                    else
+                    {
+                        throw Error('Internal');
+                    }
+                }
+                else
+                {
+                    last = CompileExpression(node.left.object, func, last, scope);
+                    $obj = last.LastInst();
+                    if (node.left.computed)
+                    {
+                        last = CompileExpression(node.argument.property, func, last, scope);
+                        $key = last.LastInst();
+                    }
+                    else
+                    {
+                        if (node.argument.property.type !== 'Identifier')
+                        {
+                            throw Error('Internal');
+                        }
+                        $key = last.String(node.argument.property.name);
+                    }
+                }
+
+                if (node.operator === '=')
+                {
+                    if (isIdentifier)
+                    {
+                        last.Store($addr, $right);
+                    }
+                    else
+                    {
+                        last.SetItem($obj, $key, $right);
+                    }
+                    last.Move($right);
+                    break;
+                }
+
+                if (isIdentifier)
+                {
+                    $value = last.Load($addr);
+                }
+                else
+                {
+                    $value = last.GetItem($obj, $key);
+                }
+
+                switch (node.operator)
+                {
+                    case "+=":
+                        $newValue = last.Binary(IRBuilder.Insts.ADD, $value, $right);
+                        break;
+                    case "-=":
+                        $newValue = last.Binary(IRBuilder.Insts.SUB, $value, $right);
+                        break;
+                    case "*=":
+                        $newValue = last.Binary(IRBuilder.Insts.MUL, $value, $right);
+                        break;
+                    case "/=":
+                        $newValue = last.Binary(IRBuilder.Insts.DIV, $value, $right);
+                        break;
+                    case "%=":
+                        $newValue = last.Binary(IRBuilder.Insts.MOD, $value, $right);
+                        break;
+                    case "<<=":
+                        $newValue = last.Binary(IRBuilder.Insts.SLL, $value, $right);
+                        break;
+                    case ">>=":
+                        $newValue = last.Binary(IRBuilder.Insts.SRL, $value, $right);
+                        break;
+                    case ">>>=":
+                        $newValue = last.Binary(IRBuilder.Insts.SRR, $value, $right);
+                        break;
+                    case "&=":
+                        $newValue = last.Binary(IRBuilder.Insts.BAND, $value, $right);
+                        break;
+                    case "|=":
+                        $newValue = last.Binary(IRBuilder.Insts.BOR, $value, $right);
+                        break;
+                    case "^=":
+                        $newValue = last.Binary(IRBuilder.Insts.BXOR, $value, $right);
+                        break;
+                    default:
+                        throw Error('Internal');
+                }
+
+                if (isIdentifier)
+                {
+                    last.Store($addr, $newValue);
+                }
+                else
+                {
+                    last.SetItem($obj, $key, $newValue);
+                }
+                last.Move($newValue);
+            }
+            break;
         case 'SequenceExpression':
+            {
+                for (let expr of node.expressions)
+                {
+                    last = CompileExpression(expr, func, last, scope);
+                }
+            }
+            break;
+        case 'YieldExpression':
             throw Error('Not implemented');
     }
     return last;
