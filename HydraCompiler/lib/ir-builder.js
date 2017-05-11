@@ -63,8 +63,9 @@ const Insts =
     CAPTURE: 50,
 
     THIS: 51,
+    MOVE: 52,           // <other>
 
-    PHI : 52,           // <num> [<branch> <value>]
+    PHI : 53,           // <num> [<branch> <value>]
 
     InstToString(inst, func) {
         if (inst.name === null)
@@ -174,6 +175,8 @@ const Insts =
                 return `$${inst.name}\t= capture ${inst.index}`;
             case Insts.THIS:
                 return `$${inst.name}\t= this`;
+            case Insts.MOVE:
+                return `$${inst.name}\t= $${inst.$other.name}`;
             case Insts.PHI:
                 return `$${inst.name}\t= phi ` + inst.branches.map((b) => `[blk_${b.precedence.index} $${b.$value.name}]`).join(' ')
 
@@ -461,6 +464,16 @@ class BlockBuilder
             {
                 name,
                 type : Insts.THIS
+            });
+    }
+
+    Move($other, name = null)
+    {
+        return this.PushInst(
+            {
+                name,
+                type : Insts.MOVE,
+                $other
             });
     }
 

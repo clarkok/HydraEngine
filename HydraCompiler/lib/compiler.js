@@ -333,14 +333,15 @@ function CompileExpression(node, func, last, scope)
         case 'ArrowFunctionExpression':
         case 'ClassExpression':
         case 'TaggedExpression':
+            throw Error('Not implemented');
         case 'MemberExpression':
             {
                 let $obj, $key;
-                last = CompileExpression(node.key, func, last, scope);
+                last = CompileExpression(node.object, func, last, scope);
                 $obj = last.LastInst();
                 if (node.computed)
                 {
-                    last = CompileExpression(node.value, func, last, scope);
+                    last = CompileExpression(node.property, func, last, scope);
                     $key = last.LastInst();
                 }
                 else
@@ -357,9 +358,162 @@ function CompileExpression(node, func, last, scope)
             break;
         case 'Super':
         case 'MetaProperty':
+            throw Error('Not implemented');
         case 'NewExpression':
+            {
+                last = CompileExpression(node.callee, func, last, scope);
+                let $callee = last.LastInst();
+
+                let args = node.arguments.map((arg) =>
+                {
+                    if (arg.type === 'SpreadExpression')
+                    {
+                        throw Error('SpreadExpression in new expression is not supported');
+                    }
+
+                    last = CompileExpression(arg, func, last, scope);
+                    return last.LastInst();
+                });
+
+                let $args = last.Array(args);
+
+                last.New($callee, $args);
+            }
+            break;
         case 'CallExpression':
+            {
+                let $callee;
+                let $this_arg;
+                if (node.callee.type === 'MemberExpression' && !node.callee.computed)
+                {
+                    last = CompileExpression(node.callee.object, func, last, scope);
+                    $this_arg = last.LastInst();
+
+                    if (node.callee.property.type !== 'Identifier')
+                    {
+                        throw Error('Internal');
+                    }
+                    let $key = last.String(node.callee.property.name);
+
+                    $callee = last.GetItem($this_arg, $key);
+                }
+                else
+                {
+                    last = CompileExpression(node.callee, func, last, scope);
+                    $callee = last.LastInst();
+
+                    $this_arg = last.GetGlobal("global");
+                }
+
+                let args = node.arguments.map((arg) =>
+                {
+                    if (arg.type === 'SpreadExpression')
+                    {
+                        throw Error('SpreadExpression in call expression is not supported');
+                    }
+
+                    last = CompileExpression(arg, func, last, scope);
+                    return last.LastInst();
+                });
+
+                let $args = last.Array(args);
+
+                last.Call($callee, $this_arg, $args);
+            }
+            break;
         case 'UpdateExpression':
+            {
+                if (node.argument.type === 'Identifier')
+                {
+                    let $addr;
+                    let result = scope.Lookup(node.argument.name);
+                    if (!result)
+                    {
+                        $addr = last.GetGlobal(node.argument.name);
+                    }
+                    else if (result.type === 'capture')
+                    {
+                        $addr = last.Capture(result.index);
+                    }
+                    else if (result.type === 'direct')
+                    {
+                        $addr = result.inst;
+                    }
+                    else
+                    {
+                        throw Error('Internal');
+                    }
+
+                    let $value = last.Load($addr);
+                    let $one = last.Number(1);
+                    let $newValue;
+                    if (node.operator === '++')
+                    {
+                        $newValue = last.Binary(IRBuilder.Insts.ADD, $value, $one);
+                    }
+                    else
+                    {
+                        $newValue = last.Binary(IRBuilder.Insts.SUB, $value, $one);
+                    }
+                    last.Store($addr, $newValue);
+
+                    if (node.prefix)
+                    {
+                        last.Move($newValue);
+                    }
+                    else
+                    {
+                        last.Move($value);
+                    }
+                }
+                else if (node.argument.type === 'MemberExpression')
+                {
+                    let $obj, $key;
+                    last = CompileExpression(node.argument.object, func, last, scope);
+                    $obj = last.LastInst();
+                    if (node.argument.computed)
+                    {
+                        last = CompileExpression(node.argument.property, func, last, scope);
+                        $key = last.LastInst();
+                    }
+                    else
+                    {
+                        if (node.argument.property.type !== 'Identifier')
+                        {
+                            throw Error('Internal');
+                        }
+                        $key = last.String(node.argument.property.name);
+                    }
+
+                    let $value = last.GetItem($obj, $key);
+                    let $one = last.Number(1);
+                    let $newValue;
+                    if (node.operator === '++')
+                    {
+                        $newValue = last.Binary(IRBuilder.Insts.ADD, $value, $one);
+                    }
+                    else
+                    {
+                        $newValue = last.Binary(IRBuilder.Insts.SUB, $value, $one);
+                    }
+
+                    last.SetItem($obj, $key, $newValue);
+
+                    if (node.prefix)
+                    {
+                        last.Move($newValue);
+                    }
+                    else
+                    {
+                        last.Move($value);
+                    }
+                }
+                else
+                {
+                    throw Error('Internal');
+                }
+            }
+            break;
         case 'AwaitExpression':
         case 'UnaryExpression':
         case 'BinaryExpression':
@@ -371,10 +525,6 @@ function CompileExpression(node, func, last, scope)
             throw Error('Not implemented');
     }
     return last;
-}
-
-function CompileExpressionReference(node, func, last, scope)
-{
 }
 
 function CompileStatement(node, func, last, scope)
@@ -455,10 +605,7 @@ function CompileStatement(node, func, last, scope)
                 return last;
             }
         case 'ClassDeclaration':
-            {
-                throw Error('Not implemented');
-            }
-            break;
+            throw Error('Not implemented');
         case 'ContinueStatement':
             {
                 let continuableScope = scope;
