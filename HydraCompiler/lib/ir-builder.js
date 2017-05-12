@@ -1,5 +1,9 @@
 'use strict';
 
+let BufferWriter = require('./buffer-writer');
+let StringPool = require('./string-pool');
+let ByteCode = require('./bytecode');
+
 const Insts =
 {
     RETURN : 0,         // <value>
@@ -26,17 +30,18 @@ const Insts =
     OBJECT : 18,        // <num> [<key> <value>]
     ARRAY : 19,         // <num> [<value>]
     FUNC : 20,          // <id>
+    ARROW : 21,         // <id>
 
-    ADD : 21,           // <a> <b>
-    SUB : 22,           // <a> <b>
-    MUL : 23,           // <a> <b>
-    DIV : 24,           // <a> <b>
-    MOD : 25,           // <a> <b>
+    ADD : 22,           // <a> <b>
+    SUB : 23,           // <a> <b>
+    MUL : 24,           // <a> <b>
+    DIV : 25,           // <a> <b>
+    MOD : 26,           // <a> <b>
 
-    BAND : 26,          // <a> <b>
-    BOR : 27,           // <a> <b>
-    BXOR : 28,          // <a> <b>
-    BNOT : 29,          // <a>
+    BAND : 27,          // <a> <b>
+    BOR : 28,           // <a> <b>
+    BXOR : 29,          // <a> <b>
+    BNOT : 30,          // <a>
 
     LNOT : 31,          // <a>
 
@@ -64,9 +69,10 @@ const Insts =
     CAPTURE: 50,
 
     THIS: 51,
-    MOVE: 52,           // <other>
+    ARGUMENTS: 52,
+    MOVE: 53,           // <other>
 
-    PHI : 53,           // <num> [<branch> <value>]
+    PHI : 54,           // <num> [<branch> <value>]
 
     InstToString(inst, func) {
         if (inst.name === null)
@@ -74,114 +80,280 @@ const Insts =
             inst.name = '.' + func.CountInst().toString();
         }
 
+        let ret = `${inst.__offset}\t`;
+
         switch (inst.type)
         {
             case Insts.RETURN:
-                return `\t  return $${inst.$reg.name}`;
+                return ret + `\t  return $${inst.$reg.name}`;
             case Insts.LOAD:
-                return `$${inst.name}\t= load $${inst.$addr.name}`;
+                return ret + `$${inst.name}\t= load $${inst.$addr.name}`;
             case Insts.STORE:
-                return `\t  store $${inst.$addr.name} $${inst.$value.name}`;
+                return ret + `\t  store $${inst.$addr.name} $${inst.$value.name}`;
             case Insts.GET_ITEM:
-                return `$${inst.name}\t= get_item $${inst.$object.name} $${inst.$key.name}`;
+                return ret + `$${inst.name}\t= get_item $${inst.$object.name} $${inst.$key.name}`;
             case Insts.SET_ITEM:
-                return `\t  set_item $${inst.$object.name} $${inst.$key.name} $${inst.$value.name}`;
+                return ret + `\t  set_item $${inst.$object.name} $${inst.$key.name} $${inst.$value.name}`;
             case Insts.DEL_ITEM:
-                return `\t  del_item $${inst.$object.name} $${inst.$key.name}`;
+                return ret + `\t  del_item $${inst.$object.name} $${inst.$key.name}`;
             case Insts.NEW:
-                return `$${inst.name}\t= new $${inst.$callee.name} $${inst.$args.name}`;
+                return ret + `$${inst.name}\t= new $${inst.$callee.name} $${inst.$args.name}`;
             case Insts.CALL:
-                return `$${inst.name}\t= call $${inst.$callee.name} $${inst.$this_arg.name} $${inst.$args.name}`;
+                return ret + `$${inst.name}\t= call $${inst.$callee.name} $${inst.$this_arg.name} $${inst.$args.name}`;
             case Insts.JUMP:
-                return `\t  jump blk_${inst.dstBlock.index}`;
+                return ret + `\t  jump blk_${inst.dstBlock.index}`;
             case Insts.BRANCH:
-                return `\t  branch $${inst.$condition.name} blk_${inst.consequence.index} blk_${inst.alternative.index}`;
+                return ret + `\t  branch $${inst.$condition.name} blk_${inst.consequence.index} blk_${inst.alternative.index}`;
             case Insts.GET_GLOBAL:
-                return `$${inst.name}\t= get_global "${IRBuilder.EscapeString(inst.global)}"`;
+                return ret + `$${inst.name}\t= get_global "${IRBuilder.EscapeString(inst.global)}"`;
             case Insts.UNDEFINED:
-                return `$${inst.name}\t= undefined`;
+                return ret + `$${inst.name}\t= undefined`;
             case Insts.NULL:
-                return `$${inst.name}\t= null`;
+                return ret + `$${inst.name}\t= null`;
             case Insts.TRUE:
-                return `$${inst.name}\t= true`;
+                return ret + `$${inst.name}\t= true`;
             case Insts.FALSE:
-                return `$${inst.name}\t= false`;
+                return ret + `$${inst.name}\t= false`;
             case Insts.NUMBER:
-                return `$${inst.name}\t= number ${inst.value}`;
+                return ret + `$${inst.name}\t= number ${inst.value}`;
             case Insts.STRING:
-                return `$${inst.name}\t= string "${IRBuilder.EscapeString(inst.value)}"`;
+                return ret + `$${inst.name}\t= string "${IRBuilder.EscapeString(inst.value)}"`;
             case Insts.REGEX:
-                return `$${inst.name}\t= regex ${inst.value}`;
+                return ret + `$${inst.name}\t= regex ${inst.value}`;
             case Insts.OBJECT:
-                return `$${inst.name}\t= object {${inst.initialize.map((i) => `$${i.$key.name}:$${i.$value.name}`).join(',')}}`;
+                return ret + `$${inst.name}\t= object {${inst.initialize.map((i) => `$${i.$key.name}:$${i.$value.name}`).join(',')}}`;
             case Insts.ARRAY:
-                return `$${inst.name}\t= array [${inst.initialize.map((i) => '$' + i.name).join(',')}]`;
+                return ret + `$${inst.name}\t= array [${inst.initialize.map((i) => '$' + i.name).join(',')}]`;
             case Insts.FUNC:
-                return `$${inst.name}\t= func [${inst.captured.map((i) => '$' + i.name).join(',')}] ${inst.func.name}`;
+                return ret + `$${inst.name}\t= func [${inst.captured.map((i) => '$' + i.name).join(',')}] ${inst.func.id}`;
+            case Insts.ARROW:
+                return ret + `$${inst.name}\t= arrow [${inst.captured.map((i) => '$' + i.name).join(',')}] ${inst.func.id}`;
             case Insts.ADD:
-                return `$${inst.name}\t= add $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= add $${inst.$a.name} $${inst.$b.name}`;
             case Insts.SUB:
-                return `$${inst.name}\t= sub $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= sub $${inst.$a.name} $${inst.$b.name}`;
             case Insts.MUL:
-                return `$${inst.name}\t= mul $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= mul $${inst.$a.name} $${inst.$b.name}`;
             case Insts.DIV:
-                return `$${inst.name}\t= div $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= div $${inst.$a.name} $${inst.$b.name}`;
             case Insts.MOD:
-                return `$${inst.name}\t= mod $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= mod $${inst.$a.name} $${inst.$b.name}`;
             case Insts.BAND:
-                return `$${inst.name}\t= band $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= band $${inst.$a.name} $${inst.$b.name}`;
             case Insts.BOR:
-                return `$${inst.name}\t= bor $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= bor $${inst.$a.name} $${inst.$b.name}`;
             case Insts.BXOR:
-                return `$${inst.name}\t= bxor $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= bxor $${inst.$a.name} $${inst.$b.name}`;
             case Insts.BNOT:
-                return `$${inst.name}\t= bnot $${inst.$a.name}`;
+                return ret + `$${inst.name}\t= bnot $${inst.$a.name}`;
             case Insts.LNOT:
-                return `$${inst.name}\t= lnot $${inst.$a.name}`;
+                return ret + `$${inst.name}\t= lnot $${inst.$a.name}`;
             case Insts.SLL:
-                return `$${inst.name}\t= sll $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= sll $${inst.$a.name} $${inst.$b.name}`;
             case Insts.SRL:
-                return `$${inst.name}\t= srl $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= srl $${inst.$a.name} $${inst.$b.name}`;
             case Insts.SRR:
-                return `$${inst.name}\t= srr $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= srr $${inst.$a.name} $${inst.$b.name}`;
             case Insts.EQ:
-                return `$${inst.name}\t= eq $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= eq $${inst.$a.name} $${inst.$b.name}`;
             case Insts.EQQ:
-                return `$${inst.name}\t= eqq $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= eqq $${inst.$a.name} $${inst.$b.name}`;
             case Insts.NE:
-                return `$${inst.name}\t= ne $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= ne $${inst.$a.name} $${inst.$b.name}`;
             case Insts.NEE:
-                return `$${inst.name}\t= nee $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= nee $${inst.$a.name} $${inst.$b.name}`;
             case Insts.GT:
-                return `$${inst.name}\t= gt $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= gt $${inst.$a.name} $${inst.$b.name}`;
             case Insts.GE:
-                return `$${inst.name}\t= ge $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= ge $${inst.$a.name} $${inst.$b.name}`;
             case Insts.LT:
-                return `$${inst.name}\t= lt $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= lt $${inst.$a.name} $${inst.$b.name}`;
             case Insts.LE:
-                return `$${inst.name}\t= le $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= le $${inst.$a.name} $${inst.$b.name}`;
             case Insts.IN:
-                return `$${inst.name}\t= in $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= in $${inst.$a.name} $${inst.$b.name}`;
             case Insts.INSTANTCEOF:
-                return `$${inst.name}\t= instanceof $${inst.$a.name} $${inst.$b.name}`;
+                return ret + `$${inst.name}\t= instanceof $${inst.$a.name} $${inst.$b.name}`;
             case Insts.TYPEOF:
-                return `$${inst.name}\t= typeof $${inst.$a.name}`;
+                return ret + `$${inst.name}\t= typeof $${inst.$a.name}`;
             case Insts.PUSH_SCOPE:
-                return `\t  push_scope ${inst.size}`;
+                return ret + `\t  push_scope ${inst.size} [${inst.captured.map((c) => '$' + c.name).join(',')}]`;
             case Insts.POP_SCOPE:
-                return `\t  pop_scope ${inst.count}`;
+                return ret + `\t  pop_scope ${inst.count}`;
             case Insts.ALLOCA:
-                return `$${inst.name}\t= alloca`;
+                return ret + `$${inst.name}\t= alloca`;
             case Insts.ARG:
-                return `$${inst.name}\t= arg $${inst.$index.name}`;
+                return ret + `$${inst.name}\t= arg ${inst.index}`;
             case Insts.CAPTURE:
-                return `$${inst.name}\t= capture ${inst.index}`;
+                return ret + `$${inst.name}\t= capture ${inst.index}`;
             case Insts.THIS:
-                return `$${inst.name}\t= this`;
+                return ret + `$${inst.name}\t= this`;
+            case Insts.ARGUMENTS:
+                return ret + `$${inst.name}\t= arguments`;
             case Insts.MOVE:
-                return `$${inst.name}\t= $${inst.$other.name}`;
+                return ret + `$${inst.name}\t= $${inst.$other.name}`;
             case Insts.PHI:
-                return `$${inst.name}\t= phi ` + inst.branches.map((b) => `[blk_${b.precedence.index} $${b.$value.name}]`).join(' ')
+                return ret + `$${inst.name}\t= phi ` + inst.branches.map((b) => `[blk_${b.precedence.index} $${b.$value.name}]`).join(' ')
+
+            default:
+                throw TypeError(`Invalid Inst type ${inst.type}`);
+        }
+    },
+
+    DumpInst(inst, writer, stringPool)
+    {
+        writer.uint(inst.type);
+        switch (inst.type)
+        {
+            case Insts.RETURN:
+                writer.uint(inst.$reg.__offset);
+                break;
+            case Insts.LOAD:
+                writer.uint(inst.$addr.__offset);
+                break;
+            case Insts.STORE:
+                writer.uint(inst.$addr.__offset);
+                writer.uint(inst.$value.__offset);
+                break;
+            case Insts.GET_ITEM:
+                writer.uint(inst.$object.__offset);
+                writer.uint(inst.$key.__offset);
+                break;
+            case Insts.SET_ITEM:
+                writer.uint(inst.$object.__offset);
+                writer.uint(inst.$key.__offset);
+                writer.uint(inst.$value.__offset);
+                break;
+            case Insts.DEL_ITEM:
+                writer.uint(inst.$object.__offset);
+                writer.uint(inst.$key.__offset);
+                break;
+            case Insts.NEW:
+                writer.uint(inst.$callee.__offset);
+                writer.uint(inst.$args.__offset);
+                break;
+            case Insts.CALL:
+                writer.uint(inst.$callee.__offset);
+                writer.uint(inst.$this_arg.__offset);
+                writer.uint(inst.$args.__offset);
+                break;
+            case Insts.JUMP:
+                writer.uint(inst.dstBlock.index);
+                break;
+            case Insts.BRANCH:
+                writer.uint(inst.$condition.__offset);
+                writer.uint(inst.consequence.index);
+                writer.uint(inst.alternative.index);
+                break;
+            case Insts.GET_GLOBAL:
+                writer.uint(stringPool.Get(inst.global));
+                break;
+            case Insts.UNDEFINED:
+            case Insts.NULL:
+            case Insts.TRUE:
+            case Insts.FALSE:
+                break;
+            case Insts.NUMBER:
+                writer.double(inst.value);
+                break;
+            case Insts.STRING:
+                writer.uint(stringPool.Get(inst.value));
+                break;
+            case Insts.REGEX:
+                writer.uint(stringPool.Get(inst.value));
+                break;
+            case Insts.OBJECT:
+                writer.uint(inst.initialize.length);
+                for (let i of inst.initialize)
+                {
+                    writer.uint(i.$key.__offset);
+                    writer.uint(i.$value.__offset);
+                }
+                break;
+            case Insts.ARRAY:
+                writer.uint(inst.initialize.length);
+                for (let i of inst.initialize)
+                {
+                    writer.uint(i.__offset);
+                }
+                break;
+            case Insts.FUNC:
+                writer.uint(inst.func.id);
+                writer.uint(inst.captured.length);
+                for (let c of inst.captured)
+                {
+                    writer.uint(c.__offset);
+                }
+                break;
+            case Insts.ARROW:
+                writer.uint(inst.func.id);
+                writer.uint(inst.captured.length);
+                for (let c of inst.captured)
+                {
+                    writer.uint(c.__offset);
+                }
+                break;
+            case Insts.ADD:
+            case Insts.SUB:
+            case Insts.MUL:
+            case Insts.DIV:
+            case Insts.MOD:
+            case Insts.BAND:
+            case Insts.BOR:
+            case Insts.BXOR:
+            case Insts.SLL:
+            case Insts.SRL:
+            case Insts.SRR:
+            case Insts.EQ:
+            case Insts.EQQ:
+            case Insts.NE:
+            case Insts.NEE:
+            case Insts.GT:
+            case Insts.GE:
+            case Insts.LT:
+            case Insts.LE:
+            case Insts.IN:
+            case Insts.INSTANTCEOF:
+                writer.uint(inst.$a.__offset);
+                writer.uint(inst.$b.__offset);
+                break;
+            case Insts.BNOT:
+            case Insts.LNOT:
+            case Insts.TYPEOF:
+                writer.uint(inst.$a.__offset);
+                break;
+            case Insts.PUSH_SCOPE:
+                writer.uint(inst.size);
+                writer.uint(inst.captured.length);
+                for (let c of inst.captured)
+                {
+                    writer.uint(c.__offset);
+                }
+                break;
+            case Insts.POP_SCOPE:
+                writer.uint(inst.count);
+                break;
+            case Insts.ALLOCA:
+            case Insts.THIS:
+            case Insts.ARGUMENTS:
+                break;
+            case Insts.ARG:
+                writer.uint(inst.index);
+                break;
+            case Insts.CAPTURE:
+                writer.uint(inst.index);
+                break;
+            case Insts.MOVE:
+                writer.uint(inst.$other.__offset);
+                break;
+            case Insts.PHI:
+                writer.uint(inst.branches.length);
+                for (let b of inst.branches)
+                {
+                    writer.uint(b.precedence.index);
+                    writer.uint(b.$value.__offset);
+                }
+                break;
 
             default:
                 throw TypeError(`Invalid Inst type ${inst.type}`);
@@ -404,6 +576,16 @@ class BlockBuilder
             });
     }
 
+    Arrow(func, captured, name = null)
+    {
+        return this.PushInst(
+            {
+                name,
+                type : Insts.ARROW,
+                func, captured
+            });
+    }
+
     Binary(type, $a, $b, name = null)
     {
         return this.PushInst(
@@ -428,7 +610,7 @@ class BlockBuilder
             {
                 type : Insts.PUSH_SCOPE,
                 size,
-                capture : []
+                captured : []
             });
     }
 
@@ -450,13 +632,13 @@ class BlockBuilder
             });
     }
 
-    Arg($index, name = null)
+    Arg(index, name = null)
     {
         return this.PushInst(
             {
                 name,
                 type : Insts.ARG,
-                $index
+                index
             });
     }
 
@@ -476,6 +658,15 @@ class BlockBuilder
             {
                 name,
                 type : Insts.THIS
+            });
+    }
+
+    Arguments(name = null)
+    {
+        return this.PushInst(
+            {
+                name,
+                type : Insts.ARGUMENTS
             });
     }
 
@@ -511,14 +702,17 @@ class BlockBuilder
     }
 };
 
+let functionCounter = 0;
 class FunctionBuilder
 {
-    constructor(name, ir)
+    constructor(name, length, ir)
     {
         this.name = name;
+        this.length = length;
         this.blocks = [];
         this.ir = ir;
         this.localCounter = 0;
+        this.id = functionCounter++;
     }
 
     NewBlock()
@@ -535,12 +729,40 @@ class FunctionBuilder
 
     toString(indent = '\t', newLine = '\n')
     {
-        return `function "${IRBuilder.EscapeString(this.name)}"` + newLine +
+        return `function ${this.id} "${IRBuilder.EscapeString(this.name)}"` + newLine +
             IRBuilder.IncIndent(
                     this.blocks.map((b) => b.toString(this, indent, newLine)).join(newLine),
                 indent,
                 newLine
             );
+    }
+
+    /**
+     * @param {BufferWriter} writer
+     */
+    Dump(writer, stringPool)
+    {
+        writer.uint(stringPool.Get(this.name));
+        writer.uint(this.length);
+        writer.uint(this.blocks.length);
+
+        let __offset = 0;
+        for (let block of this.blocks)
+        {
+            for (let inst of block.insts)
+            {
+                inst.__offset = __offset++;
+            }
+        }
+
+        for (let block of this.blocks)
+        {
+            writer.uint(block.insts.length);
+            for (let inst of block.insts)
+            {
+                Insts.DumpInst(inst, writer, stringPool);
+            }
+        }
     }
 };
 
@@ -552,9 +774,9 @@ class IRBuilder
         this.functions = [];
     }
 
-    NewFunc(name)
+    NewFunc(name, length)
     {
-        let func = new FunctionBuilder(name, this);
+        let func = new FunctionBuilder(name, length, this);
         this.functions.push(func);
         return func;
     }
@@ -567,6 +789,22 @@ class IRBuilder
                 indent,
                 newLine
             );
+    }
+
+    Dump()
+    {
+        let byteCode = new ByteCode();
+        let stringPool = new StringPool();
+
+        for (let func of this.functions)
+        {
+            let writer = new BufferWriter();
+            func.Dump(writer, stringPool);
+            byteCode.AddSection(writer, ByteCode.SECTION_TYPE.FUNCTION);
+        }
+        byteCode.AddSection(stringPool.writer, ByteCode.SECTION_TYPE.STRING_POOL);
+
+        return byteCode;
     }
 
     static EscapeString(str)

@@ -20,11 +20,18 @@ class Scope
         this.continuable = continuable;
 
         this.upper = upper;
+        this.func = func;
+    }
+
+    SetArguments(args, restArg)
+    {
+        this.args = args;
+        this.restArg = restArg;
     }
 
     /**
      * @param {string} name 
-     * @returns {{index : number, type : 'direct'|'capture', inst : number}}
+     * @returns {{index : number, type : 'direct'|'capture'|'args', inst : number}}
      */
     Lookup(name, tolerantForwardDeclare = false, upperTolerantForwardDeclare = true)
     {
@@ -47,6 +54,11 @@ class Scope
             if (!tolerantForwardDeclare && this.map[name].type === 'forward')
             {
                 throw SyntaxError(`Identifier '${name}' is not defined`);
+            }
+
+            if (!this.map[name].inst)
+            {
+                throw Error('Internal');
             }
 
             return {
@@ -169,6 +181,11 @@ function CompileExpression(node, func, last, scope)
                 else if (result.type === 'direct')
                 {
                     last.Load(result.inst);
+                }
+                else if (result.type === 'args')
+                {
+                    let $arg = last.Arg(result.index);
+                    last.Load($arg);
                 }
                 else
                 {
@@ -330,7 +347,56 @@ function CompileExpression(node, func, last, scope)
             }
             break;
         case 'FunctionExpression':
+            {
+                let ret = CompileFunction(node, func.ir, scope);
+                let captured = ret.captured.map((c) => {
+                    let result = scope.Lookup(c.name);
+                    if (!result)
+                    {
+                        throw Error('Internal');
+                    }
+                    else if (result.type === 'direct')
+                    {
+                        return result.inst;
+                    }
+                    else if (result.type === 'capture')
+                    {
+                        return last.Capture(result.index);
+                    }
+                    else if (result.type === 'args')
+                    {
+                        return last.Arg(result.index);
+                    }
+                })
+                last.Func(ret.func, captured);
+            }
+            break;
         case 'ArrowFunctionExpression':
+            {
+                let ret = CompileArrowFunction(node, func.ir, scope);
+                let captured = ret.captured.map((c) => {
+                    let result = scope.Lookup(c.name);
+                    if (!result)
+                    {
+                        throw Error('Internal');
+                    }
+                    else if (result.type === 'direct')
+                    {
+                        return result.inst;
+                    }
+                    else if (result.type === 'capture')
+                    {
+                        return last.Capture(result.index);
+                    }
+                    else if (result.type === 'args')
+                    {
+                        return last.Arg(result.index);
+                    }
+                })
+                last.Arrow(ret.func, captured);
+
+            }
+            break;
         case 'ClassExpression':
         case 'TaggedExpression':
             throw Error('Not implemented');
@@ -438,6 +504,10 @@ function CompileExpression(node, func, last, scope)
                     else if (result.type === 'direct')
                     {
                         $addr = result.inst;
+                    }
+                    else if (result.type === 'args')
+                    {
+                        $addr = last.Arg(result.index);
                     }
                     else
                     {
@@ -764,6 +834,10 @@ function CompileExpression(node, func, last, scope)
                     {
                         $addr = result.inst;
                     }
+                    else if (result.type === 'args')
+                    {
+                        $addr = last.Arg(result.index);
+                    }
                     else
                     {
                         throw Error('Internal');
@@ -895,15 +969,20 @@ function CompileStatement(node, func, last, scope)
 
         for (let cap of blockScope.CaptureList())
         {
-            let localSymbol = scope.Lookup(name, true);
+            let localSymbol = scope.Lookup(cap.name, true);
             if (localSymbol.type === 'direct')
             {
-                $pushScope.capture.push(localSymbol.inst);
+                $pushScope.captured.push(localSymbol.inst);
             }
             else if (localSymbol.type === 'capture')
             {
                 let $cap = last.Capture(localSymbol.index);
-                $pushScope.capture.push($cap);
+                $pushScope.captured.push($cap);
+            }
+            else if (localSymbol.type === 'args')
+            {
+                let $arg = last.Arg(localSymbol.index);
+                $pushScope.captured.push($arg);
             }
             else
             {
@@ -1014,8 +1093,16 @@ function CompileStatement(node, func, last, scope)
 
                 if (node.init)
                 {
-                    if (node.type === 'VariableDeclaration')
+                    if (node.init.type === 'VariableDeclaration')
                     {
+                        for (let decl of node.init.declarations)
+                        {
+                            if (decl.id.type !== 'Identifier')
+                            {
+                                throw Error('Not support pattern here');
+                            }
+                            loopScope.ForwardDeclare(decl.id.name, next.Alloca(decl.id.name));
+                        }
                         next = CompileStatement(node.init, func, next, loopScope);
                     }
                     else
@@ -1056,6 +1143,7 @@ function CompileStatement(node, func, last, scope)
             }
         case 'ForOfStatement':
         case 'FunctionDeclaration':
+            return last;
         case 'IfStatement':
             {
                 let consequentBlock = func.NewBlock();
@@ -1098,7 +1186,10 @@ function CompileStatement(node, func, last, scope)
                     count++;
                 }
 
-                last.PopScope(count);
+                if (count > 0)
+                {
+                    last.PopScope(count);
+                }
                 last.Return($retVal);
 
                 return last;
@@ -1182,97 +1273,74 @@ function CompileNodeList(nodeList, func, scope)
     let entry = func.NewBlock();
     let last = entry;
 
+    function DeclareIdentifier(id) {
+        let $var = entry.Alloca(id.name);
+        scope.ForwardDeclare(id.name, $var);
+    }
+
     function ForwardDeclare(declarator)
     {
-        function DeclareIdentifier(declarator)
-        {
-            let $var = entry.Alloca();
-            scope.ForwardDeclare(declarator.id.name, $var);
-        }
-
-        function DeclareArrayPattern(declarator)
-        {
-            for (let ele of declarator.elements)
-            {
-                if (ele === null)
-                {
+        function DeclareArrayPattern(declarator) {
+            for (let ele of declarator.elements) {
+                if (ele === null) {
                     continue;
                 }
-                else if (ele.type === 'AssignmentPattern')
-                {
+                else if (ele.type === 'AssignmentPattern') {
                     DeclareAssignmentPattern(ele);
                 }
-                else if (ele.type === 'Identifier')
-                {
+                else if (ele.type === 'Identifier') {
                     DeclareIdentifier(ele);
                 }
-                else if (ele.type === 'ArrayPattern')
-                {
+                else if (ele.type === 'ArrayPattern') {
                     DeclareArrayPattern(ele);
                 }
-                else if (ele.type === 'ObjectPattern')
-                {
+                else if (ele.type === 'ObjectPattern') {
                     DeclareObjectPattern(ele);
                 }
-                else if (ele.type === 'RestElement')
-                {
-                    if (ele.argument.type === 'Identifier')
-                    {
+                else if (ele.type === 'RestElement') {
+                    if (ele.argument.type === 'Identifier') {
                         DeclareIdentifier(ele.argument);
                     }
-                    else if (ele.argument.type === 'ArrayPattern')
-                    {
+                    else if (ele.argument.type === 'ArrayPattern') {
                         DeclareArrayPattern(ele.argument);
                     }
-                    else if (ele.argument.type === 'ObjectPattern')
-                    {
+                    else if (ele.argument.type === 'ObjectPattern') {
                         DeclareObjectPattern(ele.argument);
                     }
                 }
             }
         }
 
-        function DeclareObjectPattern(declarator)
-        {
-            for (let prop of declarator.properties)
-            {
-                if (prop.key.type === 'Identifier')
-                {
+        function DeclareObjectPattern(declarator) {
+            for (let prop of declarator.properties) {
+                if (prop.key.type === 'Identifier') {
                     DeclareIdentifier(prop.key);
                 }
             }
         }
 
-        function DeclareAssignmentPattern(declarator)
-        {
-            if (declarator.left.type === 'Identifier')
-            {
+        function DeclareAssignmentPattern(declarator) {
+            if (declarator.left.type === 'Identifier') {
                 DeclareIdentifier(declarator.left);
             }
-            else if (declarator.left.type === 'ArrayPattern')
-            {
+            else if (declarator.left.type === 'ArrayPattern') {
                 DeclareArrayPattern(declarator.left);
             }
-            else if (declarator.left.type === 'ObjectPattern')
-            {
+            else if (declarator.left.type === 'ObjectPattern') {
                 DeclareObjectPattern(declarator.left);
             }
         }
 
-        if (declarator.id.type === 'Identifier')
-        {
-            DeclareIdentifier(declarator);
+        if (declarator.id.type === 'Identifier') {
+            DeclareIdentifier(declarator.id);
         }
-        else if (declarator.id.type === 'ArrayPattern')
-        {
-            DeclareArrayPattern(declarator);
+        else if (declarator.id.type === 'ArrayPattern') {
+            DeclareArrayPattern(declarator.id);
         }
-        else if (declarator.id.type === 'ObjectPattern')
-        {
-            DeclareObjectPattern(declarator);
+        else if (declarator.id.type === 'ObjectPattern') {
+            DeclareObjectPattern(declarator.id);
         }
-        else
-        {
+        else {
             throw SyntaxError(`Unknown declarator type '${declarator.id.type}'`);
         }
     }
@@ -1317,6 +1385,29 @@ function CompileNodeList(nodeList, func, scope)
 
     for (let node of nodeList)
     {
+        if (node.type === 'FunctionDeclaration')
+        {
+            if (!node.id)
+            {
+                continue;
+            }
+
+            let ret = CompileFunction(node, func.ir, scope);
+            let $func = last.Func(ret.func, ret.captured);
+
+            scope.Declare(node.id.name);
+            let result = scope.Lookup(node.id.name);
+            if (result.type !== 'direct')
+            {
+                throw Error('Internal');
+            }
+
+            last.Store(result.inst, $func);
+        }
+    }
+
+    for (let node of nodeList)
+    {
         last = CompileStatement(node, func, last, scope);
     }
 
@@ -1328,6 +1419,77 @@ function CompileNodeList(nodeList, func, scope)
 
 function CompileFunction(node, ir, upperScope)
 {
+    let name;
+    if (node.id === null)
+    {
+        name = '<anonymous>';
+    }
+    else
+    {
+        name = node.id.name;
+    }
+    let func = ir.NewFunc(name, node.params.length);
+
+    let scope = new Scope(upperScope, null, null, func);
+    let args = node.params.reduce((prev, current, index) => {
+        if (current.type !== 'Identifier')
+        {
+            throw Error('Non-identifier argument is not supported');
+        }
+        prev[current.name] = index;
+        return prev;
+    }, {});
+
+    scope.SetArguments(args, null);
+
+    let first = func.NewBlock();
+    let $arguments = first.Alloca('arguments');
+    first.Store($arguments, first.Arguments());
+    scope.Declare('arguments', $arguments);
+
+    let {entry, last} = CompileNodeList(node.body.body, func, scope);
+
+    first.Jump(entry);
+    let $undefined = last.Undefined();
+    last.Return($undefined);
+
+    let captured = scope.CaptureList();
+    return { func, captured };
+}
+
+function CompileArrowFunction(node, ir, upperScope)
+{
+    let func = ir.NewFunc('<arrow>', node.params.length);
+    let scope = new Scope(upperScope);
+    let args = node.params.reduce((prev, current, index) => {
+        if (current.type !== 'Identifier')
+        {
+            throw Error('Non-identifier argument is not supported');
+        }
+        prev[current.name] = index;
+    }, {});
+    scope.SetArguments(args, null);
+    let first = func.NewBlock();
+    let $arguments = first.Alloca('arguments');
+    first.Store($arguments, first.Arguments());
+    scope.Declare('arguments', $arguments);
+
+    if (node.body.type === 'BlockStatement')
+    {
+        let {entry, last} = CompileNodeList(node.body.body, func, scope);
+        first.Jump(entry);
+        let $undefined = last.Undefined();
+        last.Return($undefined);
+    }
+    else if (node.body.type)
+    {
+        first = CompileExpression(node.body, func, first, scope);
+        first.Return(first.LastInst());
+    }
+
+    let captured = scope.CaptureList();
+    return { func, captured };
+
 }
 
 /**
@@ -1339,7 +1501,7 @@ function CompileScript(node, ir)
 {
     let rootScope = new Scope(null);
 
-    let func = ir.NewFunc('#main');
+    let func = ir.NewFunc('#main', 0);
     let {entry, last} = CompileNodeList(node.body, func, rootScope);
 
     let $undefined = last.Undefined();
