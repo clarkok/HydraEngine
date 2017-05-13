@@ -3,6 +3,8 @@
 
 #include "HydraCore.h"
 
+#include <string>
+
 #ifdef _MSC_VER
 
 #include <intrin.h>
@@ -40,6 +42,8 @@ inline u64 powi(u64 base, u64 exp)
 
 template <typename T_callback>
 void ForeachWordOnStack(T_callback callback);
+
+class MappedFile;
 
 #ifdef _MSC_VER
 
@@ -93,6 +97,28 @@ void ForeachWordOnStack(T_callback callback)
         callback(reinterpret_cast<void**>(ptr));
     }
 }
+
+class MappedFile
+{
+public:
+    MappedFile(const std::string &filename);
+    MappedFile(const MappedFile &) = delete;
+    MappedFile(MappedFile &&) = delete;
+    MappedFile &operator (const MappedFile &) = delete;
+    MappedFile &operator (MappedFile &&) = delete;
+
+    ~MappedFile();
+
+    operator void *()
+    {
+        return View;
+    }
+
+private:
+    HANDLE File;
+    HANDLE Mapping;
+    void *View;
+};
 
 #else
 
