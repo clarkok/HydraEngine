@@ -97,6 +97,8 @@ void RootScan(std::function<void(gc::HeapObject*)> scan)
 
 void Initialize(gc::ThreadAllocator &allocator)
 {
+    gc::Heap::GetInstance()->RegisterRootScanFunc(RootScan);
+
     strs::Initialize(allocator);
 
     bool result;

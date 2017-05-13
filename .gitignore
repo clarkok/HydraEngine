@@ -4,3 +4,5 @@ node_modules
 Build
 x64/
 .vscode
+*.ir
+*.tir

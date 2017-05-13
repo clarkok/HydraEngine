@@ -104,8 +104,8 @@ public:
     MappedFile(const std::string &filename);
     MappedFile(const MappedFile &) = delete;
     MappedFile(MappedFile &&) = delete;
-    MappedFile &operator (const MappedFile &) = delete;
-    MappedFile &operator (MappedFile &&) = delete;
+    MappedFile &operator = (const MappedFile &) = delete;
+    MappedFile &operator = (MappedFile &&) = delete;
 
     ~MappedFile();
 

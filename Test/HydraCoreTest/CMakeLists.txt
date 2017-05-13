@@ -68,3 +68,9 @@ add_executable( ManagedArrayTest
 )
 target_link_libraries( ManagedArrayTest HydraCore )
 add_test(ManagedArrayTest ManagedArrayTest)
+
+add_executable( ByteCodeTest
+    ByteCodeTest.cpp
+)
+target_link_libraries( ByteCodeTest HydraCore )
+add_test(ByteCodeTest ByteCodeTest)

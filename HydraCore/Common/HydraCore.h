@@ -106,6 +106,20 @@ struct AssertFailureException : Exception
             ::hydra::AssertFailureException::Raise(__FILE__, __LINE__, #expr, msg); \
     } while (false)
 
+
+#define __hydra_rep__0(_stat)
+#define __hydra_rep__1(_stat)   _stat
+#define __hydra_rep__2(_stat)   _stat __hydra_rep__1(_stat)
+#define __hydra_rep__3(_stat)   _stat __hydra_rep__2(_stat)
+#define __hydra_rep__4(_stat)   _stat __hydra_rep__3(_stat)
+#define __hydra_rep__5(_stat)   _stat __hydra_rep__4(_stat)
+#define __hydra_rep__6(_stat)   _stat __hydra_rep__5(_stat)
+#define __hydra_rep__7(_stat)   _stat __hydra_rep__6(_stat)
+#define __hydra_rep__8(_stat)   _stat __hydra_rep__7(_stat)
+#define __hydra_rep__9(_stat)   _stat __hydra_rep__8(_stat)
+
+#define hydra_rep(_n, _stat)    __hydra_rep__##_n(_stat)
+
 }
 
 #endif // _HYDRA_CORE_H_
