@@ -55,6 +55,7 @@ public:
         YoungGCRequested(false),
         FullGCRequested(false),
         GCWorkerCount(std::min<size_t>(GC_WORKER_MAX_NR, std::thread::hardware_concurrency() / 2)),
+        GCWorkerCompletedCount(0),
         GCCurrentPhase(GCPhase::GC_IDLE),
         Scheduler(this)
     {

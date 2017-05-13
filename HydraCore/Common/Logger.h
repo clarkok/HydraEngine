@@ -119,14 +119,12 @@ public:
 
     inline LoggerProxy Log()
     {
-        LoggerProxy ret(this);
-        return std::move(ret);
+        return LoggerProxy(this);
     }
 
     inline PerfSession Perf(std::string name)
     {
-        PerfSession ret(this, name);
-        return std::move(ret);
+        return PerfSession(this, name);
     }
 
     void Shutdown();

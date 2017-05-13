@@ -2,7 +2,7 @@
 
 let esprima = require('esprima');
 let fs = require('fs');
-let Compile = require('./lib/compiler.js');
+let Compile = require('./lib/compiler');
 
 function ParseArguments()
 {
@@ -26,5 +26,10 @@ for (let source of args.sourceFiles)
     let ast = esprima.parse(code, { sourceType: 'module', loc : true });
     let ir = Compile(ast, source);
 
-    console.log(ir.toString());
+    let irFile = source.replace(/\.js$/, '.ir');
+    let byteCode = ir.Dump();
+    byteCode.Store(irFile);
+
+    let textFile = source.replace(/\.js$/, '.tir');
+    fs.writeFileSync(textFile, ir.toString());
 }
