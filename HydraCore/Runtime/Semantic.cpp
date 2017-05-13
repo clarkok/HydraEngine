@@ -4,6 +4,8 @@
 
 #include "Klass.h"
 
+#include <cmath>
+
 namespace hydra
 {
 namespace runtime
@@ -23,6 +25,9 @@ namespace semantic
     def(u"null", _NULL)                 \
     def(u"undefined", UNDEFINED)        \
     def(u"toString", TO_STRING)         \
+    def(u"NaN", _NAN)                   \
+    def(u"Infinity", _INFINITY)         \
+    def(u"-Infinity", _N_INFINITY)      \
 
 
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
@@ -477,6 +482,35 @@ bool IsStringIntegral(String *str, i64 &value)
     return true;
 }
 
+static inline String *NumberToString(gc::ThreadAllocator &allocator, double value)
+{
+    // TODO use other algorithm
+    if (std::isnan(value))
+    {
+        return strs::_NAN;
+    }
+
+    if (std::isinf(value))
+    {
+        if (value > 0)
+        {
+            return strs::_INFINITY;
+        }
+        else
+        {
+            return strs::_N_INFINITY;
+        }
+    }
+
+    std::string str = std::to_string(value);
+
+    return String::New(allocator, str.begin(), str.end());
+}
+
+static inline String *SmallIntToString(gc::ThreadAllocator &allocator, i64 value)
+{
+}
+
 bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error)
 {
     switch (JSValue::GetType(value))
@@ -485,6 +519,7 @@ bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JS
         js_return(JSValue::FromString(value.Boolean() ? strs::_TRUE : strs::_FALSE));
         break;
     case Type::T_NUMBER:
+        js_return(JSValue::FromString(NumberToString(allocator, value.Number())));
         break;
     case Type::T_OBJECT:
     {
