@@ -4,6 +4,8 @@
 #include "Common/HydraCore.h"
 #include "Common/Constexpr.h"
 
+#include "GarbageCollection/GC.h"
+
 #include <cmath>
 
 namespace hydra

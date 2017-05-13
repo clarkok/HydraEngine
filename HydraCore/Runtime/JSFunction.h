@@ -4,6 +4,9 @@
 #include "Common/HydraCore.h"
 #include "GarbageCollection/GC.h"
 
+#include "VirtualMachine/Scope.h"
+#include "VirtualMachine/CompiledFunction.h"
+
 #include "JSObject.h"
 #include "Klass.h"
 
@@ -74,6 +77,23 @@ public:
 
 private:
     Functor Func;
+};
+
+class JSCompiledFunction : public JSFunction
+{
+public:
+    JSCompiledFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, Array *captured, vm::CompiledFunction *func)
+        : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
+    { }
+
+    virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final;
+
+    virtual bool Call(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) override final;
+
+private:
+    vm::Scope *Scope;
+    Array *Captured;
+    vm::CompiledFunction *Func;
 };
 
 } // namespace runtime
