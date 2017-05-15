@@ -11,6 +11,12 @@
 
 namespace hydra
 {
+namespace vm
+{
+struct IRInst;
+struct Scope;
+}
+
 namespace runtime
 {
 namespace semantic
@@ -24,16 +30,21 @@ void Initialize(gc::ThreadAllocator &allocator);
 // {}
 JSObject *NewEmptyObjectSafe(gc::ThreadAllocator &allocator);
 bool NewEmptyObject(gc::ThreadAllocator &allocator, JSValue &retVal, JSValue &error);
+bool NewObjectWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 
 // new Ctor(...)
 bool NewObjectSafe(gc::ThreadAllocator &allocator, JSFunction *constructor, JSArray *arguments, JSValue &retVal, JSValue &error);
 bool NewObject(gc::ThreadAllocator &allocator, JSValue constructor, JSArray *arguments, JSValue &retVal, JSValue &error);
+
+bool Call(gc::ThreadAllocator &allocator, JSValue callee, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
+bool GetGlobal(gc::ThreadAllocator &allocator, String *name, JSValue &retVal, JSValue &error);
 
 JSArray *NewArrayInternal(gc::ThreadAllocator &allocator, size_t capacity = DEFAULT_JSARRAY_SPLIT_POINT);
 inline bool NewArray(gc::ThreadAllocator &allocator, JSValue &retVal, JSValue &error)
 {
     js_return(JSValue::FromObject(NewArrayInternal(allocator)));
 }
+bool NewArrayWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 
 template<typename T_iterator>
 bool NewArray(gc::ThreadAllocator &allocator, T_iterator begin, T_iterator end, JSValue &retVal, JSValue &error)
@@ -49,6 +60,9 @@ bool NewArray(gc::ThreadAllocator &allocator, T_iterator begin, T_iterator end, 
 
     js_return(ret);
 }
+
+bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
+bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 
 bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSValue &retVal, JSValue &error);
 bool ObjectGetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, String *key, JSValue &retVal, JSValue &error);

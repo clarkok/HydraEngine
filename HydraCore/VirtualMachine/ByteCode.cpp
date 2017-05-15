@@ -94,6 +94,7 @@ std::unique_ptr<IRModule> ByteCode::Load(gc::ThreadAllocator &allocator)
         if (section.first == FUNCTION)
         {
             ret->Functions.emplace_back(LoadFunction(section.second, stringMap));
+            ret->Functions.back()->Module = ret.get();
         }
     }
 
@@ -145,7 +146,7 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
         result = reader.Uint(length);
         hydra_assert(result, "Error on reading function length");
 
-        ret.reset(new IRFunc(stringMap[funcName], length));
+        ret.reset(new IRFunc(nullptr, stringMap[funcName], length));
 
         u32 blockCount;
         result = reader.Uint(blockCount);

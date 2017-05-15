@@ -71,6 +71,11 @@ public:
             gc::Region::CellSizeFromLevel(level), level);
     }
 
+    inline static size_t OffsetTable()
+    {
+        return sizeof(Array);
+    }
+
 private:
     Array(u8 property, size_t level)
         : HeapObject(property), Level(level)

@@ -7,6 +7,8 @@
 
 #include "Replacable.h"
 
+#include "CompiledFunction.h"
+
 #include <list>
 #include <vector>
 #include <memory>
@@ -19,12 +21,24 @@ namespace vm
 struct IRInst : public Replacable<struct IRInst>
 {
     virtual ~IRInst() = default;
+
+    virtual size_t GetType() const = 0;
+
+    template <typename T>
+    T *As()
+    {
+        static_assert(std::is_base_of<IRInst, T>::value,
+            "T must inherit from IRInst");
+
+        return dynamic_cast<T*>(this);
+    }
+
+    size_t Index;
 };
 
 struct IRBlock : public Replacable<struct IRBlock>
 {
-    IRBlock() = default;
-
+    size_t Index;
     std::list<std::unique_ptr<IRInst>> Insts;
     IRInst::Ref Condition;
     IRBlock::Ref Consequent;
@@ -33,13 +47,30 @@ struct IRBlock : public Replacable<struct IRBlock>
 
 struct IRFunc
 {
-    IRFunc(runtime::String *name, size_t length)
-        : Name(name), Length(length)
+    IRFunc(IRModule *module, runtime::String *name, size_t length)
+        : Module(module), Name(name), Length(length)
     { }
 
     std::list<std::unique_ptr<IRBlock>> Blocks;
+    IRModule *Module;
     runtime::String *Name;
     size_t Length;
+
+    std::unique_ptr<CompiledFunction> CompiledFunction;
+
+    inline void UpdateIndex()
+    {
+        size_t blockIndex = 0;
+        size_t instIndex = 0;
+        for (auto &block : Blocks)
+        {
+            block->Index = blockIndex++;
+            for (auto &inst : block->Insts)
+            {
+                inst->Index = instIndex++;
+            }
+        }
+    }
 };
 
 struct IRModule

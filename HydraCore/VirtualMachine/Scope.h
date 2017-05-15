@@ -20,7 +20,7 @@ protected:
     using JSValue = runtime::JSValue;
 
 public:
-    Scope(u8 property, Scope *upper, Array *regs, std::vector<JSValue *> &&captured, JSValue thisArg, Array *arguments)
+    Scope(u8 property, Scope *upper, Array *regs, std::vector<JSValue *> captured, JSValue thisArg, Array *arguments)
         : gc::HeapObject(property), Upper(upper), Regs(regs), Captured(std::move(captured)), ThisArg(thisArg), Arguments(arguments)
     {
         gc::Heap::GetInstance()->WriteBarrier(this, upper);
@@ -64,6 +64,36 @@ public:
     inline Array *GetArguments() const
     {
         return Arguments;
+    }
+
+    inline static size_t OffsetUpper()
+    {
+        return reinterpret_cast<uintptr_t>(
+            &reinterpret_cast<Scope*>(0)->Upper);
+    }
+
+    inline static size_t OffsetRegs()
+    {
+        return reinterpret_cast<uintptr_t>(
+            &reinterpret_cast<Scope*>(0)->Regs);
+    }
+
+    inline static size_t OffsetCaptured()
+    {
+        return reinterpret_cast<uintptr_t>(
+            &reinterpret_cast<Scope*>(0)->Captured);
+    }
+
+    inline static size_t OffsetThisArg()
+    {
+        return reinterpret_cast<uintptr_t>(
+            &reinterpret_cast<Scope*>(0)->ThisArg);
+    }
+
+    inline static size_t OffsetArguments()
+    {
+        return reinterpret_cast<uintptr_t>(
+            &reinterpret_cast<Scope*>(0)->Arguments);
     }
 
 protected:

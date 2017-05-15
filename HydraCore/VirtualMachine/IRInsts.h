@@ -118,30 +118,39 @@ enum INSTS
 namespace ir
 {
 
+#define DECL_INST(TYPE)                                 \
+    virtual size_t GetType() const override final       \
+    { return TYPE; }                                    \
+
 struct Return : public IRInst
 {
+    DECL_INST(RETURN)
     Ref _Value;
 };
 
 struct Load : public IRInst
 {
+    DECL_INST(LOAD)
     Ref _Addr;
 };
 
 struct Store : public IRInst
 {
+    DECL_INST(STORE)
     Ref _Addr;
     Ref _Value;
 };
 
 struct GetItem : public IRInst
 {
+    DECL_INST(GET_ITEM)
     Ref _Obj;
     Ref _Key;
 };
 
 struct SetItem : public IRInst
 {
+    DECL_INST(SET_ITEM)
     Ref _Obj;
     Ref _Key;
     Ref _Value;
@@ -149,18 +158,21 @@ struct SetItem : public IRInst
 
 struct DelItem : public IRInst
 {
+    DECL_INST(DEL_ITEM)
     Ref _Obj;
     Ref _Key;
 };
 
 struct New : public IRInst
 {
+    DECL_INST(NEW)
     Ref _Callee;
     Ref _Args;
 };
 
 struct Call : public IRInst
 {
+    DECL_INST(CALL)
     Ref _Callee;
     Ref _ThisArg;
     Ref _Args;
@@ -168,43 +180,57 @@ struct Call : public IRInst
 
 struct GetGlobal : public IRInst
 {
+    DECL_INST(GET_GLOBAL)
     runtime::String *Name;
 };
 
 struct Undefined : public IRInst
-{ };
+{
+    DECL_INST(UNDEFINED)
+};
 
 struct Null : public IRInst
-{ };
+{
+    DECL_INST(NULL)
+};
 
 struct True : public IRInst
-{ };
+{
+    DECL_INST(TRUE)
+};
 
 struct False : public IRInst
-{ };
+{
+    DECL_INST(FALSE)
+};
 
 struct Number : public IRInst
 {
+    DECL_INST(NUMBER)
     double Value;
 };
 
 struct String : public IRInst
 {
+    DECL_INST(STRING)
     runtime::String *Value;
 };
 
 struct Object : public IRInst
 {
+    DECL_INST(OBJECT)
     std::list<std::pair<Ref, Ref> > Initialization;
 };
 
 struct Array : public IRInst
 {
+    DECL_INST(ARRAY)
     std::list<Ref> Initialization;
 };
 
 struct Func : public IRInst
 {
+    DECL_INST(FUNC)
     union
     {
         IRFunc *FuncPtr;
@@ -215,6 +241,7 @@ struct Func : public IRInst
 
 struct Arrow : public IRInst
 {
+    DECL_INST(ARROW)
     union
     {
         IRFunc *FuncPtr;
@@ -230,67 +257,109 @@ struct Binary : public IRInst
 };
 
 struct Add : public Binary
-{ };
+{
+    DECL_INST(ADD)
+};
 
 struct Sub : public Binary
-{ };
+{
+    DECL_INST(SUB)
+};
 
 struct Mul : public Binary
-{ };
+{
+    DECL_INST(MUL)
+};
 
 struct Div : public Binary
-{ };
+{
+    DECL_INST(DIV)
+};
 
 struct Mod : public Binary
-{ };
+{
+    DECL_INST(MOD)
+};
 
 struct Band : public Binary
-{ };
+{
+    DECL_INST(BAND)
+};
 
 struct Bor : public Binary
-{ };
+{
+    DECL_INST(BOR)
+};
 
 struct Bxor : public Binary
-{ };
+{
+    DECL_INST(BXOR)
+};
 
 struct Sll : public Binary
-{ };
+{
+    DECL_INST(SLL)
+};
 
 struct Srl : public Binary
-{ };
+{
+    DECL_INST(SRL)
+};
 
 struct Srr : public Binary
-{ };
+{
+    DECL_INST(SRR)
+};
 
 struct Eq : public Binary
-{ };
+{
+    DECL_INST(EQ)
+};
 
 struct Eqq : public Binary
-{ };
+{
+    DECL_INST(EQQ)
+};
 
 struct Ne : public Binary
-{ };
+{
+    DECL_INST(NE)
+};
 
 struct Nee : public Binary
-{ };
+{
+    DECL_INST(NEE)
+};
 
 struct Gt : public Binary
-{ };
+{
+    DECL_INST(GT)
+};
 
 struct Ge : public Binary
-{ };
+{
+    DECL_INST(GE)
+};
 
 struct Lt : public Binary
-{ };
+{
+    DECL_INST(LT)
+};
 
 struct Le : public Binary
-{ };
+{
+    DECL_INST(LE)
+};
 
 struct In : public Binary
-{ };
+{
+    DECL_INST(IN)
+};
 
 struct InstanceOf : public Binary
-{ };
+{
+    DECL_INST(INSTANCEOF)
+};
 
 struct Unary : public IRInst
 {
@@ -298,51 +367,69 @@ struct Unary : public IRInst
 };
 
 struct Bnot : public Unary
-{ };
+{
+    DECL_INST(BNOT)
+};
 
 struct Lnot : public Unary
-{ };
+{
+    DECL_INST(LNOT)
+};
 
 struct TypeOf : public Unary
-{ };
+{
+    DECL_INST(TYPEOF)
+};
 
 struct PushScope : public IRInst
 {
+    DECL_INST(PUSH_SCOPE)
     size_t Size;
     std::list<Ref> Captured;
 };
 
 struct PopScope : public IRInst
 {
+    DECL_INST(POP_SCOPE)
     size_t Count;
 };
 
 struct Alloca : public IRInst
-{ };
+{
+    DECL_INST(ALLOCA)
+};
 
 struct Arg : public IRInst
 {
+    DECL_INST(ARG)
     size_t Index;
 };
 
 struct Capture : public IRInst
 {
+    DECL_INST(CAPTURE)
     size_t Index;
 };
 
 struct This : public IRInst
-{ };
+{
+    DECL_INST(THIS)
+};
 
 struct Arguments : public IRInst
-{ };
+{
+    DECL_INST(ARGUMENTS)
+};
 
 struct Move : public IRInst
 {
+    DECL_INST(MOVE)
     Ref _Other;
 };
 
 struct Phi : public IRInst
 {
+    DECL_INST(PHI)
     std::list<std::pair<IRBlock::Ref, Ref>> Branches;
 };
 

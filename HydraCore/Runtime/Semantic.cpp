@@ -4,6 +4,10 @@
 
 #include "Klass.h"
 
+#include "VirtualMachine/Scope.h"
+#include "VirtualMachine/IRInsts.h"
+#include "VirtualMachine/CompiledFunction.h"
+
 #include <cmath>
 
 namespace hydra
@@ -28,6 +32,9 @@ namespace semantic
     def(u"NaN", _NAN)                   \
     def(u"Infinity", _INFINITY)         \
     def(u"-Infinity", _N_INFINITY)      \
+    def(u"global", GLOBAL)              \
+    def(u"Object", OBJECT)              \
+    def(u"Function", FUNCTION)          \
 
 
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
@@ -76,6 +83,7 @@ static JSObject *Object_prototype;
 static JSObject *Function;
 static JSObject *Function_prototype;
 static JSObject *Array;
+static JSObject *Global;
 
 void RootScan(std::function<void(gc::HeapObject*)> scan)
 {
@@ -93,6 +101,8 @@ void RootScan(std::function<void(gc::HeapObject*)> scan)
     /*
     scan(Array);
     */
+
+    scan(Global);
 }
 
 void Initialize(gc::ThreadAllocator &allocator)
@@ -148,6 +158,15 @@ void Initialize(gc::ThreadAllocator &allocator)
 
     Object->Set(allocator, strs::__PROTO__, JSValue::FromObject(Function_prototype));
     Function->Set(allocator, strs::__PROTO__, JSValue::FromObject(Function_prototype));
+
+    JSValue error;
+    Global = NewEmptyObjectSafe(allocator);
+
+    result = ObjectSetSafeObject(allocator, Global, strs::OBJECT, JSValue::FromObject(Object), error);
+    hydra_assert(result, "Error on setting global.Object");
+
+    result = ObjectSetSafeObject(allocator, Global, strs::FUNCTION, JSValue::FromObject(Function), error);
+    hydra_assert(result, "Error on setting global.Function");
 }
 
 JSObject *NewEmptyObjectSafe(gc::ThreadAllocator &allocator)
@@ -168,6 +187,24 @@ JSObject *NewEmptyObjectSafe(gc::ThreadAllocator &allocator)
 bool NewEmptyObject(gc::ThreadAllocator &allocator, JSValue &retVal, JSValue &error)
 {
     retVal = JSValue::FromObject(NewEmptyObjectSafe(allocator));
+    return true;
+}
+
+bool NewObjectWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error)
+{
+    retVal = JSValue::FromObject(NewEmptyObjectSafe(allocator));
+
+    for (auto &pair : inst->As<vm::ir::Object>()->Initialization)
+    {
+        JSValue key = scope->GetRegs()->at(pair.first->Index);
+        JSValue value = scope->GetRegs()->at(pair.second->Index);
+
+        if (!ObjectSet(allocator, retVal, key, value, error))
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -212,9 +249,98 @@ bool NewObject(gc::ThreadAllocator &allocator, JSValue constructor, JSArray *arg
     return NewObjectSafe(allocator, ctor, arguments, retVal, error);
 }
 
+bool Call(gc::ThreadAllocator &allocator, JSValue callee, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
+{
+    if (JSValue::GetType(callee) != Type::T_OBJECT)
+    {
+        js_throw_error(TypeError, "Object dosen't support this action");
+    }
+
+    JSFunction *func = dynamic_cast<JSFunction*>(callee.Object());
+
+    if (func == nullptr)
+    {
+        js_throw_error(ValueError, "Object expected");
+    }
+
+    return func->Call(allocator, thisArg, arguments, retVal, error);
+}
+
+bool GetGlobal(gc::ThreadAllocator &allocator, String *name, JSValue &retVal, JSValue &error)
+{
+    hydra_assert(name, "name should not be nullptr");
+    return ObjectGetSafeObject(allocator, Global, name, retVal, error);
+}
+
 JSArray *NewArrayInternal(gc::ThreadAllocator &allocator, size_t capacity)
 {
     return JSArray::New(allocator, capacity);
+}
+
+bool NewArrayWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error)
+{
+    auto ret = NewArrayInternal(allocator, inst->As<vm::ir::Array>()->Initialization.size());
+    retVal = JSValue::FromObject(ret);
+
+    size_t index = 0;
+    for (auto &ref : inst->As<vm::ir::Array>()->Initialization)
+    {
+        if (!ObjectSetSafeArray(allocator, ret, index++, scope->GetRegs()->at(ref->Index), error))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error)
+{
+    auto funcInst = inst->As<vm::ir::Func>();
+
+    auto captured = Array::New(allocator, funcInst->Captured.size());
+    size_t index = 0;
+    for (auto &ref : funcInst->Captured)
+    {
+        captured->at(index++) = JSValue::FromSmallInt(ref->Index);
+    }
+
+    hydra_assert(funcInst->FuncPtr != nullptr,
+        "funcInst->FuncPtr cannot be null");
+
+    if (!funcInst->FuncPtr->CompiledFunction)
+    {
+        funcInst->FuncPtr->CompiledFunction.reset(new vm::UncompiledFunction(funcInst->FuncPtr));
+    }
+
+    auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, scope, captured, funcInst->FuncPtr->CompiledFunction.get());
+    retVal = JSValue::FromObject(ret);
+
+    return true;
+}
+
+bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error)
+{
+    auto funcInst = inst->As<vm::ir::Func>();
+
+    auto captured = Array::New(allocator, funcInst->Captured.size());
+    size_t index = 0;
+    for (auto &ref : funcInst->Captured)
+    {
+        captured->at(index++) = JSValue::FromSmallInt(ref->Index);
+    }
+
+    hydra_assert(funcInst->FuncPtr != nullptr,
+        "funcInst->FuncPtr cannot be null");
+
+    if (!funcInst->FuncPtr->CompiledFunction)
+    {
+        funcInst->FuncPtr->CompiledFunction.reset(new vm::UncompiledFunction(funcInst->FuncPtr));
+    }
+
+    auto ret = emptyObjectKlass->NewObject<JSCompiledArrowFunction>(allocator, scope, captured, funcInst->FuncPtr->CompiledFunction.get());
+    retVal = JSValue::FromObject(ret);
+
+    return true;
 }
 
 bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSValue &retVal, JSValue &error)

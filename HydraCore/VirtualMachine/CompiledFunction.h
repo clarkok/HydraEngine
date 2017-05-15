@@ -9,11 +9,12 @@ namespace vm
 {
 
 class Scope;
+class IRFunc;
 
 class CompiledFunction
 {
 public:
-    bool Call(
+    virtual bool Call(
         gc::ThreadAllocator &allocator,
         Scope *scope,
         runtime::JSValue &retVal,
@@ -28,6 +29,23 @@ public:
     {
         return 0;
     }
+};
+
+class UncompiledFunction : public CompiledFunction
+{
+public:
+    UncompiledFunction(IRFunc *ir)
+        : IR(ir)
+    { }
+
+    virtual bool Call(
+        gc::ThreadAllocator &allocator,
+        Scope *scope,
+        runtime::JSValue &retVal,
+        runtime::JSValue &error);
+
+private:
+    IRFunc *IR;
 };
 
 } // namespace vm

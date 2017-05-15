@@ -1,6 +1,8 @@
 add_library(HydraCore.VirtualMachine OBJECT
     CompiledFunction.cpp
     CompiledFunction.h
+    Compile.cpp
+    Compile.h
 	IR.cpp
 	IR.h
 	IRInsts.cpp

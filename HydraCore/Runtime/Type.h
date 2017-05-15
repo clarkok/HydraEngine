@@ -30,6 +30,7 @@ enum class Type
     T_SYMBOL,       // 1111 1111 1111 1100 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
     T_STRING,       // 1111 1111 1111 1011 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
     T_OBJECT,       // 1111 1111 1111 1010 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
+    T_VALREF,       // 1111 1111 1111 1101 XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
 
     T_VARIANT,      // 1111 1111 1111 ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
 
@@ -81,7 +82,7 @@ struct JSValue
             Type::T_OBJECT,
             Type::T_STRING,
             Type::T_SYMBOL,
-            Type::T_UNKNOWN,
+            Type::T_VALREF,
             Type::T_UNKNOWN,
             Type::T_UNDEFINED
         };

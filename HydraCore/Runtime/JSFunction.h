@@ -96,6 +96,23 @@ private:
     vm::CompiledFunction *Func;
 };
 
+class JSCompiledArrowFunction : public JSFunction
+{
+public:
+    JSCompiledArrowFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, Array *captured, vm::CompiledFunction *func)
+        : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
+    { }
+
+    virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final;
+
+    virtual bool Call(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) override final;
+
+private:
+    vm::Scope *Scope;
+    Array *Captured;
+    vm::CompiledFunction *Func;
+};
+
 } // namespace runtime
 } // namespace hydra
 
