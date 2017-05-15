@@ -35,6 +35,11 @@ namespace semantic
     def(u"global", GLOBAL)              \
     def(u"Object", OBJECT)              \
     def(u"Function", FUNCTION)          \
+    def(u"boolean", _BOOLEAN)           \
+    def(u"number", NUMBER)              \
+    def(u"symbol", SYMBOL)              \
+    def(u"string", STRING)              \
+    def(u"object", _OBJECT)             \
 
 
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
@@ -418,6 +423,7 @@ bool ObjectGetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, Strin
     JSObjectPropertyAttribute attribute;
     if (!object->Get(key, retVal, attribute))
     {
+        // TODO query the __proto__
         retVal = JSValue();
         return true;
     }
@@ -682,6 +688,663 @@ bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JS
         break;
     default:
         hydra_trap("Unknown type");
+    }
+}
+
+/******************************** Operation *****************************/
+bool OpAdd(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromSmallInt(a.SmallInt() + b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromNumber(numberA + numberB));
+    }
+
+    if (typeA == Type::T_STRING && typeB == Type::T_STRING)
+    {
+        String *concated = String::Concat(allocator, a.String(), b.String());
+        js_return(JSValue::FromString(concated));
+    }
+
+    if (typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS ||
+        typeB == Type::T_UNDEFINED || typeB == Type::T_NOT_EXISTS)
+    {
+        js_return(JSValue::FromNumber(NAN));
+    }
+
+    if (!ToString(allocator, a, a, error))
+    {
+        return false;
+    }
+    if (!ToString(allocator, b, b, error))
+    {
+        return false;
+    }
+    String *concated = String::Concat(allocator, a.String(), b.String());
+    js_return(JSValue::FromString(concated));
+}
+
+bool OpSub(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromSmallInt(a.SmallInt() - b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromNumber(numberA - numberB));
+    }
+
+    js_return(JSValue::FromNumber(NAN));
+}
+
+bool OpMul(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromSmallInt(a.SmallInt() * b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromNumber(numberA * numberB));
+    }
+
+    js_return(JSValue::FromNumber(NAN));
+}
+
+bool OpDiv(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromNumber(numberA / numberB));
+    }
+
+    js_return(JSValue::FromNumber(NAN));
+}
+
+bool OpMod(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromSmallInt(a.SmallInt() % b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromNumber(std::fmod(numberA, numberB)));
+    }
+
+    js_return(JSValue::FromNumber(NAN));
+}
+
+bool OpBand(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromSmallInt(a.SmallInt() & b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        u64 numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        u64 numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromSmallInt(numberA & numberB));
+    }
+
+    js_return(JSValue::FromNumber(0));
+}
+
+bool OpBor(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    u64 numberA = 0, numberB = 0;
+
+    if (typeA == Type::T_SMALL_INT)
+    {
+        numberA = a.SmallInt();
+    }
+    else if (typeA == Type::T_NUMBER)
+    {
+        numberA = a.Number();
+    }
+
+    if (typeB == Type::T_SMALL_INT)
+    {
+        numberB = b.SmallInt();
+    }
+    else if (typeB == Type::T_NUMBER)
+    {
+        numberB = b.Number();
+    }
+
+    js_return(JSValue::FromSmallInt(numberA | numberB));
+}
+
+bool OpBnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+
+    u64 numberA = 0;
+
+    if (typeA == Type::T_SMALL_INT)
+    {
+        numberA = a.SmallInt();
+    }
+    else if (typeA == Type::T_NUMBER)
+    {
+        numberA = a.Number();
+    }
+
+    js_return(JSValue::FromSmallInt(~numberA));
+}
+
+bool OpLnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+
+    bool boolA = false;
+
+    switch (typeA)
+    {
+        case Type::T_BOOLEAN:
+            boolA = a.Boolean();
+            break;
+        case Type::T_NOT_EXISTS:
+            boolA = false;
+            break;
+        case Type::T_NUMBER:
+            boolA = a.Number() != 0.0f;
+            break;
+        case Type::T_OBJECT:
+            boolA = a.Object() != nullptr;
+            break;
+        case Type::T_SMALL_INT:
+            boolA = a.SmallInt() != 0;
+            break;
+        case Type::T_STRING:
+            boolA = a.String() != nullptr && a.String()->length() != 0;
+            break;
+        case Type::T_SYMBOL:
+            boolA = true;
+            break;
+        case Type::T_UNDEFINED:
+            boolA = false;
+            break;
+        default:
+            hydra_trap("Unknown type");
+    }
+
+    js_return(JSValue::FromBoolean(!boolA));
+}
+
+bool OpSll(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    u64 numberA = 0, numberB = 0;
+
+    if (typeA == Type::T_SMALL_INT)
+    {
+        numberA = a.SmallInt();
+    }
+    else if (typeA == Type::T_NUMBER)
+    {
+        numberA = a.Number();
+    }
+
+    if (typeB == Type::T_SMALL_INT)
+    {
+        numberB = b.SmallInt();
+    }
+    else if (typeB == Type::T_NUMBER)
+    {
+        numberB = b.Number();
+    }
+
+    js_return(JSValue::FromSmallInt(numberA << numberB));
+}
+
+bool OpSrl(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    i64 numberA = 0, numberB = 0;
+
+    if (typeA == Type::T_SMALL_INT)
+    {
+        numberA = a.SmallInt();
+    }
+    else if (typeA == Type::T_NUMBER)
+    {
+        numberA = a.Number();
+    }
+
+    if (typeB == Type::T_SMALL_INT)
+    {
+        numberB = b.SmallInt();
+    }
+    else if (typeB == Type::T_NUMBER)
+    {
+        numberB = b.Number();
+    }
+
+    js_return(JSValue::FromSmallInt(numberA << numberB));
+}
+
+bool OpSrr(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    i64 numberA = 0, numberB = 0;
+
+    if (typeA == Type::T_SMALL_INT)
+    {
+        numberA = a.SmallInt();
+    }
+    else if (typeA == Type::T_NUMBER)
+    {
+        numberA = a.Number();
+    }
+
+    if (typeB == Type::T_SMALL_INT)
+    {
+        numberB = b.SmallInt();
+    }
+    else if (typeB == Type::T_NUMBER)
+    {
+        numberB = b.Number();
+    }
+
+    js_return(JSValue::FromSmallInt(numberA << numberB));
+}
+
+bool OpEq(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromBoolean(a.SmallInt() == b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromBoolean(numberA == numberB));
+    }
+
+    if ((typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS) &&
+        (typeB == Type::T_UNDEFINED || typeB == Type::T_NOT_EXISTS))
+    {
+        js_return(JSValue::FromBoolean(true));
+    }
+
+    if (!ToString(allocator, a, a, error))
+    {
+        return false;
+    }
+    if (!ToString(allocator, b, b, error))
+    {
+        return false;
+    }
+
+    js_return(JSValue::FromBoolean(a.String()->EqualsTo(b.String())));
+}
+
+bool OpEqq(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if ((typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS) &&
+        (typeB == Type::T_UNDEFINED || typeB == Type::T_NOT_EXISTS))
+    {
+        js_return(JSValue::FromBoolean(true));
+    }
+
+    if (typeA != typeB)
+    {
+        js_return(JSValue::FromBoolean(false));
+    }
+
+    if (typeA == Type::T_STRING)
+    {
+        js_return(JSValue::FromBoolean(a.String()->EqualsTo(b.String())));
+    }
+
+    js_return(JSValue::FromBoolean(a.Payload == b.Payload));
+}
+
+bool OpNe(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    JSValue res;
+    if (!OpEq(allocator, a, b, res, error))
+    {
+        return false;
+    }
+
+    js_return(JSValue::FromBoolean(!res.Boolean()));
+}
+
+bool OpNee(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    JSValue res;
+    if (!OpEqq(allocator, a, b, res, error))
+    {
+        return false;
+    }
+    js_return(JSValue::FromBoolean(!res.Boolean()));
+}
+
+bool OpLt(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromBoolean(a.SmallInt() < b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromBoolean(numberA < numberB));
+    }
+
+    if ((typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS) &&
+        (typeB == Type::T_UNDEFINED || typeB == Type::T_NOT_EXISTS))
+    {
+        js_return(JSValue::FromBoolean(false));
+    }
+
+    if (!ToString(allocator, a, a, error))
+    {
+        return false;
+    }
+    if (!ToString(allocator, b, b, error))
+    {
+        return false;
+    }
+
+    js_return(JSValue::FromBoolean(a.String()->Compare(b.String()) < 0));
+}
+
+bool OpLe(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromBoolean(a.SmallInt() <= b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromBoolean(numberA <= numberB));
+    }
+
+    if ((typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS) &&
+        (typeB == Type::T_UNDEFINED || typeB == Type::T_NOT_EXISTS))
+    {
+        js_return(JSValue::FromBoolean(true));
+    }
+
+    if (!ToString(allocator, a, a, error))
+    {
+        return false;
+    }
+    if (!ToString(allocator, b, b, error))
+    {
+        return false;
+    }
+
+    js_return(JSValue::FromBoolean(a.String()->Compare(b.String()) <= 0));
+}
+
+bool OpGt(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromBoolean(a.SmallInt() > b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromBoolean(numberA > numberB));
+    }
+
+    if ((typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS) &&
+        (typeB == Type::T_UNDEFINED || typeB == Type::T_NOT_EXISTS))
+    {
+        js_return(JSValue::FromBoolean(true));
+    }
+
+    if (!ToString(allocator, a, a, error))
+    {
+        return false;
+    }
+    if (!ToString(allocator, b, b, error))
+    {
+        return false;
+    }
+
+    js_return(JSValue::FromBoolean(a.String()->Compare(b.String()) > 0));
+}
+
+bool OpGe(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    {
+        js_return(JSValue::FromBoolean(a.SmallInt() >= b.SmallInt()));
+    }
+
+    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
+        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    {
+        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
+        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+
+        js_return(JSValue::FromBoolean(numberA >= numberB));
+    }
+
+    if ((typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS) &&
+        (typeB == Type::T_UNDEFINED || typeB == Type::T_NOT_EXISTS))
+    {
+        js_return(JSValue::FromBoolean(true));
+    }
+
+    if (!ToString(allocator, a, a, error))
+    {
+        return false;
+    }
+    if (!ToString(allocator, b, b, error))
+    {
+        return false;
+    }
+
+    js_return(JSValue::FromBoolean(a.String()->Compare(b.String()) >= 0));
+}
+
+bool OpIn(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeB != Type::T_OBJECT)
+    {
+        js_throw_error(TypeError, "Right hand is not an object");
+    }
+
+    JSObject *object = b.Object();
+    JSValue key;
+
+    if (!ToString(allocator, a, key, error))
+    {
+        return false;
+    }
+
+    JSValue value;
+    JSObjectPropertyAttribute attribute;
+    if (!ObjectGetSafeObject(allocator, object, key.String(), value, error))
+    {
+        return false;
+    }
+
+    js_return(JSValue::FromBoolean(value != JSValue()));
+}
+
+bool OpInstanceOf(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    if (typeA != Type::T_OBJECT)
+    {
+        js_throw_error(TypeError, "Left hand is not an object");
+    }
+
+    if (typeB != Type::T_OBJECT)
+    {
+        js_throw_error(TypeError, "Right hand is not an object");
+    }
+
+    JSObject *left = a.Object();
+    JSObject *right = b.Object();
+    JSValue rightPrototype;
+
+    if (!ObjectGetSafeObject(allocator, right, strs::PROTOTYPE, rightPrototype, error))
+    {
+        return false;
+    }
+
+    if (JSValue::GetType(rightPrototype) != Type::T_OBJECT || rightPrototype.Object() == nullptr)
+    {
+        js_return(JSValue::FromBoolean(false));
+    }
+
+    JSValue leftProto = JSValue::FromObject(left);
+    while (JSValue::GetType(leftProto) == Type::T_OBJECT && leftProto.Object() != nullptr);
+    {
+        if (!ObjectGetSafeObject(allocator, leftProto.Object(), strs::__PROTO__, leftProto, error))
+        {
+            return false;
+        }
+        if (leftProto == rightPrototype)
+        {
+            js_return(JSValue::FromBoolean(true));
+        }
+    }
+
+    js_return(JSValue::FromBoolean(false));
+}
+
+bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+
+    switch (typeA)
+    {
+    case hydra::runtime::Type::T_UNDEFINED:
+        js_return(JSValue::FromString(strs::UNDEFINED));
+        break;
+    case hydra::runtime::Type::T_NOT_EXISTS:
+        js_return(JSValue::FromString(strs::UNDEFINED));
+        break;
+    case hydra::runtime::Type::T_BOOLEAN:
+        js_return(JSValue::FromString(strs::_BOOLEAN));
+        break;
+    case hydra::runtime::Type::T_SMALL_INT:
+        js_return(JSValue::FromString(strs::NUMBER));
+        break;
+    case hydra::runtime::Type::T_NUMBER:
+        js_return(JSValue::FromString(strs::NUMBER));
+        break;
+    case hydra::runtime::Type::T_SYMBOL:
+        js_return(JSValue::FromString(strs::SYMBOL));
+        break;
+    case hydra::runtime::Type::T_STRING:
+        js_return(JSValue::FromString(strs::STRING));
+        break;
+    case hydra::runtime::Type::T_OBJECT:
+        js_return(JSValue::FromString(strs::_OBJECT));
+        break;
+    default:
+        hydra_trap("Error typeof value");
+        break;
     }
 }
 

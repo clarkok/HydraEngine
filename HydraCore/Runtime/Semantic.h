@@ -78,6 +78,31 @@ bool ObjectDelete(gc::ThreadAllocator &allocator, JSValue object, JSValue key, J
 bool IsStringIntegral(String *str, i64 &value);
 bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error);
 
+/******************************** Operation *****************************/
+bool OpAdd(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpSub(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpMul(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpDiv(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpMod(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpBand(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpBor(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpBnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error);
+bool OpLnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error);
+bool OpSll(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpSrl(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpSrr(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpEq(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpEqq(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpNe(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpNee(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpLt(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpLe(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpGt(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpGe(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpIn(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpInstanceOf(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error);
+
 } // namespace semantic
 } // namespace runtime
 } // namespace hydra

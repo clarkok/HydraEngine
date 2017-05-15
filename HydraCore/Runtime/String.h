@@ -78,6 +78,23 @@ public:
         return true;
     }
 
+    inline int Compare(const String *other) const
+    {
+        size_t compareLength = std::min(length(), other->length());
+        for (size_t i = 0; i < compareLength; ++i)
+        {
+            if (_at(i) != other->_at(i))
+            {
+                return _at(i) - other->_at(i);
+            }
+        }
+        if (length() != other->length())
+        {
+            return length() - other->length();
+        }
+        return 0;
+    }
+
     virtual void Scan(std::function<void(gc::HeapObject *)> scan) override final
     {
         if (Flattenned)
