@@ -9,6 +9,7 @@
 #pragma push_macro("FALSE")
 #pragma push_macro("IN")
 #pragma push_macro("THIS")
+#pragma push_macro("LoadString")
 
 #ifdef NULL
 #undef NULL
@@ -28,6 +29,10 @@
 
 #ifdef THIS
 #undef THIS
+#endif
+
+#ifdef LoadString
+#undef LoadString
 #endif
 
 namespace hydra
@@ -552,7 +557,6 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
             {
                 u32 type;
                 reader.Uint(type);
-                u32 other;
                 switch (type)
                 {
                 case JUMP:
@@ -600,6 +604,7 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
 } // namespace vm
 } // namespace hydra
 
+#pragma pop_macro("LoadString")
 #pragma pop_macro("THIS")
 #pragma pop_macro("IN")
 #pragma pop_macro("FALSE")

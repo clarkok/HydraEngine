@@ -1,5 +1,5 @@
 #ifndef _COMPILED_FUNCTION_H_
-#define _COMPILED_FUNCITON_H_
+#define _COMPILED_FUNCTION_H_
 
 #include "Runtime/Type.h"
 
@@ -9,7 +9,7 @@ namespace vm
 {
 
 class Scope;
-class IRFunc;
+struct IRFunc;
 
 class CompiledFunction
 {
@@ -26,6 +26,11 @@ public:
     }
 
     inline size_t GetLength() const
+    {
+        return 0;
+    }
+
+    inline size_t GetVarCount() const
     {
         return 0;
     }

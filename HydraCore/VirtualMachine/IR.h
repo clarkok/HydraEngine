@@ -45,6 +45,8 @@ struct IRBlock : public Replacable<struct IRBlock>
     IRBlock::Ref Alternate;
 };
 
+struct IRModule;
+
 struct IRFunc
 {
     IRFunc(IRModule *module, runtime::String *name, size_t length)
@@ -55,6 +57,7 @@ struct IRFunc
     IRModule *Module;
     runtime::String *Name;
     size_t Length;
+    size_t VarCount;
 
     std::unique_ptr<CompiledFunction> CompiledFunction;
 

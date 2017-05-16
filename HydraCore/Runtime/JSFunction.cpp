@@ -25,6 +25,7 @@ void JSCompiledFunction::Scan(std::function<void(gc::HeapObject*)> scan)
 bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
 {
     Array *regs = Array::New(allocator, Func->GetRegisterCount());
+    Array *table = Array::New(allocator, Func->GetVarCount());
 
     std::vector<JSValue *> captured;
     for (size_t i = 0; i < Captured->Capacity(); ++i)
@@ -53,6 +54,7 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
     vm::Scope *newScope = allocator.AllocateAuto<vm::Scope>(
         Scope,
         regs,
+        table,
         captured,
         thisArg,
         arrayArgs);
@@ -69,6 +71,7 @@ void JSCompiledArrowFunction::Scan(std::function<void(gc::HeapObject*)> scan)
 bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
 {
     Array *regs = Array::New(allocator, Func->GetRegisterCount());
+    Array *table = Array::New(allocator, Func->GetVarCount());
 
     std::vector<JSValue *> captured;
     for (size_t i = 0; i < Captured->Capacity(); ++i)
@@ -97,6 +100,7 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
     vm::Scope *newScope = allocator.AllocateAuto<vm::Scope>(
         Scope,
         regs,
+        table,
         captured,
         Scope->GetThisArg(),
         arrayArgs);

@@ -14,7 +14,7 @@ namespace hydra
 namespace vm
 {
 struct IRInst;
-struct Scope;
+class Scope;
 }
 
 namespace runtime

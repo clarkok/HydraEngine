@@ -98,7 +98,7 @@ public:
             return false;
         }
 
-        start = Current();
+        start = static_cast<u32>(Current());
 
         if (!Uint(length))
         {

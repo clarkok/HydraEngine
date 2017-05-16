@@ -548,6 +548,147 @@ CompileTask::Func BaselineCompileTask::Compile()
 
                 break;
             }
+
+#define CASE_BINARY(BIN, func)                              \
+            case BIN:                                       \
+            {                                               \
+                push(rcx);                                  \
+                push(rdx);                                  \
+                push(r8);                                   \
+                push(r9);                                   \
+                                                            \
+                push(r9);                                   \
+                                                            \
+                mov(r9, ptr[rdx + Scope::OffsetRegs()]);    \
+                add(r9, runtime::Array::OffsetTable());     \
+                lea(r9, ptr[r8 + 8 * inst->Index]);         \
+                push(r9);                                   \
+                                                            \
+                LOAD_REG(rax, inst->As<ir::Binary>()->_A);  \
+                LOAD_REG(rbx, inst->As<ir::Binary>()->_B);  \
+                                                            \
+                mov(r8, rbx);                               \
+                push(r8);                                   \
+                                                            \
+                mov(rdx, rax);                              \
+                push(rdx);                                  \
+                                                            \
+                push(rcx);                                  \
+                                                            \
+                call(runtime::semantic::func);              \
+                add(rsp, 40);                               \
+                                                            \
+                pop(r9);                                    \
+                pop(r8);                                    \
+                pop(rdx);                                   \
+                pop(rcx);                                   \
+                                                            \
+                test(rax, rax);                             \
+                jz(throwPoint);                             \
+                                                            \
+                break;                                      \
+            }
+            CASE_BINARY(ADD, OpAdd);
+            CASE_BINARY(SUB, OpSub);
+            CASE_BINARY(MUL, OpMul);
+            CASE_BINARY(DIV, OpDiv);
+            CASE_BINARY(MOD, OpMod);
+            CASE_BINARY(BAND, OpBand);
+            CASE_BINARY(BOR, OpBor);
+            CASE_BINARY(SLL, OpSll);
+            CASE_BINARY(SRL, OpSrl);
+            CASE_BINARY(SRR, OpSrr);
+            CASE_BINARY(EQ, OpEq);
+            CASE_BINARY(EQQ, OpEqq);
+            CASE_BINARY(NE, OpNe);
+            CASE_BINARY(NEE, OpNee);
+            CASE_BINARY(LT, OpLt);
+            CASE_BINARY(LE, OpLe);
+            CASE_BINARY(GT, OpGt);
+            CASE_BINARY(GE, OpGe);
+#pragma push_macro("IN")
+#undef IN
+            CASE_BINARY(IN, OpIn);
+#pragma pop_macro("IN")
+            CASE_BINARY(INSTANCEOF, OpInstanceOf);
+
+#define CASE_UNARY(UNA, func)                               \
+            case UNA:                                       \
+            {                                               \
+                push(rcx);                                  \
+                push(rdx);                                  \
+                push(r8);                                   \
+                push(r9);                                   \
+                                                            \
+                push(r9);                                   \
+                                                            \
+                push(r8);                                   \
+                                                            \
+                LOAD_REG(rax, inst->As<ir::Unary>()->_A);   \
+                mov(rdx, rax);                              \
+                push(rdx);                                  \
+                                                            \
+                push(rcx);                                  \
+                                                            \
+                call(runtime::semantic::func);              \
+                add(rsp, 32);                               \
+                                                            \
+                pop(r9);                                    \
+                pop(r8);                                    \
+                pop(rdx);                                   \
+                pop(rcx);                                   \
+                                                            \
+                test(rax, rax);                             \
+                jz(throwPoint);                             \
+                                                            \
+                break;                                      \
+            }
+
+            CASE_UNARY(BNOT, OpBnot);
+            CASE_UNARY(LNOT, OpLnot);
+            CASE_UNARY(TYPEOF, OpTypeOf);
+
+            case PUSH_SCOPE:
+            {
+                break;
+            }
+            case POP_SCOPE:
+            {
+                break;
+            }
+            case ALLOCA:
+            {
+                break;
+            }
+            case ARG:
+            {
+                break;
+            }
+            case CAPTURE:
+            {
+                break;
+            }
+#pragma push_macro("THIS")
+#undef THIS
+            case THIS:
+#pragma pop_macro("THIS")
+            {
+                break;
+            }
+            case ARGUMENTS:
+            {
+                break;
+            }
+            case MOVE:
+            {
+                break;
+            }
+            case PHI:
+            {
+                break;
+            }
+            default:
+                hydra_trap("Unknown inst");
             }
         }
     }

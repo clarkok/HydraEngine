@@ -80,7 +80,10 @@ public:
 
     inline int Compare(const String *other) const
     {
+#pragma push_macro("min")
+#undef min
         size_t compareLength = std::min(length(), other->length());
+#pragma pop_macro("min")
         for (size_t i = 0; i < compareLength; ++i)
         {
             if (_at(i) != other->_at(i))
@@ -90,7 +93,7 @@ public:
         }
         if (length() != other->length())
         {
-            return length() - other->length();
+            return length() > other->length() ? 1 : -1;
         }
         return 0;
     }

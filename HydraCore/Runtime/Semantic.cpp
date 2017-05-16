@@ -373,7 +373,8 @@ bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSVa
             }
         }
     }
-    else if (JSValue::GetType(object) == Type::T_OBJECT)
+
+    if (JSValue::GetType(object) == Type::T_OBJECT)
     {
         JSValue stringKey;
         if (!ToString(allocator, key, stringKey, error))
@@ -386,6 +387,7 @@ bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSVa
     else
     {
         hydra_trap("TODO: other data types");
+        return false;
     }
 }
 
@@ -476,7 +478,8 @@ bool ObjectSet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSVa
             }
         }
     }
-    else if (JSValue::GetType(object) == Type::T_OBJECT)
+
+    if (JSValue::GetType(object) == Type::T_OBJECT)
     {
         JSValue stringKey;
         if (!ToString(allocator, key, stringKey, error))
@@ -489,6 +492,7 @@ bool ObjectSet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSVa
     else
     {
         hydra_trap("TODO: other data types");
+        return false;
     }
 }
 
@@ -688,6 +692,7 @@ bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JS
         break;
     default:
         hydra_trap("Unknown type");
+        return false;
     }
 }
 
@@ -831,8 +836,8 @@ bool OpBand(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVa
     if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
         (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
     {
-        u64 numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
-        u64 numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
+        u64 numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : static_cast<u64>(a.Number());
+        u64 numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : static_cast<u64>(b.Number());
 
         js_return(JSValue::FromSmallInt(numberA & numberB));
     }
@@ -853,7 +858,7 @@ bool OpBor(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     }
     else if (typeA == Type::T_NUMBER)
     {
-        numberA = a.Number();
+        numberA = static_cast<u64>(a.Number());
     }
 
     if (typeB == Type::T_SMALL_INT)
@@ -862,7 +867,7 @@ bool OpBor(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     }
     else if (typeB == Type::T_NUMBER)
     {
-        numberB = b.Number();
+        numberB = static_cast<u64>(b.Number());
     }
 
     js_return(JSValue::FromSmallInt(numberA | numberB));
@@ -880,7 +885,7 @@ bool OpBnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue 
     }
     else if (typeA == Type::T_NUMBER)
     {
-        numberA = a.Number();
+        numberA = static_cast<u64>(a.Number());
     }
 
     js_return(JSValue::FromSmallInt(~numberA));
@@ -938,7 +943,7 @@ bool OpSll(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     }
     else if (typeA == Type::T_NUMBER)
     {
-        numberA = a.Number();
+        numberA = static_cast<u64>(a.Number());
     }
 
     if (typeB == Type::T_SMALL_INT)
@@ -947,7 +952,7 @@ bool OpSll(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     }
     else if (typeB == Type::T_NUMBER)
     {
-        numberB = b.Number();
+        numberB = static_cast<u64>(b.Number());
     }
 
     js_return(JSValue::FromSmallInt(numberA << numberB));
@@ -966,7 +971,7 @@ bool OpSrl(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     }
     else if (typeA == Type::T_NUMBER)
     {
-        numberA = a.Number();
+        numberA = static_cast<u64>(a.Number());
     }
 
     if (typeB == Type::T_SMALL_INT)
@@ -975,7 +980,7 @@ bool OpSrl(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     }
     else if (typeB == Type::T_NUMBER)
     {
-        numberB = b.Number();
+        numberB = static_cast<u64>(b.Number());
     }
 
     js_return(JSValue::FromSmallInt(numberA << numberB));
@@ -994,7 +999,7 @@ bool OpSrr(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     }
     else if (typeA == Type::T_NUMBER)
     {
-        numberA = a.Number();
+        numberA = static_cast<u64>(a.Number());
     }
 
     if (typeB == Type::T_SMALL_INT)
@@ -1003,7 +1008,7 @@ bool OpSrr(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     }
     else if (typeB == Type::T_NUMBER)
     {
-        numberB = b.Number();
+        numberB = static_cast<u64>(b.Number());
     }
 
     js_return(JSValue::FromSmallInt(numberA << numberB));
@@ -1344,6 +1349,7 @@ bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValu
         break;
     default:
         hydra_trap("Error typeof value");
+        return false;
         break;
     }
 }
