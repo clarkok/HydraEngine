@@ -103,6 +103,10 @@ bool OpIn(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal,
 bool OpInstanceOf(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
 bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error);
 
+vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst *inst);
+
+bool ToBoolean(JSValue value);
+
 } // namespace semantic
 } // namespace runtime
 } // namespace hydra

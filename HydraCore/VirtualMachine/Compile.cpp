@@ -14,6 +14,11 @@ namespace vm
     add(_reg, runtime::Array::OffsetTable());   \
     mov(_reg, ptr[_reg + 8 * (_SrcReg)->Index]);
 
+#define STORE_REG(_reg, _helper, _DstReg)           \
+    mov(_helper, ptr[rdx + Scope::OffsetRegs()]);   \
+    add(_helper, runtime::Array::OffsetTable());    \
+    mov(ptr[_helper + 8 * (_DstReg)->Index], _reg);
+
 #define SET_RESULT(_reg, _src_reg)              \
     mov(_reg, ptr[rdx + Scope::OffsetRegs()]);  \
     add(_reg, runtime::Array::OffsetTable());   \
@@ -650,22 +655,80 @@ CompileTask::Func BaselineCompileTask::Compile()
 
             case PUSH_SCOPE:
             {
+                push(rcx);
+                push(rdx);
+                push(r8);
+                push(r9);
+
+                // placeholder
+                push(r9);
+
+                // inst
+                mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
+                push(r8);
+
+                // scope
+                push(rdx);
+
+                // &allocator
+                push(rcx);
+
+                call(runtime::semantic::NewScope);
+                add(rsp, 32);
+
+                pop(r9);
+                pop(r8);
+                pop(rdx);
+                pop(rcx);
+
+                mov(rdx, rax);
+
                 break;
             }
             case POP_SCOPE:
             {
+                for (size_t i = 0; i < inst->As<ir::PopScope>()->Count; ++i)
+                {
+                    mov(rdx, ptr[rdx + Scope::OffsetUpper()]);
+                }
                 break;
             }
             case ALLOCA:
             {
+                push(rcx);
+                push(rdx);
+                push(r8);
+                push(r9);
+
+                add(rsp, -24);
+                push(rdx);
+
+                call(&Scope::AllocateStatic);
+                add(rsp, 32);
+
+                pop(r9);
+                pop(r8);
+                pop(rdx);
+                pop(rcx);
+
+                SET_RESULT(rbx, rax);
+
                 break;
             }
             case ARG:
             {
+                mov(rax, ptr[rdx + Scope::OffsetArguments()]);
+                add(rax, runtime::Array::OffsetTable());
+                lea(rax, ptr[rax + 8 * inst->As<ir::Arg>()->Index]);
+                SET_RESULT(rbx, rax);
                 break;
             }
             case CAPTURE:
             {
+                mov(rax, ptr[rdx + Scope::OffsetCaptured()]);
+                add(rax, runtime::Array::OffsetTable());
+                lea(rax, ptr[rax + 8 * inst->As<ir::Capture>()->Index]);
+                SET_RESULT(rbx, rax);
                 break;
             }
 #pragma push_macro("THIS")
@@ -673,14 +736,19 @@ CompileTask::Func BaselineCompileTask::Compile()
             case THIS:
 #pragma pop_macro("THIS")
             {
+                mov(rax, ptr[rdx + Scope::OffsetThisArg()]);
+                SET_RESULT(rbx, rax);
                 break;
             }
             case ARGUMENTS:
             {
+                hydra_trap("not supported");
                 break;
             }
             case MOVE:
             {
+                LOAD_REG(rax, inst->As<ir::Move>()->_Other);
+                SET_RESULT(rbx, rax);
                 break;
             }
             case PHI:
@@ -690,6 +758,92 @@ CompileTask::Func BaselineCompileTask::Compile()
             default:
                 hydra_trap("Unknown inst");
             }
+        }
+
+        // resolving phi
+        if (block->Consequent)
+        {
+            for (auto &ref : block->Consequent->Insts)
+            {
+                if (!ref->Is<ir::Phi>())
+                {
+                    break;
+                }
+
+                auto phi = ref->As<ir::Phi>();
+
+                auto pos = std::find(
+                    phi->Branches.begin(),
+                    phi->Branches.end(),
+                    [&](const std::pair<IRBlock::Ref, IRInst::Ref> &pair)
+                    {
+                        return pair.first.Get() == block.get();
+                    }
+                );
+
+                hydra_assert(pos != phi->Branches.end(),
+                    "Phi not containing this block");
+
+                LOAD_REG(rax, pos->second);
+                STORE_REG(rax, rbx, phi);
+            }
+        }
+
+        if (block->Alternate)
+        {
+            for (auto &ref : block->Alternate->Insts)
+            {
+                if (!ref->Is<ir::Phi>())
+                {
+                    break;
+                }
+
+                auto phi = ref->As<ir::Phi>();
+
+                auto pos = std::find(
+                    phi->Branches.begin(),
+                    phi->Branches.end(),
+                    [&](const std::pair<IRBlock::Ref, IRInst::Ref> &pair)
+                    {
+                        return pair.first.Get() == block.get();
+                    }
+                );
+
+                hydra_assert(pos != phi->Branches.end(),
+                    "Phi not containing this block");
+
+                LOAD_REG(rax, pos->second);
+                STORE_REG(rax, rbx, phi);
+            }
+        }
+
+        if (block->Condition)
+        {
+                push(rcx);
+                push(rdx);
+                push(r8);
+                push(r9);
+
+                LOAD_REG(rax, block->Condition);
+
+                add(rsp, -24);
+                push(rax);
+
+                call(runtime::semantic::ToBoolean);
+                add(rsp, 32);
+
+                pop(r9);
+                pop(r8);
+                pop(rdx);
+                pop(rcx);
+
+                test(rax, rax);
+                je(labels[block->Alternate->Index]);
+                jmp(labels[block->Consequent->Index]);
+        }
+        else if (block->Consequent)
+        {
+            jmp(labels[block->Consequent->Index]);
         }
     }
 

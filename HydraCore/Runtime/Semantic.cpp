@@ -893,41 +893,7 @@ bool OpBnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue 
 
 bool OpLnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error)
 {
-    auto typeA = JSValue::GetType(a);
-
-    bool boolA = false;
-
-    switch (typeA)
-    {
-        case Type::T_BOOLEAN:
-            boolA = a.Boolean();
-            break;
-        case Type::T_NOT_EXISTS:
-            boolA = false;
-            break;
-        case Type::T_NUMBER:
-            boolA = a.Number() != 0.0f;
-            break;
-        case Type::T_OBJECT:
-            boolA = a.Object() != nullptr;
-            break;
-        case Type::T_SMALL_INT:
-            boolA = a.SmallInt() != 0;
-            break;
-        case Type::T_STRING:
-            boolA = a.String() != nullptr && a.String()->length() != 0;
-            break;
-        case Type::T_SYMBOL:
-            boolA = true;
-            break;
-        case Type::T_UNDEFINED:
-            boolA = false;
-            break;
-        default:
-            hydra_trap("Unknown type");
-    }
-
-    js_return(JSValue::FromBoolean(!boolA));
+    js_return(JSValue::FromBoolean(!ToBoolean(a)));
 }
 
 bool OpSll(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
@@ -1351,6 +1317,64 @@ bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValu
         hydra_trap("Error typeof value");
         return false;
         break;
+    }
+}
+
+vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst *inst)
+{
+    runtime::Array *table = Array::New(allocator, inst->As<vm::ir::PushScope>()->Size);
+    std::vector<JSValue *> captured(inst->As<vm::ir::PushScope>()->Captured.size());
+
+    size_t index = 0;
+    for (auto &ref : inst->As<vm::ir::PushScope>()->Captured)
+    {
+        captured[index++] = &upper->GetRegs()->at(ref->Index);
+    }
+
+    vm::Scope *ret = allocator.AllocateAuto<vm::Scope>(upper,
+        upper->GetRegs(),
+        table,
+        std::move(captured),
+        upper->GetThisArg(),
+        upper->GetArguments());
+
+    return ret;
+}
+
+bool ToBoolean(JSValue a)
+{
+    auto typeA = JSValue::GetType(a);
+
+    bool boolA = false;
+
+    switch (typeA)
+    {
+        case Type::T_BOOLEAN:
+            boolA = a.Boolean();
+            break;
+        case Type::T_NOT_EXISTS:
+            boolA = false;
+            break;
+        case Type::T_NUMBER:
+            boolA = a.Number() != 0.0f;
+            break;
+        case Type::T_OBJECT:
+            boolA = a.Object() != nullptr;
+            break;
+        case Type::T_SMALL_INT:
+            boolA = a.SmallInt() != 0;
+            break;
+        case Type::T_STRING:
+            boolA = a.String() != nullptr && a.String()->length() != 0;
+            break;
+        case Type::T_SYMBOL:
+            boolA = true;
+            break;
+        case Type::T_UNDEFINED:
+            boolA = false;
+            break;
+        default:
+            hydra_trap("Unknown type");
     }
 }
 

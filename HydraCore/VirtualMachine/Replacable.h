@@ -66,6 +66,11 @@ public:
 
         Ref(Ref &&) = delete;
 
+        operator bool() const
+        {
+            return Ptr != nullptr;
+        }
+
         Ref &operator = (const Ref &other)
         {
             Reset(other.Ptr);
@@ -119,12 +124,17 @@ public:
         }
 
         template <typename U>
-        U *To()
+        U *To() const
         {
             static_assert(std::is_base_of<T, U>::value,
                 "U must inherit from T");
 
             return dynamic_cast<U*>(Ptr);
+        }
+
+        T *Get() const
+        {
+            return Ptr;
         }
 
         T *Ptr;

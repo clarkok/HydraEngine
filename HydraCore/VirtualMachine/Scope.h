@@ -20,8 +20,21 @@ protected:
     using JSValue = runtime::JSValue;
 
 public:
-    Scope(u8 property, Scope *upper, Array *regs, Array *table, std::vector<JSValue *> captured, JSValue thisArg, Array *arguments)
-        : gc::HeapObject(property), Upper(upper), Regs(regs), Table(table), Captured(std::move(captured)), ThisArg(thisArg), Arguments(arguments)
+    Scope(u8 property,
+        Scope *upper,
+        Array *regs,
+        Array *table,
+        std::vector<JSValue *> captured,
+        JSValue thisArg,
+        Array *arguments
+    ) : gc::HeapObject(property),
+        Upper(upper),
+        Regs(regs),
+        Table(table),
+        Captured(std::move(captured)),
+        ThisArg(thisArg),
+        Arguments(arguments),
+        Allocated(0)
     {
         gc::Heap::GetInstance()->WriteBarrier(this, upper);
         gc::Heap::GetInstance()->WriteBarrier(this, regs);
@@ -66,6 +79,15 @@ public:
         return Arguments;
     }
 
+    inline JSValue *Allocate()
+    {
+        hydra_assert(Allocated < Table->Capacity(),
+            "Too many allocations");
+        return &Table->at(Allocated++);
+    }
+
+    static JSValue *AllocateStatic(Scope *scope);
+
     inline static size_t OffsetUpper()
     {
         return reinterpret_cast<uintptr_t>(
@@ -109,6 +131,7 @@ protected:
     std::vector<JSValue *> Captured;
     JSValue ThisArg;
     Array *Arguments;
+    size_t Allocated;
 };
 
 } // namespace vm

@@ -5,6 +5,11 @@ namespace hydra
 namespace vm
 {
 
+Scope::JSValue *Scope::AllocateStatic(Scope *scope)
+{
+    return scope->Allocate();
+}
+
 void Scope::Scan(std::function<void(gc::HeapObject *)> scan)
 {
     if (Regs) scan(Regs);

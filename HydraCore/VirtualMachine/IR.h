@@ -33,6 +33,12 @@ struct IRInst : public Replacable<struct IRInst>
         return dynamic_cast<T*>(this);
     }
 
+    template <typename T>
+    bool *Is()
+    {
+        return As<T>() != nullptr;
+    }
+
     size_t Index;
 };
 
