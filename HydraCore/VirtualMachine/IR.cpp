@@ -1,5 +1,7 @@
 #include "IR.h"
 
+#include "IRInsts.h"
+
 #include "Common/Singleton.h"
 #include "GarbageCollection/GC.h"
 
@@ -56,6 +58,30 @@ IRModule::IRModule(runtime::JSArray *stringsReferenced)
 IRModule::~IRModule()
 {
     IRModuleGCHelper::GetInstance()->RemoveModule(this);
+}
+
+size_t IRFunc::GetVarCount() const
+{
+    size_t varCount = 0;
+
+    if (Blocks.empty())
+    {
+        return 0;
+    }
+
+    for (auto &inst : Blocks.front()->Insts)
+    {
+        if (inst->Is<ir::Alloca>())
+        {
+            ++varCount;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    return varCount;
 }
 
 } // namespace vm

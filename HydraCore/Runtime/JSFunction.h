@@ -4,9 +4,6 @@
 #include "Common/HydraCore.h"
 #include "GarbageCollection/GC.h"
 
-#include "VirtualMachine/Scope.h"
-#include "VirtualMachine/CompiledFunction.h"
-
 #include "JSObject.h"
 #include "Klass.h"
 
@@ -16,6 +13,13 @@
 
 namespace hydra
 {
+
+namespace vm
+{
+class Scope;
+struct IRFunc;
+}
+
 namespace runtime
 {
 
@@ -82,7 +86,7 @@ private:
 class JSCompiledFunction : public JSFunction
 {
 public:
-    JSCompiledFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, Array *captured, vm::CompiledFunction *func)
+    JSCompiledFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, Array *captured, vm::IRFunc *func)
         : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
     { }
 
@@ -93,13 +97,13 @@ public:
 private:
     vm::Scope *Scope;
     Array *Captured;
-    vm::CompiledFunction *Func;
+    vm::IRFunc *Func;
 };
 
 class JSCompiledArrowFunction : public JSFunction
 {
 public:
-    JSCompiledArrowFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, Array *captured, vm::CompiledFunction *func)
+    JSCompiledArrowFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, Array *captured, vm::IRFunc *func)
         : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
     { }
 
@@ -110,7 +114,7 @@ public:
 private:
     vm::Scope *Scope;
     Array *Captured;
-    vm::CompiledFunction *Func;
+    vm::IRFunc *Func;
 };
 
 } // namespace runtime

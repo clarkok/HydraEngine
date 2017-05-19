@@ -72,7 +72,8 @@ private:
         "LevelSize must be power of 2");
 
     template <size_t Level, typename isEnable = void>
-    struct LevelTable;
+    struct LevelTable
+    { };
 
     template <size_t Level>
     struct LevelTable<Level, std::enable_if_t<Level < LevelCount - 1> >

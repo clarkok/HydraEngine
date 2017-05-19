@@ -312,12 +312,7 @@ bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIns
     hydra_assert(funcInst->FuncPtr != nullptr,
         "funcInst->FuncPtr cannot be null");
 
-    if (!funcInst->FuncPtr->CompiledFunction)
-    {
-        funcInst->FuncPtr->CompiledFunction.reset(new vm::UncompiledFunction(funcInst->FuncPtr));
-    }
-
-    auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, scope, captured, funcInst->FuncPtr->CompiledFunction.get());
+    auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, scope, captured, funcInst->FuncPtr);
     retVal = JSValue::FromObject(ret);
 
     return true;
@@ -337,12 +332,7 @@ bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
     hydra_assert(funcInst->FuncPtr != nullptr,
         "funcInst->FuncPtr cannot be null");
 
-    if (!funcInst->FuncPtr->CompiledFunction)
-    {
-        funcInst->FuncPtr->CompiledFunction.reset(new vm::UncompiledFunction(funcInst->FuncPtr));
-    }
-
-    auto ret = emptyObjectKlass->NewObject<JSCompiledArrowFunction>(allocator, scope, captured, funcInst->FuncPtr->CompiledFunction.get());
+    auto ret = emptyObjectKlass->NewObject<JSCompiledArrowFunction>(allocator, scope, captured, funcInst->FuncPtr);
     retVal = JSValue::FromObject(ret);
 
     return true;
@@ -682,6 +672,7 @@ bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JS
         break;
     }
     case Type::T_SMALL_INT:
+        js_return(JSValue::FromString(NumberToString(allocator, static_cast<double>(value.SmallInt()))));
         break;
     case Type::T_STRING:
         js_return(JSValue::FromString(value.String()));
@@ -1376,6 +1367,8 @@ bool ToBoolean(JSValue a)
         default:
             hydra_trap("Unknown type");
     }
+
+    return boolA;
 }
 
 /*********************** lib ***********************/

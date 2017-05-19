@@ -127,7 +127,7 @@ bool GCScheduler::ShouldFullGC()
     double RegionCountToFullGCByIncrement = RegionCountAfterLastFullGC * FULL_GC_TRIGGER_FACTOR_BY_INCREMENT;
     double SecondsForAllocationByIncrement = (RegionCountToFullGCByIncrement - currentRegionCount) / RegionOldFulledPerSecond;
 
-    double RegionCountToFullGCByLast = RegionCountBeforeLastFullGC;
+    double RegionCountToFullGCByLast = static_cast<double>(RegionCountBeforeLastFullGC);
     double SecondsForAllocationByLast = (RegionCountToFullGCByLast - currentRegionCount) / RegionOldFulledPerSecond;
 
     double SecondsForFullGC = currentRegionCount / RegionProcessedInFullGCPerSecond;

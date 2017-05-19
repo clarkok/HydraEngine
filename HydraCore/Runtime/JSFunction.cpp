@@ -1,5 +1,9 @@
 #include "JSFunction.h"
 
+#include "VirtualMachine/IR.h"
+#include "VirtualMachine/Scope.h"
+#include "VirtualMachine/CompiledFunction.h"
+
 #include <vector>
 
 namespace hydra
@@ -24,8 +28,14 @@ void JSCompiledFunction::Scan(std::function<void(gc::HeapObject*)> scan)
 
 bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
 {
-    Array *regs = Array::New(allocator, Func->GetRegisterCount());
-    Array *table = Array::New(allocator, Func->GetVarCount());
+    auto compiled = Func->Compiled.load();
+    if (!compiled)
+    {
+        compiled = Func->BaselineFuture.get();
+    }
+
+    Array *regs = Array::New(allocator, compiled->GetRegisterCount());
+    Array *table = Array::New(allocator, compiled->GetVarCount());
 
     std::vector<JSValue *> captured;
     for (size_t i = 0; i < Captured->Capacity(); ++i)
@@ -59,7 +69,7 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
         thisArg,
         arrayArgs);
 
-    return Func->Call(allocator, newScope, retVal, error);
+    return compiled->Call(allocator, newScope, retVal, error);
 }
 
 void JSCompiledArrowFunction::Scan(std::function<void(gc::HeapObject*)> scan)
@@ -70,8 +80,14 @@ void JSCompiledArrowFunction::Scan(std::function<void(gc::HeapObject*)> scan)
 
 bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
 {
-    Array *regs = Array::New(allocator, Func->GetRegisterCount());
-    Array *table = Array::New(allocator, Func->GetVarCount());
+    auto compiled = Func->Compiled.load();
+    if (!compiled)
+    {
+        compiled = Func->BaselineFuture.get();
+    }
+
+    Array *regs = Array::New(allocator, compiled->GetRegisterCount());
+    Array *table = Array::New(allocator, compiled->GetVarCount());
 
     std::vector<JSValue *> captured;
     for (size_t i = 0; i < Captured->Capacity(); ++i)
@@ -105,7 +121,7 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
         Scope->GetThisArg(),
         arrayArgs);
 
-    return Func->Call(allocator, newScope, retVal, error);
+    return compiled->Call(allocator, newScope, retVal, error);
 }
 
 } // namespace runtime

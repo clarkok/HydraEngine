@@ -12,6 +12,7 @@
 #include <list>
 #include <vector>
 #include <memory>
+#include <future>
 
 namespace hydra
 {
@@ -34,7 +35,7 @@ struct IRInst : public Replacable<struct IRInst>
     }
 
     template <typename T>
-    bool *Is()
+    bool Is()
     {
         return As<T>() != nullptr;
     }
@@ -63,9 +64,14 @@ struct IRFunc
     IRModule *Module;
     runtime::String *Name;
     size_t Length;
-    size_t VarCount;
+    size_t RegisterCount;
 
-    std::unique_ptr<CompiledFunction> CompiledFunction;
+    std::atomic<CompiledFunction *> Compiled;
+
+    std::future<CompiledFunction *> BaselineFuture;
+
+    std::unique_ptr<CompiledFunction> BaselineFunction;
+    std::unique_ptr<CompiledFunction> OptimizedFunction;
 
     inline void UpdateIndex()
     {
@@ -80,6 +86,8 @@ struct IRFunc
             }
         }
     }
+
+    size_t GetVarCount() const;
 };
 
 struct IRModule

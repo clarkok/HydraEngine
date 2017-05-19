@@ -314,6 +314,8 @@ void Heap::Fire(Heap::GCPhase phase, std::vector<std::future<void>> &futures)
             return threadPool->Dispatch<void>(&Heap::GCWorkerFullMark, this);
         case GCPhase::GC_FULL_SWEEP:
             return threadPool->Dispatch<void>(&Heap::GCWorkerFullSweep, this);
+        default:
+            hydra_trap("Unknown gc phase");
         }
     });
 }

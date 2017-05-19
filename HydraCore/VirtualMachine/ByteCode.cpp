@@ -2,6 +2,8 @@
 
 #include "IRInsts.h"
 
+#include "Compile.h"
+
 #include <map>
 
 #pragma push_macro("NULL")
@@ -9,7 +11,6 @@
 #pragma push_macro("FALSE")
 #pragma push_macro("IN")
 #pragma push_macro("THIS")
-#pragma push_macro("LoadString")
 
 #ifdef NULL
 #undef NULL
@@ -29,10 +30,6 @@
 
 #ifdef THIS
 #undef THIS
-#endif
-
-#ifdef LoadString
-#undef LoadString
 #endif
 
 namespace hydra
@@ -350,7 +347,7 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
 #define As(_type)                       dynamic_cast<ir::_type *>(inst.get())
 #define LoadRegister(_type, _member)    \
     { reader.Uint(other); As(_type)->_member = insts[other]; }
-#define LoadString(_type, _member)      \
+#define LoadHydraString(_type, _member)      \
     { reader.Uint(other), As(_type)->_member = stringMap[other]; }
 #define LoadDouble(_type, _member)      \
     { reader.Double(As(_type)->_member); }
@@ -393,7 +390,7 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                     LoadRegister(Call, _Args);
                     break;
                 case GET_GLOBAL:
-                    LoadString(GetGlobal, Name);
+                    LoadHydraString(GetGlobal, Name);
                     break;
                 case UNDEFINED:
                 case NULL:
@@ -404,7 +401,7 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                     LoadDouble(Number, Value);
                     break;
                 case STRING:
-                    LoadString(String, Value);
+                    LoadHydraString(String, Value);
                     break;
                 case OBJECT:
                 {
@@ -598,13 +595,32 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
     }
 #pragma endregion SECOND_SCAN
 
+    auto func = ret.get();
+
+    ret->BaselineFuture = std::move(std::async(
+        std::launch::deferred,
+        [func]() -> CompiledFunction *
+        {
+            BaselineCompileTask task(func);
+            func->BaselineFunction = std::make_unique<CompiledFunction>(
+                task.Compile(),
+                func->RegisterCount,
+                func->Length,
+                func->GetVarCount());
+
+            CompiledFunction *current = nullptr;
+            func->Compiled.compare_exchange_strong(current, func->BaselineFunction.get());
+
+            return func->BaselineFunction.get();
+        }
+    ));
+
     return ret;
 }
 
 } // namespace vm
 } // namespace hydra
 
-#pragma pop_macro("LoadString")
 #pragma pop_macro("THIS")
 #pragma pop_macro("IN")
 #pragma pop_macro("FALSE")

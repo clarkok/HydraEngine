@@ -3,6 +3,8 @@
 
 #include "Runtime/Type.h"
 
+#include "VMDefs.h"
+
 namespace hydra
 {
 namespace vm
@@ -14,43 +16,39 @@ struct IRFunc;
 class CompiledFunction
 {
 public:
-    virtual bool Call(
+    CompiledFunction(GeneratedCode func, size_t registerCount, size_t length, size_t varCount)
+        : Func(func), RegisterCount(registerCount), Length(length), VarCount(varCount)
+    { }
+
+    inline bool Call(
         gc::ThreadAllocator &allocator,
         Scope *scope,
         runtime::JSValue &retVal,
-        runtime::JSValue &error);
+        runtime::JSValue &error)
+    {
+        return Func(allocator, scope, retVal, error);
+    }
 
     inline size_t GetRegisterCount() const
     {
-        return 0;
+        return RegisterCount;
     }
 
     inline size_t GetLength() const
     {
-        return 0;
+        return Length;
     }
 
     inline size_t GetVarCount() const
     {
-        return 0;
+        return VarCount;
     }
-};
 
-class UncompiledFunction : public CompiledFunction
-{
-public:
-    UncompiledFunction(IRFunc *ir)
-        : IR(ir)
-    { }
-
-    virtual bool Call(
-        gc::ThreadAllocator &allocator,
-        Scope *scope,
-        runtime::JSValue &retVal,
-        runtime::JSValue &error);
-
-private:
-    IRFunc *IR;
+protected:
+    GeneratedCode Func;
+    size_t RegisterCount;
+    size_t Length;
+    size_t VarCount;
 };
 
 } // namespace vm
