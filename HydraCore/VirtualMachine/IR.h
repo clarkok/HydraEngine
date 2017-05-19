@@ -57,14 +57,18 @@ struct IRModule;
 struct IRFunc
 {
     IRFunc(IRModule *module, runtime::String *name, size_t length)
-        : Module(module), Name(name), Length(length)
+        : Module(module),
+        Name(name),
+        Length(length),
+        Compiled(nullptr),
+        BaselineFunction(nullptr),
+        OptimizedFunction(nullptr)
     { }
 
     std::list<std::unique_ptr<IRBlock>> Blocks;
     IRModule *Module;
     runtime::String *Name;
     size_t Length;
-    size_t RegisterCount;
 
     std::atomic<CompiledFunction *> Compiled;
 
@@ -73,7 +77,7 @@ struct IRFunc
     std::unique_ptr<CompiledFunction> BaselineFunction;
     std::unique_ptr<CompiledFunction> OptimizedFunction;
 
-    inline void UpdateIndex()
+    inline size_t UpdateIndex()
     {
         size_t blockIndex = 0;
         size_t instIndex = 0;
@@ -85,6 +89,7 @@ struct IRFunc
                 inst->Index = instIndex++;
             }
         }
+        return instIndex;
     }
 
     size_t GetVarCount() const;

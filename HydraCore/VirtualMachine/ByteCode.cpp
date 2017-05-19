@@ -601,10 +601,11 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
         std::launch::deferred,
         [func]() -> CompiledFunction *
         {
-            BaselineCompileTask task(func);
+            std::unique_ptr<CompileTask> task(new BaselineCompileTask(func));
+
+            size_t registerCount;
             func->BaselineFunction = std::make_unique<CompiledFunction>(
-                task.Compile(),
-                func->RegisterCount,
+                std::move(task),
                 func->Length,
                 func->GetVarCount());
 

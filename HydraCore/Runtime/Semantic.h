@@ -63,6 +63,7 @@ bool NewArray(gc::ThreadAllocator &allocator, T_iterator begin, T_iterator end, 
 }
 
 JSCompiledFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func);
+JSNativeFunction *NewNativeFunc(gc::ThreadAllocator &allocator, JSNativeFunction::Functor func);
 bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 

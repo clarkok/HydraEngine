@@ -2,8 +2,6 @@
 #define _COMPILE_H_
 
 #include "Scope.h"
-#include "IR.h"
-#include "IRInsts.h"
 
 #include "Runtime/Type.h"
 #include "GarbageCollection/GC.h"
@@ -17,16 +15,37 @@ namespace hydra
 namespace vm
 {
 
+struct IRFunc;
+
 class CompileTask : public Xbyak::CodeGenerator
 {
 public:
     using Label = Xbyak::Label;
 
     CompileTask()
-        : Xbyak::CodeGenerator(4096, Xbyak::AutoGrow)
+        : Xbyak::CodeGenerator(4096, Xbyak::AutoGrow), Generated(nullptr)
     { }
 
-    virtual GeneratedCode Compile() = 0;
+    virtual GeneratedCode Compile(size_t &registerCount) = 0;
+
+    inline GeneratedCode Get()
+    {
+        if (!Generated)
+        {
+            Generated = Compile(RegisterCount);
+        }
+        return Generated;
+    }
+
+    inline GeneratedCode Get(size_t &registerCount)
+    {
+        if (!Generated)
+        {
+            Generated = Compile(RegisterCount);
+        }
+        registerCount = RegisterCount;
+        return Generated;
+    }
 
 protected:
     GeneratedCode GetCode()
@@ -34,6 +53,9 @@ protected:
         ready();
         return getCode<GeneratedCode>();
     }
+
+    GeneratedCode Generated;
+    size_t RegisterCount;
 };
 
 class BaselineCompileTask : public CompileTask
@@ -43,7 +65,7 @@ public:
         : CompileTask(), IR(ir)
     { }
 
-    virtual GeneratedCode Compile() override final;
+    virtual GeneratedCode Compile(size_t &registerCount) override final;
 
 private:
     IRFunc *IR;

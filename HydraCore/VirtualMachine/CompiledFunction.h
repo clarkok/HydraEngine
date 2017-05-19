@@ -3,7 +3,11 @@
 
 #include "Runtime/Type.h"
 
+#include "Compile.h"
+
 #include "VMDefs.h"
+
+#include <memory>
 
 namespace hydra
 {
@@ -16,9 +20,11 @@ struct IRFunc;
 class CompiledFunction
 {
 public:
-    CompiledFunction(GeneratedCode func, size_t registerCount, size_t length, size_t varCount)
-        : Func(func), RegisterCount(registerCount), Length(length), VarCount(varCount)
-    { }
+    CompiledFunction(std::unique_ptr<CompileTask> &&task, size_t length, size_t varCount)
+        : Task(std::move(task)), Func(nullptr), Length(length), VarCount(varCount)
+    {
+        Func = Task->Get(RegisterCount);
+    }
 
     inline bool Call(
         gc::ThreadAllocator &allocator,
@@ -45,6 +51,7 @@ public:
     }
 
 protected:
+    std::unique_ptr<CompileTask> Task;
     GeneratedCode Func;
     size_t RegisterCount;
     size_t Length;

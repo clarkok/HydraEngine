@@ -1,5 +1,7 @@
 #include "Compile.h"
 
+#include "IR.h"
+#include "IRInsts.h"
 #include "runtime/Semantic.h"
 
 #include <vector>
@@ -24,15 +26,17 @@ namespace vm
     add(_reg, static_cast<u32>(runtime::Array::OffsetTable())); \
     mov(ptr[_reg + 8 * inst->Index], _src_reg);
 
-GeneratedCode BaselineCompileTask::Compile()
+GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 {
-    IR->UpdateIndex();
+    registerCount = IR->UpdateIndex();
 
     std::vector<Label> labels(IR->Blocks.size());
     Label returnPoint, throwPoint;
 
-    push(rbp);
-    mov(rbp, rsp);
+    mov(ptr[rsp + 32], r9);
+    mov(ptr[rsp + 24], r8);
+    mov(ptr[rsp + 16], rdx);
+    mov(ptr[rsp + 8], rcx);
 
     push(rbx);
     push(r10);
@@ -51,6 +55,7 @@ GeneratedCode BaselineCompileTask::Compile()
             case RETURN:
             {
                 LOAD_REG(rax, inst->As<ir::Return>()->_Value);
+                jmp(returnPoint, T_NEAR);
                 break;
             }
             case LOAD:
@@ -71,12 +76,6 @@ GeneratedCode BaselineCompileTask::Compile()
             }
             case GET_ITEM:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-                push(r15);
-
                 LOAD_REG(rax, inst->As<ir::GetItem>()->_Obj);
                 LOAD_REG(rbx, inst->As<ir::GetItem>()->_Key);
 
@@ -87,41 +86,30 @@ GeneratedCode BaselineCompileTask::Compile()
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
                 lea(r9, ptr[r9 + 8 * inst->Index]);
-                push(r9);
 
                 // key
                 mov(r8, rbx);
-                push(r8);
 
                 // object
                 mov(rdx, rax);
-                push(rdx);
 
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::ObjectGet);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectGet));
+                call(rax);
                 add(rsp, 40);
 
-                pop(r15);
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
             case SET_ITEM:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-                push(r15);
-
                 LOAD_REG(rax, inst->As<ir::SetItem>()->_Obj);
                 LOAD_REG(rbx, inst->As<ir::SetItem>()->_Key);
                 LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
@@ -131,80 +119,56 @@ GeneratedCode BaselineCompileTask::Compile()
 
                 // value
                 mov(r9, r10);
-                push(r9);
 
                 // key
                 mov(r8, rbx);
-                push(r8);
 
                 // object
                 mov(rdx, rax);
-                push(rdx);
 
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::ObjectSet);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectSet));
+                call(rax);
                 add(rsp, 40);
 
-                pop(r15);
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
             case DEL_ITEM:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-                push(r15);
-
                 LOAD_REG(rax, inst->As<ir::DelItem>()->_Obj);
                 LOAD_REG(rbx, inst->As<ir::DelItem>()->_Key);
 
-                // &error
-                push(r9);
-
                 // key
                 mov(r8, rbx);
-                push(r8);
 
                 // object
                 mov(rdx, rax);
-                push(rdx);
 
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::ObjectDelete);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectDelete));
+                call(rax);
                 add(rsp, 32);
 
-                pop(r15);
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
             case NEW:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-                push(r15);
-
                 LOAD_REG(rax, inst->As<ir::New>()->_Callee);
                 LOAD_REG(rbx, inst->As<ir::New>()->_Args);
 
@@ -215,42 +179,31 @@ GeneratedCode BaselineCompileTask::Compile()
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
                 lea(r9, ptr[r9 + 8 * inst->Index]);
-                push(r9);
 
                 // *arguments
                 mov(r8, rbx);
                 and(r8, r15);
-                push(r8);
 
                 // constructor
                 mov(rdx, rax);
-                push(rdx);
 
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::NewObject);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::NewObject));
+                call(rax);
                 add(rsp, 40);
 
-                pop(r15);
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
             case CALL:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-                push(r15);
-
                 LOAD_REG(rax, inst->As<ir::Call>()->_Callee);
                 LOAD_REG(r10, inst->As<ir::Call>()->_ThisArg);
                 LOAD_REG(rbx, inst->As<ir::Call>()->_Args);
@@ -267,67 +220,51 @@ GeneratedCode BaselineCompileTask::Compile()
                 // *arguments
                 mov(r9, rbx);
                 and(r9, r15);
-                push(r9);
 
                 // thisArg
                 mov(r8, r10);
                 and(r8, r15);
-                push(r8);
 
                 // callee
                 mov(rdx, rax);
-                push(rdx);
 
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::Call);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::Call));
+                call(rax);
                 add(rsp, 48);
 
-                pop(r15);
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
             case GET_GLOBAL:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-
-                // &error
-                push(r9);
-
                 // &retVal
                 mov(r8, ptr[rdx + Scope::OffsetRegs()]);
                 add(r8, static_cast<u32>(runtime::Array::OffsetTable()));
                 lea(r8, ptr[r8 + 8 * inst->Index]);
-                push(r8);
 
                 // name
                 mov(rdx, reinterpret_cast<uintptr_t>(inst->As<ir::GetGlobal>()->Name));
-                push(rdx);
 
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::GetGlobal);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::GetGlobal));
+                call(rax);
                 add(rsp, 32);
 
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
@@ -387,11 +324,6 @@ GeneratedCode BaselineCompileTask::Compile()
             }
             case OBJECT:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-
                 // &error
                 push(r9);
 
@@ -399,38 +331,27 @@ GeneratedCode BaselineCompileTask::Compile()
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
                 lea(r9, ptr[r8 + 8 * inst->Index]);
-                push(r9);
 
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
-                push(r8);
 
-                // scope
-                push(rdx);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::NewObjectWithInst));
+                call(rax);
+                add(rsp, 40);
 
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::NewObjectWithInst);
-                add(rsp, 32);
-
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
             case ARRAY:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-
                 // &error
                 push(r9);
 
@@ -438,28 +359,22 @@ GeneratedCode BaselineCompileTask::Compile()
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
                 lea(r9, ptr[r8 + 8 * inst->Index]);
-                push(r9);
 
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
-                push(r8);
 
-                // scope
-                push(rdx);
-
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::NewArrayWithInst);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::NewArrayWithInst));
+                call(rax);
                 add(rsp, 40);
 
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
@@ -471,11 +386,6 @@ GeneratedCode BaselineCompileTask::Compile()
                     funcInst->FuncPtr = IR->Module->Functions[funcInst->FuncId].get();
                 }
 
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-
                 // &error
                 push(r9);
 
@@ -483,28 +393,22 @@ GeneratedCode BaselineCompileTask::Compile()
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
                 lea(r9, ptr[r8 + 8 * inst->Index]);
-                push(r9);
 
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
-                push(r8);
 
-                // scope
-                push(rdx);
-
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::NewFuncWithInst);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::NewFuncWithInst));
+                call(rax);
                 add(rsp, 40);
 
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
@@ -516,11 +420,6 @@ GeneratedCode BaselineCompileTask::Compile()
                     funcInst->FuncPtr = IR->Module->Functions[funcInst->FuncId].get();
                 }
 
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-
                 // &error
                 push(r9);
 
@@ -528,28 +427,22 @@ GeneratedCode BaselineCompileTask::Compile()
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
                 lea(r9, ptr[r8 + 8 * inst->Index]);
-                push(r9);
 
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
-                push(r8);
 
-                // scope
-                push(rdx);
-
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::NewArrowWithInst);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::NewArrowWithInst));
+                call(rax);
                 add(rsp, 40);
 
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
-                jz(throwPoint);
+                jz(throwPoint, T_NEAR);
 
                 break;
             }
@@ -557,39 +450,31 @@ GeneratedCode BaselineCompileTask::Compile()
 #define CASE_BINARY(BIN, func)                                              \
             case BIN:                                                       \
             {                                                               \
-                push(rcx);                                                  \
-                push(rdx);                                                  \
-                push(r8);                                                   \
-                push(r9);                                                   \
+                LOAD_REG(rax, inst->As<ir::Binary>()->_A);                  \
+                LOAD_REG(rbx, inst->As<ir::Binary>()->_B);                  \
                                                                             \
                 push(r9);                                                   \
                                                                             \
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);                    \
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));   \
                 lea(r9, ptr[r9 + 8 * inst->Index]);                         \
-                push(r9);                                                   \
-                                                                            \
-                LOAD_REG(rax, inst->As<ir::Binary>()->_A);                  \
-                LOAD_REG(rbx, inst->As<ir::Binary>()->_B);                  \
                                                                             \
                 mov(r8, rbx);                                               \
-                push(r8);                                                   \
                                                                             \
                 mov(rdx, rax);                                              \
-                push(rdx);                                                  \
                                                                             \
-                push(rcx);                                                  \
-                                                                            \
-                call(runtime::semantic::func);                              \
+                add(rsp, -32);                                              \
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::func));   \
+                call(rax);                                                  \
                 add(rsp, 40);                                               \
                                                                             \
-                pop(r9);                                                    \
-                pop(r8);                                                    \
-                pop(rdx);                                                   \
-                pop(rcx);                                                   \
+                mov(r9, ptr[rsp + 32]);                                     \
+                mov(r8, ptr[rsp + 24]);                                     \
+                mov(rdx, ptr[rsp + 16]);                                    \
+                mov(rcx, ptr[rsp + 8]);                                     \
                                                                             \
                 test(rax, rax);                                             \
-                jz(throwPoint);                                             \
+                jz(throwPoint, T_NEAR);                                     \
                                                                             \
                 break;                                                      \
             }
@@ -620,34 +505,26 @@ GeneratedCode BaselineCompileTask::Compile()
 #define CASE_UNARY(UNA, func)                                               \
             case UNA:                                                       \
             {                                                               \
-                push(rcx);                                                  \
-                push(rdx);                                                  \
-                push(r8);                                                   \
-                push(r9);                                                   \
-                                                                            \
-                push(r9);                                                   \
+                LOAD_REG(rax, inst->As<ir::Unary>()->_A);                   \
                                                                             \
                 mov(r8, ptr[rdx + Scope::OffsetRegs()]);                    \
                 add(r8, static_cast<u32>(runtime::Array::OffsetTable()));   \
                 lea(r8, ptr[r8 + 8 * inst->Index]);                         \
-                push(r8);                                                   \
                                                                             \
-                LOAD_REG(rax, inst->As<ir::Unary>()->_A);                   \
                 mov(rdx, rax);                                              \
-                push(rdx);                                                  \
                                                                             \
-                push(rcx);                                                  \
-                                                                            \
-                call(runtime::semantic::func);                              \
+                add(rsp, -32);                                              \
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::func));   \
+                call(rax);                                                  \
                 add(rsp, 32);                                               \
                                                                             \
-                pop(r9);                                                    \
-                pop(r8);                                                    \
-                pop(rdx);                                                   \
-                pop(rcx);                                                   \
+                mov(r9, ptr[rsp + 32]);                                     \
+                mov(r8, ptr[rsp + 24]);                                     \
+                mov(rdx, ptr[rsp + 16]);                                    \
+                mov(rcx, ptr[rsp + 8]);                                     \
                                                                             \
                 test(rax, rax);                                             \
-                jz(throwPoint);                                             \
+                jz(throwPoint, T_NEAR);                                     \
                                                                             \
                 break;                                                      \
             }
@@ -658,33 +535,20 @@ GeneratedCode BaselineCompileTask::Compile()
 
             case PUSH_SCOPE:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-
-                // placeholder
-                push(r9);
-
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
-                push(r8);
 
-                // scope
-                push(rdx);
-
-                // &allocator
-                push(rcx);
-
-                call(runtime::semantic::NewScope);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::NewScope));
+                call(rax);
                 add(rsp, 32);
 
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
-
                 mov(rdx, rax);
+
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(ptr[rsp + 16], rdx);
+                mov(rcx, ptr[rsp + 8]);
 
                 break;
             }
@@ -698,21 +562,15 @@ GeneratedCode BaselineCompileTask::Compile()
             }
             case ALLOCA:
             {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-
-                add(rsp, -24);
-                push(rdx);
-
-                call(&Scope::AllocateStatic);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(Scope::AllocateStatic));
+                call(&rax);
                 add(rsp, 32);
 
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 SET_RESULT(rbx, rax);
 
@@ -822,23 +680,19 @@ GeneratedCode BaselineCompileTask::Compile()
 
         if (block->Condition)
         {
-                push(rcx);
-                push(rdx);
-                push(r8);
-                push(r9);
-
                 LOAD_REG(rax, block->Condition);
 
-                add(rsp, -24);
-                push(rax);
+                mov(rcx, rax);
 
-                call(runtime::semantic::ToBoolean);
+                add(rsp, -32);
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::ToBoolean));
+                call(rax);
                 add(rsp, 32);
 
-                pop(r9);
-                pop(r8);
-                pop(rdx);
-                pop(rcx);
+                mov(r9, ptr[rsp + 32]);
+                mov(r8, ptr[rsp + 24]);
+                mov(rdx, ptr[rsp + 16]);
+                mov(rcx, ptr[rsp + 8]);
 
                 test(rax, rax);
                 je(labels[block->Alternate->Index]);
@@ -856,7 +710,6 @@ GeneratedCode BaselineCompileTask::Compile()
     pop(r15);
     pop(r10);
     pop(rbx);
-    pop(rbp);
     ret();
 
     L(throwPoint);
@@ -864,7 +717,6 @@ GeneratedCode BaselineCompileTask::Compile()
     pop(r15);
     pop(r10);
     pop(rbx);
-    pop(rbp);
     ret();
 
     return GetCode();

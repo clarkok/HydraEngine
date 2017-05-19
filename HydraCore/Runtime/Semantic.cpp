@@ -9,6 +9,7 @@
 #include "VirtualMachine/CompiledFunction.h"
 
 #include <cmath>
+#include <iostream>
 
 namespace hydra
 {
@@ -34,17 +35,20 @@ namespace semantic
     def(u"-Infinity", _N_INFINITY)      \
     def(u"global", GLOBAL)              \
     def(u"Object", OBJECT)              \
+    def(u"Array", ARRAY)                \
     def(u"Function", FUNCTION)          \
     def(u"boolean", _BOOLEAN)           \
     def(u"number", NUMBER)              \
     def(u"symbol", SYMBOL)              \
     def(u"string", STRING)              \
     def(u"object", _OBJECT)             \
+    def(u"__write", __WRITE)            \
 
 
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 static bool lib_Object_prototype_hasOwnProperty(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 static bool lib_Function(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
+static bool lib_Array(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 static bool lib_Array_IsArray(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 static bool lib_Array_IsArraySafe(JSValue value);
 
@@ -88,6 +92,7 @@ static JSObject *Object_prototype;
 static JSObject *Function;
 static JSObject *Function_prototype;
 static JSObject *Array;
+static JSObject *Array_prototype;
 static JSObject *Global;
 
 void RootScan(std::function<void(gc::HeapObject*)> scan)
@@ -102,10 +107,8 @@ void RootScan(std::function<void(gc::HeapObject*)> scan)
     scan(Object_prototype);
     scan(Function);
     scan(Function_prototype);
-
-    /*
     scan(Array);
-    */
+    scan(Array_prototype);
 
     scan(Global);
 }
@@ -172,6 +175,41 @@ void Initialize(gc::ThreadAllocator &allocator)
 
     result = ObjectSetSafeObject(allocator, Global, strs::FUNCTION, JSValue::FromObject(Function), error);
     hydra_assert(result, "Error on setting global.Function");
+
+
+    Array = NewNativeFunc(allocator, lib_Array);
+    Array_prototype = NewEmptyObjectSafe(allocator);
+    result = ObjectSetSafeObject(allocator, Array, strs::PROTOTYPE, JSValue::FromObject(Array_prototype), error);
+    hydra_assert(result, "Error on setting Array.prototype");
+
+    result = ObjectSetSafeObject(allocator, Global, strs::ARRAY, JSValue::FromObject(Array), error);
+    hydra_assert(result, "Error on setting global.Array");
+
+    auto __write = NewNativeFunc(allocator, [](gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) -> bool
+    {
+        for (size_t i = 0; i < arguments->GetLength(); ++i)
+        {
+            JSValue retVal;
+            JSValue error;
+            JSObjectPropertyAttribute attribute;
+
+            if (!arguments->Get(i, retVal, attribute))
+            {
+                js_throw_error(ValueError, "Unable to get arguments");
+            }
+
+            if (!ToString(allocator, retVal, retVal, error))
+            {
+                return false;
+            }
+
+            String::Print(retVal.String());
+        }
+        String::Println(String::Empty(allocator));
+    });
+
+    result = ObjectSetSafeObject(allocator, Global, strs::__WRITE, JSValue::FromObject(__write), error);
+    hydra_assert(result, "Error on setting global.__write");
 }
 
 JSObject *NewEmptyObjectSafe(gc::ThreadAllocator &allocator)
@@ -309,6 +347,13 @@ static void InitializeFunction(gc::ThreadAllocator &allocator, JSFunction *func)
 JSCompiledFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func)
 {
     auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, nullptr, nullptr, func);
+    InitializeFunction(allocator, ret);
+    return ret;
+}
+
+JSNativeFunction *NewNativeFunc(gc::ThreadAllocator &allocator, JSNativeFunction::Functor func)
+{
+    auto ret = emptyObjectKlass->NewObject<JSNativeFunction>(allocator, func);
     InitializeFunction(allocator, ret);
     return ret;
 }
@@ -1388,7 +1433,7 @@ bool ToBoolean(JSValue a)
     return boolA;
 }
 
-JSObject *GetGlobal()
+JSObject *GetGlobalObject()
 {
     return Global;
 }
@@ -1477,6 +1522,12 @@ static bool lib_Function(gc::ThreadAllocator &allocator, JSValue thisArg, JSArra
 {
     hydra_trap("TODO");
     return false;
+}
+
+static bool lib_Array(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *argument, JSValue &retVal, JSValue &error)
+{
+    // TODO
+    return NewArray(allocator, retVal, error);
 }
 
 static bool lib_Array_IsArray(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)

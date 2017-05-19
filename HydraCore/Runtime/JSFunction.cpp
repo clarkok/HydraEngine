@@ -38,11 +38,14 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
     Array *table = Array::New(allocator, compiled->GetVarCount());
 
     std::vector<JSValue *> captured;
-    for (size_t i = 0; i < Captured->Capacity(); ++i)
+    if (Captured)
     {
-        hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
-            "Captured must be T_SMALL_INT");
-        captured.push_back(&Scope->GetRegs()->at(Captured->at(i).SmallInt()));
+        for (size_t i = 0; i < Captured->Capacity(); ++i)
+        {
+            hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
+                "Captured must be T_SMALL_INT");
+            captured.push_back(&Scope->GetRegs()->at(Captured->at(i).SmallInt()));
+        }
     }
 
     Array *arrayArgs = Array::New(allocator, arguments->GetLength());

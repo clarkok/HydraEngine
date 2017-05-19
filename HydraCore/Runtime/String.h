@@ -120,6 +120,9 @@ public:
         return Hash = hash(0, length(), m);
     }
 
+    static void Print(String *string);
+    static void Println(String *string);
+
 protected:
     static constexpr u64 INVALID_HASH = 0xFFFFFFFFFFFFFFFFull;
     static constexpr u64 HASH_MULTIPLIER = 6364136223846793005ull;

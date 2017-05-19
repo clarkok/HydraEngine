@@ -19,8 +19,11 @@ MappedFile::MappedFile(const std::string &filename)
         NULL
     );
 
-    hydra_assert(File != INVALID_HANDLE_VALUE,
-        "Open file failed");
+    if (File == INVALID_HANDLE_VALUE)
+    {
+        auto error = GetLastError();
+        hydra_trap("Open file failed: " + std::to_string(error));
+    }
 
     Mapping = CreateFileMappingA(
         File,
@@ -28,11 +31,14 @@ MappedFile::MappedFile(const std::string &filename)
         PAGE_READONLY,
         0,
         0,
-        filename.c_str()
+        NULL
     );
 
-    hydra_assert(Mapping != INVALID_HANDLE_VALUE,
-        "File mapping failed");
+    if (Mapping == NULL)
+    {
+        auto error = GetLastError();
+        hydra_trap("Mapping file failed: " + std::to_string(error));
+    }
 
     View = MapViewOfFile(
         Mapping,
@@ -42,8 +48,11 @@ MappedFile::MappedFile(const std::string &filename)
         0
     );
 
-    hydra_assert(View != nullptr,
-        "Map view of file failed");
+    if (View == NULL)
+    {
+        auto error = GetLastError();
+        hydra_trap("Map view of file failed: " + std::to_string(error));
+    }
 }
 
 MappedFile::~MappedFile()

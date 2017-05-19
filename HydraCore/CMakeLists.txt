@@ -6,7 +6,8 @@ add_subdirectory(Runtime)
 add_subdirectory(VirtualMachine)
 
 add_library( HydraCore STATIC
-    HydraCore.cpp
+    Core.cpp
+    Core.hpp
     $<TARGET_OBJECTS:HydraCore.Common>
     $<TARGET_OBJECTS:HydraCore.GarbageCollection>
     $<TARGET_OBJECTS:HydraCore.Runtime>
