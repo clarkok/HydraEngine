@@ -13,5 +13,6 @@ add_library(HydraCore.VirtualMachine OBJECT
     Scope.cpp
     Scope.h
     VM.cpp
+    VM.h
     VMDefs.h
 )

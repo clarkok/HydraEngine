@@ -298,6 +298,21 @@ bool NewArrayWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
     return true;
 }
 
+static void InitializeFunction(gc::ThreadAllocator &allocator, JSFunction *func)
+{
+    func->SetIndex(expectedObjectProtoOffset,
+        JSValue::FromObject(Function_prototype),
+        JSObjectPropertyAttribute::IS_DATA_MASK |
+        JSObjectPropertyAttribute::IS_WRITABLE_MASK);
+}
+
+JSCompiledFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func)
+{
+    auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, nullptr, nullptr, func);
+    InitializeFunction(allocator, ret);
+    return ret;
+}
+
 bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error)
 {
     auto funcInst = inst->As<vm::ir::Func>();
@@ -313,6 +328,7 @@ bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIns
         "funcInst->FuncPtr cannot be null");
 
     auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, scope, captured, funcInst->FuncPtr);
+    InitializeFunction(allocator, ret);
     retVal = JSValue::FromObject(ret);
 
     return true;
@@ -333,6 +349,7 @@ bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
         "funcInst->FuncPtr cannot be null");
 
     auto ret = emptyObjectKlass->NewObject<JSCompiledArrowFunction>(allocator, scope, captured, funcInst->FuncPtr);
+    InitializeFunction(allocator, ret);
     retVal = JSValue::FromObject(ret);
 
     return true;
@@ -1369,6 +1386,11 @@ bool ToBoolean(JSValue a)
     }
 
     return boolA;
+}
+
+JSObject *GetGlobal()
+{
+    return Global;
 }
 
 /*********************** lib ***********************/

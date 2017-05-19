@@ -14,6 +14,7 @@ namespace hydra
 namespace vm
 {
 struct IRInst;
+struct IRFunc;
 class Scope;
 }
 
@@ -61,6 +62,7 @@ bool NewArray(gc::ThreadAllocator &allocator, T_iterator begin, T_iterator end, 
     js_return(ret);
 }
 
+JSCompiledFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func);
 bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 
@@ -106,6 +108,8 @@ bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValu
 vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst *inst);
 
 bool ToBoolean(JSValue value);
+
+JSObject *GetGlobalObject();
 
 } // namespace semantic
 } // namespace runtime
