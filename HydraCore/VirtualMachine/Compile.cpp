@@ -261,6 +261,29 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 
                 break;
             }
+            case SET_GLOBAL:
+            {
+                LOAD_REG(rax, inst->As<ir::SetGlobal>()->_Value);
+
+                // value
+                mov(r8, rax);
+
+                // name
+                mov(rdx, reinterpret_cast<uintptr_t>(inst->As<ir::SetGlobal>()->Name));
+
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::SetGlobal));
+                call(rax);
+
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
+
+                test(rax, rax);
+                jz(throwPoint, T_NEAR);
+
+                break;
+            }
             case UNDEFINED:
             {
                 mov(rax, runtime::JSValue::UNDEFINED_PAYLOAD);

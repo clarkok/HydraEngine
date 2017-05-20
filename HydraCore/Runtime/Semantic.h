@@ -39,6 +39,7 @@ bool NewObject(gc::ThreadAllocator &allocator, JSValue constructor, JSArray *arg
 
 bool Call(gc::ThreadAllocator &allocator, JSValue callee, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 bool GetGlobal(gc::ThreadAllocator &allocator, String *name, JSValue &retVal, JSValue &error);
+bool SetGlobal(gc::ThreadAllocator &allocator, String *name, JSValue value, JSValue &error);
 
 JSArray *NewArrayInternal(gc::ThreadAllocator &allocator, size_t capacity = DEFAULT_JSARRAY_SPLIT_POINT);
 inline bool NewArray(gc::ThreadAllocator &allocator, JSValue &retVal, JSValue &error)

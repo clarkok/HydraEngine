@@ -315,6 +315,12 @@ bool GetGlobal(gc::ThreadAllocator &allocator, String *name, JSValue &retVal, JS
     return ObjectGetSafeObject(allocator, Global, name, retVal, error);
 }
 
+bool SetGlobal(gc::ThreadAllocator &allocator, String *name, JSValue value, JSValue &error)
+{
+    hydra_assert(name, "name should not be nullptr");
+    return ObjectSetSafeObject(allocator, Global, name, value, error);
+}
+
 JSArray *NewArrayInternal(gc::ThreadAllocator &allocator, size_t capacity)
 {
     return JSArray::New(allocator, capacity);

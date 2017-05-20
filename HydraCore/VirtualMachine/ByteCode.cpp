@@ -190,6 +190,7 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                     FIRST_INST(NEW, New, 2);
                     FIRST_INST(CALL, Call, 3);
                     FIRST_INST(GET_GLOBAL, GetGlobal, 1);
+                    FIRST_INST(SET_GLOBAL, SetGlobal, 2);
                     FIRST_INST(UNDEFINED, Undefined, 0);
                     FIRST_INST(NULL, Null, 0);
                     FIRST_INST(TRUE, True, 0);
@@ -391,6 +392,10 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                     break;
                 case GET_GLOBAL:
                     LoadHydraString(GetGlobal, Name);
+                    break;
+                case SET_GLOBAL:
+                    LoadHydraString(SetGlobal, Name);
+                    LoadRegister(SetGlobal, _Value);
                     break;
                 case UNDEFINED:
                 case NULL:

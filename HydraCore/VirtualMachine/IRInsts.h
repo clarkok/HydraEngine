@@ -59,60 +59,61 @@ enum INSTS
     JUMP = 8,           // <dst>
     BRANCH = 9,         // <condition> <consequence> <alternative>
     GET_GLOBAL = 10,    // <name>
+    SET_GLOBAL = 11,    // <name> <value>
 
-    UNDEFINED = 11,
-    NULL = 12,
-    TRUE = 13,
-    FALSE = 14,
-    NUMBER = 15,        // <value>
-    STRING = 16,        // <stringPoolIndex>
-    REGEX = 17,         // <regexLiteral>
-    OBJECT = 18,        // <num> [<key> <value>]
-    ARRAY = 19,         // <num> [<value>]
-    FUNC = 20,          // <id>
-    ARROW = 21,         // <id>
+    UNDEFINED = 20,
+    NULL = 21,
+    TRUE = 22,
+    FALSE = 23,
+    NUMBER = 24,        // <value>
+    STRING = 25,        // <stringPoolIndex>
+    REGEX = 26,         // <regexLiteral>
+    OBJECT = 27,        // <num> [<key> <value>]
+    ARRAY = 28,         // <num> [<value>]
+    FUNC = 29,          // <id>
+    ARROW = 30,         // <id>
 
-    ADD = 22,           // <a> <b>
-    SUB = 23,           // <a> <b>
-    MUL = 24,           // <a> <b>
-    DIV = 25,           // <a> <b>
-    MOD = 26,           // <a> <b>
+    ADD = 40,           // <a> <b>
+    SUB = 41,           // <a> <b>
+    MUL = 42,           // <a> <b>
+    DIV = 43,           // <a> <b>
+    MOD = 44,           // <a> <b>
 
-    BAND = 27,          // <a> <b>
-    BOR = 28,           // <a> <b>
-    BXOR = 29,          // <a> <b>
-    BNOT = 30,          // <a>
+    BAND = 45,          // <a> <b>
+    BOR = 46,           // <a> <b>
+    BXOR = 47,          // <a> <b>
+    BNOT = 48,          // <a>
 
-    LNOT = 31,          // <a>
+    LNOT = 49,          // <a>
 
-    SLL = 32,           // <a> <b>
-    SRL = 33,           // <a> <b>
-    SRR = 34,           // <a> <b>
+    SLL = 50,           // <a> <b>
+    SRL = 51,           // <a> <b>
+    SRR = 52,           // <a> <b>
 
-    EQ = 35,            // <a> <b>
-    EQQ = 36,           // <a> <b>
-    NE = 37,            // <a> <b>
-    NEE = 38,           // <a> <b>
-    GT = 39,            // <a> <b>
-    GE = 40,            // <a> <b>
-    LT = 41,            // <a> <b>
-    LE = 42,            // <a> <b>
+    EQ = 53,            // <a> <b>
+    EQQ = 54,           // <a> <b>
+    NE = 55,            // <a> <b>
+    NEE = 56,           // <a> <b>
+    GT = 57,            // <a> <b>
+    GE = 58,            // <a> <b>
+    LT = 59,            // <a> <b>
+    LE = 60,            // <a> <b>
 
-    IN = 43,            // <a> <b>
-    INSTANCEOF = 44,    // <a> <b>
-    TYPEOF = 45,        // <a>
+    IN = 61,            // <a> <b>
+    INSTANCEOF = 62,    // <a> <b>
+    TYPEOF = 63,        // <a>
 
-    PUSH_SCOPE = 46,    // <size>
-    POP_SCOPE = 47,     //
-    ALLOCA = 48,
-    ARG = 49,
-    CAPTURE = 50,
+    PUSH_SCOPE = 70,    // <size>
+    POP_SCOPE = 71,     //
+    ALLOCA = 72,
+    ARG = 73,
+    CAPTURE = 74,
 
-    THIS = 51,
-    ARGUMENTS = 52,
-    MOVE = 53,          // <other>
+    THIS = 80,
+    ARGUMENTS = 81,
+    MOVE = 82,          // <other>
 
-    PHI = 54,           // <num> [<branch> <value>]
+    PHI = 90,           // <num> [<branch> <value>]
 };
 
 namespace ir
@@ -182,6 +183,13 @@ struct GetGlobal : public IRInst
 {
     DECL_INST(GET_GLOBAL)
     runtime::String *Name;
+};
+
+struct SetGlobal : public IRInst
+{
+    DECL_INST(GET_GLOBAL)
+    runtime::String *Name;
+    Ref _Value;
 };
 
 struct Undefined : public IRInst
