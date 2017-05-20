@@ -38,9 +38,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
     mov(ptr[rsp + 16], rdx);
     mov(ptr[rsp + 8], rcx);
 
+    push(rbp);
+    lea(rbp, ptr[rsp + 8]);
     push(rbx);
     push(r10);
     push(r15);
+
+    add(rsp, -64);
 
     mov(r15, cexpr::Mask(0, 48));
 
@@ -80,7 +84,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(rbx, inst->As<ir::GetItem>()->_Key);
 
                 // &error
-                push(r9);
+                mov(ptr[rsp + 40], r9);
 
                 // &retVal
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
@@ -93,15 +97,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // object
                 mov(rdx, rax);
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectGet));
                 call(rax);
-                add(rsp, 40);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -115,7 +117,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
 
                 // &error
-                push(r9);
+                mov(ptr[rsp + 40], r9);
 
                 // value
                 mov(r9, r10);
@@ -126,15 +128,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // object
                 mov(rdx, rax);
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectSet));
                 call(rax);
-                add(rsp, 40);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -152,15 +152,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // object
                 mov(rdx, rax);
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectDelete));
                 call(rax);
-                add(rsp, 32);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -173,7 +171,8 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(rbx, inst->As<ir::New>()->_Args);
 
                 // &error
-                push(r9);
+                // push(r9);
+                mov(ptr[rsp + 40], r9);
 
                 // &retVal
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
@@ -187,15 +186,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // constructor
                 mov(rdx, rax);
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::NewObject));
                 call(rax);
-                add(rsp, 40);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -209,13 +206,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(rbx, inst->As<ir::Call>()->_Args);
 
                 // &error
-                push(r9);
+                mov(ptr[rsp + 48], r9);
 
                 // &retVal
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
                 lea(r9, ptr[r9 + 8 * inst->Index]);
-                push(r9);
+                mov(ptr[rsp + 40], r9);
 
                 // *arguments
                 mov(r9, rbx);
@@ -228,15 +225,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // callee
                 mov(rdx, rax);
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::Call));
                 call(rax);
-                add(rsp, 48);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -253,15 +248,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // name
                 mov(rdx, reinterpret_cast<uintptr_t>(inst->As<ir::GetGlobal>()->Name));
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::GetGlobal));
                 call(rax);
-                add(rsp, 32);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -325,7 +318,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case OBJECT:
             {
                 // &error
-                push(r9);
+                mov(ptr[rsp + 40], r9);
 
                 // &retVal
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
@@ -335,15 +328,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::NewObjectWithInst));
                 call(rax);
-                add(rsp, 40);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -353,7 +344,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case ARRAY:
             {
                 // &error
-                push(r9);
+                mov(ptr[rsp + 40], r9);
 
                 // &retVal
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
@@ -363,15 +354,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::NewArrayWithInst));
                 call(rax);
-                add(rsp, 40);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -387,7 +376,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 }
 
                 // &error
-                push(r9);
+                mov(ptr[rsp + 40], r9);
 
                 // &retVal
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
@@ -397,15 +386,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::NewFuncWithInst));
                 call(rax);
-                add(rsp, 40);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -421,7 +408,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 }
 
                 // &error
-                push(r9);
+                mov(ptr[rsp + 40], r9);
 
                 // &retVal
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);
@@ -431,15 +418,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::NewArrowWithInst));
                 call(rax);
-                add(rsp, 40);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
                 jz(throwPoint, T_NEAR);
@@ -453,7 +438,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(rax, inst->As<ir::Binary>()->_A);                  \
                 LOAD_REG(rbx, inst->As<ir::Binary>()->_B);                  \
                                                                             \
-                push(r9);                                                   \
+                mov(ptr[rsp + 40], r9);                                     \
                                                                             \
                 mov(r9, ptr[rdx + Scope::OffsetRegs()]);                    \
                 add(r9, static_cast<u32>(runtime::Array::OffsetTable()));   \
@@ -463,15 +448,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                                                                             \
                 mov(rdx, rax);                                              \
                                                                             \
-                add(rsp, -32);                                              \
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::func));   \
                 call(rax);                                                  \
-                add(rsp, 40);                                               \
                                                                             \
-                mov(r9, ptr[rsp + 32]);                                     \
-                mov(r8, ptr[rsp + 24]);                                     \
-                mov(rdx, ptr[rsp + 16]);                                    \
-                mov(rcx, ptr[rsp + 8]);                                     \
+                mov(r9, ptr[rbp + 32]);                                     \
+                mov(r8, ptr[rbp + 24]);                                     \
+                mov(rdx, ptr[rbp + 16]);                                    \
+                mov(rcx, ptr[rbp + 8]);                                     \
                                                                             \
                 test(rax, rax);                                             \
                 jz(throwPoint, T_NEAR);                                     \
@@ -513,15 +496,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                                                                             \
                 mov(rdx, rax);                                              \
                                                                             \
-                add(rsp, -32);                                              \
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::func));   \
                 call(rax);                                                  \
-                add(rsp, 32);                                               \
                                                                             \
-                mov(r9, ptr[rsp + 32]);                                     \
-                mov(r8, ptr[rsp + 24]);                                     \
-                mov(rdx, ptr[rsp + 16]);                                    \
-                mov(rcx, ptr[rsp + 8]);                                     \
+                mov(r9, ptr[rbp + 32]);                                     \
+                mov(r8, ptr[rbp + 24]);                                     \
+                mov(rdx, ptr[rbp + 16]);                                    \
+                mov(rcx, ptr[rbp + 8]);                                     \
                                                                             \
                 test(rax, rax);                                             \
                 jz(throwPoint, T_NEAR);                                     \
@@ -538,17 +519,15 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::NewScope));
                 call(rax);
-                add(rsp, 32);
 
                 mov(rdx, rax);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(ptr[rsp + 16], rdx);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(ptr[rbp + 16], rdx);
+                mov(rcx, ptr[rbp + 8]);
 
                 break;
             }
@@ -562,15 +541,13 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             }
             case ALLOCA:
             {
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(Scope::AllocateStatic));
                 call(&rax);
-                add(rsp, 32);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 SET_RESULT(rbx, rax);
 
@@ -705,18 +682,22 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
     }
 
     L(returnPoint);
+    add(rsp, 64);
     mov(ptr[r8], rax);
     mov(rax, 1);
     pop(r15);
     pop(r10);
     pop(rbx);
+    pop(rbp);
     ret();
 
     L(throwPoint);
+    add(rsp, 64);
     mov(rax, 0);
     pop(r15);
     pop(r10);
     pop(rbx);
+    pop(rbp);
     ret();
 
     return GetCode();
