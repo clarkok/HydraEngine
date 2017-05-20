@@ -171,7 +171,6 @@ function CompileExpression(node, func, last, scope)
                 if (!result)
                 {
                     let $global = last.GetGlobal(node.name);
-                    last.Load($global);
                 }
                 else if (result.type === 'capture')
                 {
@@ -801,6 +800,7 @@ function CompileExpression(node, func, last, scope)
         case 'AssignmentExpression':
             {
                 let isIdentifier = false;
+                let isGlobal = false;
                 if (node.left.type === 'Identifier')
                 {
                     isIdentifier = true;
@@ -824,7 +824,7 @@ function CompileExpression(node, func, last, scope)
                     let result = scope.Lookup(node.left.name);
                     if (!result)
                     {
-                        $addr = last.GetGlobal(node.left.name);
+                        isGlobal = true;
                     }
                     else if (result.type === 'capture')
                     {
@@ -876,7 +876,11 @@ function CompileExpression(node, func, last, scope)
                     break;
                 }
 
-                if (isIdentifier)
+                if (isIdentifier && isGlobal)
+                {
+                    $value = last.GetGlobal(inst.left.name);
+                }
+                else if (isIdentifier)
                 {
                     $value = last.Load($addr);
                 }
@@ -924,7 +928,11 @@ function CompileExpression(node, func, last, scope)
                         throw Error('Internal');
                 }
 
-                if (isIdentifier)
+                if (isIdentifier && isGlobal)
+                {
+                    last.SetGlobal(inst.left.name, $newValue);
+                }
+                else if (isIdentifier)
                 {
                     last.Store($addr, $newValue);
                 }
