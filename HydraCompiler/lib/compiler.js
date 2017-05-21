@@ -1090,12 +1090,14 @@ function CompileStatement(node, func, last, scope)
             return CompileExpression(node.expression, func, last, scope);
         case 'ForStatement':
             {
-                let loopEntry = func.NewBlock();
-                let loopCmp = func.NewBlock();
-                let loopBreak = func.NewBlock();
-                let loopUpdate = func.NewBlock();
+                let loopBodyEntry = func.NewBlock();
+                let loopUpdateEntry = func.NewBlock();
+                let loopCmpEntry = func.NewBlock();
+                let loopBody, loopUpdate, loopCmp;
 
-                let loopScope = new Scope(scope, loopBreak, loopCmp);
+                let loopBreak = func.NewBlock();
+
+                let loopScope = new Scope(scope, loopBreak, loopUpdateEntry);
                 let {last, next} = PreparePushScope();
                 let $pushScope = next.PushScope(0);
 
@@ -1119,27 +1121,27 @@ function CompileStatement(node, func, last, scope)
                     }
                 }
 
-                next.Jump(loopCmp);
+                next.Jump(loopCmpEntry);
 
-                let loopBody = CompileStatement(node.body, func, loopEntry, loopScope);
-                loopBody.Jump(loopCmp);
-
-                if (node.test)
-                {
-                    loopCmp = CompileExpression(node.test, func, loopCmp, loopScope);
-                    let $cond = loopCmp.LastInst();
-                    loopCmp.Branch($cond, loopUpdate, loopBreak);
-                }
-                else
-                {
-                    loopCmp.Jump(loopUpdate);
-                }
+                loopBody = CompileStatement(node.body, func, loopBodyEntry, loopScope);
+                loopBody.Jump(loopUpdateEntry);
 
                 if (node.update)
                 {
-                    loopUpdate = CompileExpression(node.update, func, loopUpdate, loopScope);
+                    loopUpdate = CompileExpression(node.update, func, loopUpdateEntry, loopScope);
                 }
-                loopUpdate.Jump(loopEntry);
+                loopUpdate.Jump(loopCmpEntry);
+
+                if (node.test)
+                {
+                    loopCmp = CompileExpression(node.test, func, loopCmpEntry, loopScope);
+                    let $cond = loopCmp.LastInst();
+                    loopCmp.Branch($cond, loopBodyEntry, loopBreak);
+                }
+                else
+                {
+                    loopCmp.Jump(loopBodyEntry);
+                }
 
                 CompletePushScope(scope, loopScope, last, $pushScope);
 
