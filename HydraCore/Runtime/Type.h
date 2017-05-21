@@ -211,6 +211,19 @@ struct JSValue
         return type == Type::T_STRING || type == Type::T_OBJECT;
     }
 
+    inline JSValue *VarRef()
+    {
+        return reinterpret_cast<runtime::JSValue *>(GetLast48Bit());
+    }
+
+    inline static JSValue FromVarRef(JSValue *ref)
+    {
+        hydra_assert(reinterpret_cast<uintptr_t>(ref) <= cexpr::Mask(0, 48),
+            "JSValue point must be in 48bits");
+
+        return FromLast48Bit(Type::T_VALREF, reinterpret_cast<uintptr_t>(ref));
+    }
+
     inline void ScanValue(std::function<void(gc::HeapObject*)> scan) const
     {
         if (IsReference())

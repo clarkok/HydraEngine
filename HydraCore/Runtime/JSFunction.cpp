@@ -36,15 +36,17 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
 
     Array *regs = Array::New(allocator, compiled->GetRegisterCount());
     Array *table = Array::New(allocator, compiled->GetVarCount());
+    Array *captured = nullptr;
 
-    std::vector<JSValue *> captured;
     if (Captured)
     {
+        captured = Array::New(allocator, Captured ? Captured->Capacity() : 0);
         for (size_t i = 0; i < Captured->Capacity(); ++i)
         {
             hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
                 "Captured must be T_SMALL_INT");
-            captured.push_back(&Scope->GetRegs()->at(Captured->at(i).SmallInt()));
+            captured->at(i) = 
+                Scope->GetRegs()->at(Captured->at(i).SmallInt());
         }
     }
 
@@ -91,13 +93,18 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
 
     Array *regs = Array::New(allocator, compiled->GetRegisterCount());
     Array *table = Array::New(allocator, compiled->GetVarCount());
+    Array *captured = nullptr;
 
-    std::vector<JSValue *> captured;
-    for (size_t i = 0; i < Captured->Capacity(); ++i)
+    if (Captured)
     {
-        hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
-            "Captured must be T_SMALL_INT");
-        captured.push_back(&Scope->GetRegs()->at(Captured->at(i).SmallInt()));
+        captured = Array::New(allocator, Captured ? Captured->Capacity() : 0);
+        for (size_t i = 0; i < Captured->Capacity(); ++i)
+        {
+            hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
+                "Captured must be T_SMALL_INT");
+            captured->at(i) = 
+                Scope->GetRegs()->at(Captured->at(i).SmallInt());
+        }
     }
 
     Array *arrayArgs = Array::New(allocator, arguments->GetLength());

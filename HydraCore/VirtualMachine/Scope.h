@@ -24,7 +24,7 @@ public:
         Scope *upper,
         Array *regs,
         Array *table,
-        std::vector<JSValue *> captured,
+        Array *captured,
         JSValue thisArg,
         Array *arguments
     ) : gc::HeapObject(property),
@@ -64,9 +64,9 @@ public:
         return Regs;
     }
 
-    inline JSValue ** GetCaptured() const
+    inline Array *GetCaptured() const
     {
-        return const_cast<JSValue**>(Captured.data());
+        return Captured;
     }
 
     inline JSValue GetThisArg() const
@@ -128,7 +128,7 @@ protected:
     Scope *Upper;
     Array *Regs;
     Array *Table;
-    std::vector<JSValue *> Captured;
+    Array *Captured;
     JSValue ThisArg;
     Array *Arguments;
     size_t Allocated;

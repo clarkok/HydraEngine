@@ -331,6 +331,12 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 SET_RESULT(rbx, rax);
                 break;
             }
+            case STRING:
+            {
+                mov(rax, runtime::JSValue::FromString(inst->As<ir::String>()->Value).Payload);
+                SET_RESULT(rbx, rax);
+                break;
+            }
             case REGEX:
             {
                 hydra_trap("Not supporting regex");
@@ -416,7 +422,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             }
             case ARROW:
             {
-                auto funcInst = inst->As<ir::Func>();
+                auto funcInst = inst->As<ir::Arrow>();
                 if (funcInst->FuncId < IR->Module->Functions.size())
                 {
                     funcInst->FuncPtr = IR->Module->Functions[funcInst->FuncId].get();
@@ -546,6 +552,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 {
                     mov(rdx, ptr[rdx + Scope::OffsetUpper()]);
                 }
+                mov(ptr[rbp + 16], rdx);
                 break;
             }
             case ALLOCA:
@@ -574,7 +581,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             {
                 mov(rax, ptr[rdx + Scope::OffsetCaptured()]);
                 add(rax, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(rax, ptr[rax + 8 * inst->As<ir::Capture>()->Index]);
+                mov(rax, ptr[rax + 8 * inst->As<ir::Capture>()->Index]);
                 SET_RESULT(rbx, rax);
                 break;
             }
@@ -670,23 +677,21 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 
                 mov(rcx, rax);
 
-                add(rsp, -32);
                 mov(rax, reinterpret_cast<u64>(runtime::semantic::ToBoolean));
                 call(rax);
-                add(rsp, 32);
 
-                mov(r9, ptr[rsp + 32]);
-                mov(r8, ptr[rsp + 24]);
-                mov(rdx, ptr[rsp + 16]);
-                mov(rcx, ptr[rsp + 8]);
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
 
                 test(rax, rax);
-                je(labels[block->Alternate->Index]);
-                jmp(labels[block->Consequent->Index]);
+                je(labels[block->Alternate->Index], T_NEAR);
+                jmp(labels[block->Consequent->Index], T_NEAR);
         }
         else if (block->Consequent)
         {
-            jmp(labels[block->Consequent->Index]);
+            jmp(labels[block->Consequent->Index], T_NEAR);
         }
     }
 

@@ -18,6 +18,7 @@ void Scope::Scan(std::function<void(gc::HeapObject *)> scan)
     {
         scan(ThisArg.ToReference());
     }
+    if (Captured) scan(Captured);
     if (Arguments) scan(Arguments);
 }
 

@@ -1385,18 +1385,18 @@ bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValu
 vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst *inst)
 {
     runtime::Array *table = Array::New(allocator, inst->As<vm::ir::PushScope>()->Size);
-    std::vector<JSValue *> captured(inst->As<vm::ir::PushScope>()->Captured.size());
+    runtime::Array *captured = Array::New(allocator, inst->As<vm::ir::PushScope>()->Captured.size());
 
     size_t index = 0;
     for (auto &ref : inst->As<vm::ir::PushScope>()->Captured)
     {
-        captured[index++] = &upper->GetRegs()->at(ref->Index);
+        captured->at(index++) = upper->GetRegs()->at(ref->Index);
     }
 
     vm::Scope *ret = allocator.AllocateAuto<vm::Scope>(upper,
         upper->GetRegs(),
         table,
-        std::move(captured),
+        captured,
         upper->GetThisArg(),
         upper->GetArguments());
 
