@@ -9,6 +9,8 @@
 
 #include "CompiledFunction.h"
 
+#include "Common/Singleton.h"
+
 #include <list>
 #include <vector>
 #include <memory>
@@ -107,6 +109,42 @@ struct IRModule
 
     std::vector<std::unique_ptr<IRFunc>> Functions;
     runtime::JSArray *StringsReferenced;
+};
+
+class IRModuleGCHelper : public Singleton<IRModuleGCHelper>
+{
+public:
+    IRModuleGCHelper()
+    {
+        gc::Heap::GetInstance()->RegisterRootScanFunc(RootScan);
+    }
+
+    inline void AddModule(IRModule *mod)
+    {
+        std::unique_lock<std::mutex> lck(ModulesMutex);
+        Modules.insert(mod);
+    }
+
+    inline void RemoveModule(IRModule *mod)
+    {
+        std::unique_lock<std::mutex> lck(ModulesMutex);
+        Modules.erase(mod);
+    }
+
+private:
+    std::set<IRModule *> Modules;
+    std::mutex ModulesMutex;
+
+    static void RootScan(std::function<void(gc::HeapObject*)> scan)
+    {
+        auto instance = GetInstance();
+
+        std::unique_lock<std::mutex> lck(instance->ModulesMutex);
+        for (auto irModule : instance->Modules)
+        {
+            scan(irModule->StringsReferenced);
+        }
+    }
 };
 
 } // namespace vm

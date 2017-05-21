@@ -6,6 +6,12 @@ using namespace hydra;
 
 int main(int argc, const char **argv)
 {
+    // ensure initialization order
+    {
+        vm::IRModuleGCHelper::GetInstance();
+        vm::VM::GetInstance();
+    }
+
     std::cout << "Hail Hydra!" << std::endl;
 
     if (argc < 2)
