@@ -170,6 +170,9 @@ void Initialize(gc::ThreadAllocator &allocator)
     JSValue error;
     Global = NewEmptyObjectSafe(allocator);
 
+    result = ObjectSetSafeObject(allocator, Global, strs::GLOBAL, JSValue::FromObject(Global), error);
+    hydra_assert(result, "Error on setting global.global");
+
     result = ObjectSetSafeObject(allocator, Global, strs::OBJECT, JSValue::FromObject(Object), error);
     hydra_assert(result, "Error on setting global.Object");
 

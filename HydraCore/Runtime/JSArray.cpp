@@ -23,7 +23,7 @@ JSArray *JSArray::New(gc::ThreadAllocator &allocator, size_t splitPoint)
     }
 
     auto emptyKlass = Klass::EmptyKlass(allocator);
-    return emptyKlass->NewObject<JSArray>(allocator, tablePart, hashPart);
+    return emptyKlass->NewObject<JSArray>(allocator, tablePart, hashPart, splitPoint);
 }
 
 bool JSArray::Get(size_t key, JSValue &value, JSObjectPropertyAttribute &attribute)

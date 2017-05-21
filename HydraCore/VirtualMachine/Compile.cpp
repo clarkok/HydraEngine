@@ -26,6 +26,12 @@ namespace vm
     add(_reg, static_cast<u32>(runtime::Array::OffsetTable())); \
     mov(ptr[_reg + 8 * inst->Index], _src_reg);
 
+#define RETVAL_REG(_reg)                                        \
+    mov(_reg, ptr[rdx + Scope::OffsetRegs()]);                  \
+    add(_reg, static_cast<u32>(runtime::Array::OffsetTable())); \
+    lea(_reg, ptr[_reg + 8 * inst->Index]);
+
+
 GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 {
     registerCount = IR->UpdateIndex();
@@ -39,12 +45,12 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
     mov(ptr[rsp + 8], rcx);
 
     push(rbp);
-    lea(rbp, ptr[rsp + 8]);
     push(rbx);
     push(r10);
     push(r15);
 
-    add(rsp, -64);
+    sub(rsp, 56);
+    lea(rbp, ptr[rsp + 88]);
 
     mov(r15, cexpr::Mask(0, 48));
 
@@ -87,9 +93,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(ptr[rsp + 40], r9);
 
                 // &retVal
-                mov(r9, ptr[rdx + Scope::OffsetRegs()]);
-                add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(r9, ptr[r9 + 8 * inst->Index]);
+                RETVAL_REG(r9);
 
                 // key
                 mov(r8, rbx);
@@ -175,9 +179,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(ptr[rsp + 40], r9);
 
                 // &retVal
-                mov(r9, ptr[rdx + Scope::OffsetRegs()]);
-                add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(r9, ptr[r9 + 8 * inst->Index]);
+                RETVAL_REG(r9);
 
                 // *arguments
                 mov(r8, rbx);
@@ -209,9 +211,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(ptr[rsp + 48], r9);
 
                 // &retVal
-                mov(r9, ptr[rdx + Scope::OffsetRegs()]);
-                add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(r9, ptr[r9 + 8 * inst->Index]);
+                RETVAL_REG(r9);
                 mov(ptr[rsp + 40], r9);
 
                 // *arguments
@@ -241,9 +241,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case GET_GLOBAL:
             {
                 // &retVal
-                mov(r8, ptr[rdx + Scope::OffsetRegs()]);
-                add(r8, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(r8, ptr[r8 + 8 * inst->Index]);
+                RETVAL_REG(r8);
 
                 // name
                 mov(rdx, reinterpret_cast<uintptr_t>(inst->As<ir::GetGlobal>()->Name));
@@ -344,9 +342,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(ptr[rsp + 40], r9);
 
                 // &retVal
-                mov(r9, ptr[rdx + Scope::OffsetRegs()]);
-                add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(r9, ptr[r8 + 8 * inst->Index]);
+                RETVAL_REG(r9);
 
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
@@ -370,9 +366,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(ptr[rsp + 40], r9);
 
                 // &retVal
-                mov(r9, ptr[rdx + Scope::OffsetRegs()]);
-                add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(r9, ptr[r8 + 8 * inst->Index]);
+                RETVAL_REG(r9);
 
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
@@ -402,9 +396,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(ptr[rsp + 40], r9);
 
                 // &retVal
-                mov(r9, ptr[rdx + Scope::OffsetRegs()]);
-                add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(r9, ptr[r8 + 8 * inst->Index]);
+                RETVAL_REG(r9);
 
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
@@ -434,9 +426,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(ptr[rsp + 40], r9);
 
                 // &retVal
-                mov(r9, ptr[rdx + Scope::OffsetRegs()]);
-                add(r9, static_cast<u32>(runtime::Array::OffsetTable()));
-                lea(r9, ptr[r8 + 8 * inst->Index]);
+                RETVAL_REG(r9);
 
                 // inst
                 mov(r8, reinterpret_cast<uintptr_t>(inst.get()));
@@ -463,9 +453,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                                                                             \
                 mov(ptr[rsp + 40], r9);                                     \
                                                                             \
-                mov(r9, ptr[rdx + Scope::OffsetRegs()]);                    \
-                add(r9, static_cast<u32>(runtime::Array::OffsetTable()));   \
-                lea(r9, ptr[r9 + 8 * inst->Index]);                         \
+                RETVAL_REG(r9);                                             \
                                                                             \
                 mov(r8, rbx);                                               \
                                                                             \
@@ -513,9 +501,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             {                                                               \
                 LOAD_REG(rax, inst->As<ir::Unary>()->_A);                   \
                                                                             \
-                mov(r8, ptr[rdx + Scope::OffsetRegs()]);                    \
-                add(r8, static_cast<u32>(runtime::Array::OffsetTable()));   \
-                lea(r8, ptr[r8 + 8 * inst->Index]);                         \
+                RETVAL_REG(r8);                                             \
                                                                             \
                 mov(rdx, rax);                                              \
                                                                             \
@@ -565,7 +551,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case ALLOCA:
             {
                 mov(rax, reinterpret_cast<u64>(Scope::AllocateStatic));
-                call(&rax);
+                call(rax);
 
                 mov(r9, ptr[rbp + 32]);
                 mov(r8, ptr[rbp + 24]);
@@ -705,7 +691,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
     }
 
     L(returnPoint);
-    add(rsp, 64);
+    add(rsp, 56);
     mov(ptr[r8], rax);
     mov(rax, 1);
     pop(r15);
@@ -715,7 +701,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
     ret();
 
     L(throwPoint);
-    add(rsp, 64);
+    add(rsp, 56);
     mov(rax, 0);
     pop(r15);
     pop(r10);

@@ -27,6 +27,7 @@ public:
 
     void CompileToTask(gc::ThreadAllocator &allocator, const std::string &path);
     void AddTask(runtime::JSFunction *);
+    void Stop();
 
 private:
     std::queue<runtime::JSFunction *> Queue;

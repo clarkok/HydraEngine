@@ -16,11 +16,11 @@ class JSArray : public JSObject
 {
 public:
     JSArray(u8 property, runtime::Klass *klass, Array *table,
-        Array *tablePart, Array *hashPart)
+        Array *tablePart, Array *hashPart, size_t splitPoint = DEFAULT_JSARRAY_SPLIT_POINT)
         : JSObject(property, klass, table),
         TablePart(tablePart),
         HashPart(hashPart),
-        SplitPoint(DEFAULT_JSARRAY_SPLIT_POINT),
+        SplitPoint(splitPoint),
         Length(0)
     {
         hydra_assert(TablePart->Capacity() >= SplitPoint * 2,

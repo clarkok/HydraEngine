@@ -20,5 +20,7 @@ int main(int argc, const char **argv)
     VM->CompileToTask(allocator, argv[1]);
     VM->Execute(allocator);
 
+    VM->Stop();
+
     return 0;
 }

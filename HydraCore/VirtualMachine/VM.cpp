@@ -68,5 +68,11 @@ void VM::AddTask(runtime::JSFunction *func)
     Queue.push(func);
 }
 
+void VM::Stop()
+{
+    Logger::GetInstance()->Shutdown();
+    gc::Heap::GetInstance()->Shutdown();
+}
+
 } // namespace vm
 } // namespace hydra

@@ -60,7 +60,7 @@ struct JSValue
 
     inline static Type GetType(JSValue value)
     {
-        if (std::isnan(value.Number()))
+        if (!std::isnan(value.Number()))
         {
             return Type::T_NUMBER;
         }
