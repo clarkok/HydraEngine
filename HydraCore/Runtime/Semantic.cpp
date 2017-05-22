@@ -51,6 +51,7 @@ static bool lib_Function(gc::ThreadAllocator &allocator, JSValue thisArg, JSArra
 static bool lib_Array(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 static bool lib_Array_IsArray(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 static bool lib_Array_IsArraySafe(JSValue value);
+static void InitializeArray(gc::ThreadAllocator &allocator);
 
 namespace strs
 {
@@ -179,7 +180,7 @@ void Initialize(gc::ThreadAllocator &allocator)
     result = ObjectSetSafeObject(allocator, Global, strs::FUNCTION, JSValue::FromObject(Function), error);
     hydra_assert(result, "Error on setting global.Function");
 
-
+    // Array
     Array = NewNativeFunc(allocator, lib_Array);
     Array_prototype = NewEmptyObjectSafe(allocator);
     result = ObjectSetSafeObject(allocator, Array, strs::PROTOTYPE, JSValue::FromObject(Array_prototype), error);
@@ -187,6 +188,7 @@ void Initialize(gc::ThreadAllocator &allocator)
 
     result = ObjectSetSafeObject(allocator, Global, strs::ARRAY, JSValue::FromObject(Array), error);
     hydra_assert(result, "Error on setting global.Array");
+    InitializeArray(allocator);
 
     auto __write = NewNativeFunc(allocator, [](gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) -> bool
     {
@@ -326,7 +328,9 @@ bool SetGlobal(gc::ThreadAllocator &allocator, String *name, JSValue value, JSVa
 
 JSArray *NewArrayInternal(gc::ThreadAllocator &allocator, size_t capacity)
 {
-    return JSArray::New(allocator, capacity);
+    auto ret = JSArray::New(allocator, capacity);
+    ret->SetIndex(expectedObjectProtoOffset, JSValue::FromObject(Array_prototype));
+    return ret;
 }
 
 bool NewArrayWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error)
@@ -411,8 +415,6 @@ bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
 
 bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSValue &retVal, JSValue &error)
 {
-    // TODO get __proto__
-
     if (lib_Array_IsArraySafe(object))
     {
         JSArray *arr = dynamic_cast<JSArray*>(object.Object());
@@ -481,14 +483,65 @@ static inline bool ObjectInvokeGetter(gc::ThreadAllocator &allocator, JSValue de
     return_js_call(getterFunc, JSValue::FromObject(object), nullptr);
 }
 
+bool ObjectGetSafeObjectInternal(
+    gc::ThreadAllocator &allocator,
+    JSObject *object,
+    String *key,
+    JSValue &retVal,
+    JSObjectPropertyAttribute &attribute,
+    JSValue &error)
+{
+    if (!object->Get(key, retVal, attribute))
+    {
+        JSValue __proto__;
+        JSObjectPropertyAttribute __proto__attribute;
+        object->GetIndex(expectedObjectProtoOffset, __proto__, __proto__attribute);
+
+        hydra_assert(JSValue::GetType(__proto__) == Type::T_OBJECT,
+            "__proto__ must be an object");
+
+        JSObject *proto = __proto__.Object();
+
+        if (!proto)
+        {
+            retVal = JSValue();
+            return true;
+        }
+
+        return ObjectGetSafeObjectInternal(
+            allocator,
+            proto,
+            key,
+            retVal,
+            attribute,
+            error);
+    }
+}
+
 bool ObjectGetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, String *key, JSValue &retVal, JSValue &error)
 {
     JSObjectPropertyAttribute attribute;
     if (!object->Get(key, retVal, attribute))
     {
-        // TODO query the __proto__
-        retVal = JSValue();
-        return true;
+        JSValue __proto__;
+        JSObjectPropertyAttribute __proto__attribute;
+        object->GetIndex(expectedObjectProtoOffset, __proto__, __proto__attribute);
+
+        hydra_assert(JSValue::GetType(__proto__) == Type::T_OBJECT,
+            "__proto__ must be an object");
+
+        JSObject *proto = __proto__.Object();
+
+        if (!proto)
+        {
+            retVal = JSValue();
+            return true;
+        }
+
+        if (!ObjectGetSafeObjectInternal(allocator, proto, key, retVal, attribute, error))
+        {
+            return false;
+        }
     }
 
     if (attribute.IsData())
@@ -1447,6 +1500,15 @@ JSObject *GetGlobalObject()
     return Global;
 }
 
+JSObject *MakeGetterSetterPair(gc::ThreadAllocator &allocator, JSValue getter, JSValue setter)
+{
+    JSObject *ret = NewEmptyObjectSafe(allocator);
+    ret->Set(allocator, strs::GET, getter);
+    ret->Set(allocator, strs::SET, setter);
+
+    return ret;
+}
+
 /*********************** lib ***********************/
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
 {
@@ -1541,8 +1603,14 @@ static bool lib_Array(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *
 
 static bool lib_Array_IsArray(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
 {
-    hydra_trap("TODO");
-    return false;
+    JSValue arg;
+
+    if (!ObjectGetSafeArray(allocator, arguments, 0, arg, error))
+    {
+        return false;
+    }
+
+    js_return(JSValue::FromBoolean(lib_Array_IsArraySafe(arg)));
 }
 
 static bool lib_Array_IsArraySafe(JSValue value)
@@ -1554,6 +1622,26 @@ static bool lib_Array_IsArraySafe(JSValue value)
 
     JSObject *obj = value.Object();
     return dynamic_cast<JSArray*>(obj) != nullptr;
+}
+
+static bool lib_Array_prototype_length_get(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
+{
+    if (!lib_Array_IsArraySafe(thisArg))
+    {
+        js_throw_error(TypeError, "this is not an array");
+    }
+
+    js_return(JSValue::FromSmallInt(dynamic_cast<JSArray*>(thisArg.Object())->GetLength()));
+}
+
+static void InitializeArray(gc::ThreadAllocator &allocator)
+{
+    auto getter = JSValue::FromObject(NewNativeFunc(allocator, lib_Array_prototype_length_get));
+    auto setter = JSValue();
+    auto pair = JSValue::FromObject(MakeGetterSetterPair(allocator, getter, setter));
+
+    Array_prototype->Set(allocator, strs::LENGTH, pair,
+        JSObjectPropertyAttribute::HAS_VALUE | JSObjectPropertyAttribute::IS_ENUMERABLE_MASK);
 }
 
 } // namespace semantic

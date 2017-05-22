@@ -113,6 +113,8 @@ bool ToBoolean(JSValue value);
 
 JSObject *GetGlobalObject();
 
+JSObject *MakeGetterSetterPair(gc::ThreadAllocator &allocator, JSValue getter, JSValue setter);
+
 } // namespace semantic
 } // namespace runtime
 } // namespace hydra

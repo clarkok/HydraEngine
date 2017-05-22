@@ -115,7 +115,10 @@ public:
         value = Table->at((index << 1) + 1);
     }
 
-    inline void SetIndex(size_t index, JSValue value, JSObjectPropertyAttribute attribute)
+    inline void SetIndex(
+        size_t index,
+        JSValue value,
+        JSObjectPropertyAttribute attribute = JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE)
     {
         Table->at(index << 1) = attribute;
         Table->at((index << 1) + 1) = value;
