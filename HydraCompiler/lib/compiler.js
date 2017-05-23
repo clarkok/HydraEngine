@@ -849,7 +849,7 @@ function CompileExpression(node, func, last, scope)
                     $obj = last.LastInst();
                     if (node.left.computed)
                     {
-                        last = CompileExpression(node.argument.property, func, last, scope);
+                        last = CompileExpression(node.left.property, func, last, scope);
                         $key = last.LastInst();
                     }
                     else
@@ -1022,7 +1022,7 @@ function CompileStatement(node, func, last, scope)
         case 'BreakStatement':
             {
                 let breakableScope = scope;
-                let popCount = 1;
+                let popCount = 0;
                 while (breakableScope !== null && !breakableScope.breakable)
                 {
                     breakableScope = breakableScope.upper;
@@ -1044,7 +1044,7 @@ function CompileStatement(node, func, last, scope)
         case 'ContinueStatement':
             {
                 let continuableScope = scope;
-                let popCount = 1;
+                let popCount = 0;
                 while (continuableScope !== null && !continuableScope.continuable)
                 {
                     continuableScope = continuableScope.upper;
@@ -1093,7 +1093,9 @@ function CompileStatement(node, func, last, scope)
                 let loopBodyEntry = func.NewBlock();
                 let loopUpdateEntry = func.NewBlock();
                 let loopCmpEntry = func.NewBlock();
-                let loopBody, loopUpdate, loopCmp;
+                let loopBody = loopBodyEntry,
+                    loopUpdate = loopUpdateEntry,
+                    loopCmp = loopCmpEntry;
 
                 let loopBreak = func.NewBlock();
 
