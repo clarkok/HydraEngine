@@ -90,7 +90,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(rbx, inst->As<ir::GetItem>()->_Key);
 
                 // &error
-                mov(ptr[rsp + 40], r9);
+                mov(ptr[rsp + 32], r9);
 
                 // &retVal
                 RETVAL_REG(r9);
@@ -121,7 +121,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
 
                 // &error
-                mov(ptr[rsp + 40], r9);
+                mov(ptr[rsp + 32], r9);
 
                 // value
                 mov(r9, r10);
@@ -176,7 +176,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 
                 // &error
                 // push(r9);
-                mov(ptr[rsp + 40], r9);
+                mov(ptr[rsp + 32], r9);
 
                 // &retVal
                 RETVAL_REG(r9);
@@ -208,11 +208,11 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(rbx, inst->As<ir::Call>()->_Args);
 
                 // &error
-                mov(ptr[rsp + 48], r9);
+                mov(ptr[rsp + 40], r9);
 
                 // &retVal
                 RETVAL_REG(r9);
-                mov(ptr[rsp + 40], r9);
+                mov(ptr[rsp + 32], r9);
 
                 // *arguments
                 mov(r9, rbx);
@@ -220,7 +220,6 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 
                 // thisArg
                 mov(r8, r10);
-                and(r8, r15);
 
                 // callee
                 mov(rdx, rax);
@@ -345,7 +344,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case OBJECT:
             {
                 // &error
-                mov(ptr[rsp + 40], r9);
+                mov(ptr[rsp + 32], r9);
 
                 // &retVal
                 RETVAL_REG(r9);
@@ -369,7 +368,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case ARRAY:
             {
                 // &error
-                mov(ptr[rsp + 40], r9);
+                mov(ptr[rsp + 32], r9);
 
                 // &retVal
                 RETVAL_REG(r9);
@@ -399,7 +398,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 }
 
                 // &error
-                mov(ptr[rsp + 40], r9);
+                mov(ptr[rsp + 32], r9);
 
                 // &retVal
                 RETVAL_REG(r9);
@@ -429,7 +428,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 }
 
                 // &error
-                mov(ptr[rsp + 40], r9);
+                mov(ptr[rsp + 32], r9);
 
                 // &retVal
                 RETVAL_REG(r9);
@@ -457,7 +456,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 LOAD_REG(rax, inst->As<ir::Binary>()->_A);                  \
                 LOAD_REG(rbx, inst->As<ir::Binary>()->_B);                  \
                                                                             \
-                mov(ptr[rsp + 40], r9);                                     \
+                mov(ptr[rsp + 32], r9);                                     \
                                                                             \
                 RETVAL_REG(r9);                                             \
                                                                             \
@@ -580,7 +579,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case CAPTURE:
             {
                 mov(rax, ptr[rdx + Scope::OffsetCaptured()]);
-                add(rax, static_cast<u32>(runtime::Array::OffsetTable()));
+                add(rax, static_cast<u32>(runtime::RangeArray::OffsetTable()));
                 mov(rax, ptr[rax + 8 * inst->As<ir::Capture>()->Index]);
                 SET_RESULT(rbx, rax);
                 break;
@@ -596,7 +595,18 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             }
             case ARGUMENTS:
             {
-                hydra_trap("not supported");
+                RETVAL_REG(r8);
+
+                mov(rax, reinterpret_cast<u64>(runtime::semantic::GetArguments));
+                call(rax);
+
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
+
+                test(rax, rax);
+                jz(throwPoint, T_NEAR);
                 break;
             }
             case MOVE:
@@ -696,9 +706,9 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
     }
 
     L(returnPoint);
-    add(rsp, 56);
     mov(ptr[r8], rax);
     mov(rax, 1);
+    add(rsp, 56);
     pop(r15);
     pop(r10);
     pop(rbx);
@@ -706,8 +716,8 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
     ret();
 
     L(throwPoint);
-    add(rsp, 56);
     mov(rax, 0);
+    add(rsp, 56);
     pop(r15);
     pop(r10);
     pop(rbx);

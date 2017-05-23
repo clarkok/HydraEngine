@@ -17,6 +17,7 @@ class Scope : public gc::HeapObject
 {
 protected:
     using Array = runtime::Array;
+    using RangeArray = runtime::RangeArray;
     using JSValue = runtime::JSValue;
 
 public:
@@ -24,14 +25,14 @@ public:
         Scope *upper,
         Array *regs,
         Array *table,
-        Array *captured,
+        RangeArray *captured,
         JSValue thisArg,
-        Array *arguments
+        RangeArray *arguments
     ) : gc::HeapObject(property),
         Upper(upper),
         Regs(regs),
         Table(table),
-        Captured(std::move(captured)),
+        Captured(captured),
         ThisArg(thisArg),
         Arguments(arguments),
         Allocated(0)
@@ -64,7 +65,7 @@ public:
         return Regs;
     }
 
-    inline Array *GetCaptured() const
+    inline RangeArray *GetCaptured() const
     {
         return Captured;
     }
@@ -74,7 +75,7 @@ public:
         return ThisArg;
     }
 
-    inline Array *GetArguments() const
+    inline RangeArray *GetArguments() const
     {
         return Arguments;
     }
@@ -128,9 +129,9 @@ protected:
     Scope *Upper;
     Array *Regs;
     Array *Table;
-    Array *Captured;
+    RangeArray *Captured;
     JSValue ThisArg;
-    Array *Arguments;
+    RangeArray *Arguments;
     size_t Allocated;
 };
 

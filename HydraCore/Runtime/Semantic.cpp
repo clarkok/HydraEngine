@@ -375,7 +375,7 @@ bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIns
 {
     auto funcInst = inst->As<vm::ir::Func>();
 
-    auto captured = Array::New(allocator, funcInst->Captured.size());
+    auto captured = RangeArray::New(allocator, funcInst->Captured.size());
     size_t index = 0;
     for (auto &ref : funcInst->Captured)
     {
@@ -394,9 +394,9 @@ bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIns
 
 bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error)
 {
-    auto funcInst = inst->As<vm::ir::Func>();
+    auto funcInst = inst->As<vm::ir::Arrow>();
 
-    auto captured = Array::New(allocator, funcInst->Captured.size());
+    auto captured = RangeArray::New(allocator, funcInst->Captured.size());
     size_t index = 0;
     for (auto &ref : funcInst->Captured)
     {
@@ -1438,7 +1438,7 @@ bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValu
 vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst *inst)
 {
     runtime::Array *table = Array::New(allocator, inst->As<vm::ir::PushScope>()->Size);
-    runtime::Array *captured = Array::New(allocator, inst->As<vm::ir::PushScope>()->Captured.size());
+    runtime::RangeArray *captured = RangeArray::New(allocator, inst->As<vm::ir::PushScope>()->Captured.size());
 
     size_t index = 0;
     for (auto &ref : inst->As<vm::ir::PushScope>()->Captured)
@@ -1498,6 +1498,16 @@ bool ToBoolean(JSValue a)
 JSObject *GetGlobalObject()
 {
     return Global;
+}
+
+bool GetArguments(gc::ThreadAllocator &allocator, vm::Scope *scope, JSValue &retVal, JSValue &error)
+{
+    JSArray *ret = NewArrayInternal(allocator, scope->GetArguments()->GetLength());
+    for (size_t i = 0; i < scope->GetArguments()->GetLength(); ++i)
+    {
+        ret->Set(allocator, i, scope->GetArguments()->at(i));
+    }
+    js_return(JSValue::FromObject(ret));
 }
 
 JSObject *MakeGetterSetterPair(gc::ThreadAllocator &allocator, JSValue getter, JSValue setter)

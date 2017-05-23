@@ -112,6 +112,7 @@ vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst
 bool ToBoolean(JSValue value);
 
 JSObject *GetGlobalObject();
+bool GetArguments(gc::ThreadAllocator &allocator, vm::Scope *scope, JSValue &retVal, JSValue &error);
 
 JSObject *MakeGetterSetterPair(gc::ThreadAllocator &allocator, JSValue getter, JSValue setter);
 

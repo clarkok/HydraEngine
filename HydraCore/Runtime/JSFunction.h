@@ -8,6 +8,7 @@
 #include "Klass.h"
 
 #include "JSArray.h"
+#include "ManagedArray.h"
 
 #include <functional>
 
@@ -86,7 +87,7 @@ private:
 class JSCompiledFunction : public JSFunction
 {
 public:
-    JSCompiledFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, Array *captured, vm::IRFunc *func)
+    JSCompiledFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, RangeArray *captured, vm::IRFunc *func)
         : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
     { }
 
@@ -96,14 +97,14 @@ public:
 
 private:
     vm::Scope *Scope;
-    Array *Captured;
+    RangeArray *Captured;
     vm::IRFunc *Func;
 };
 
 class JSCompiledArrowFunction : public JSFunction
 {
 public:
-    JSCompiledArrowFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, Array *captured, vm::IRFunc *func)
+    JSCompiledArrowFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, RangeArray *captured, vm::IRFunc *func)
         : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
     { }
 
@@ -113,7 +114,7 @@ public:
 
 private:
     vm::Scope *Scope;
-    Array *Captured;
+    RangeArray *Captured;
     vm::IRFunc *Func;
 };
 

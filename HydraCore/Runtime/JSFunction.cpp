@@ -36,12 +36,12 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
 
     Array *regs = Array::New(allocator, compiled->GetRegisterCount());
     Array *table = Array::New(allocator, compiled->GetVarCount());
-    Array *captured = nullptr;
+    RangeArray *captured = nullptr;
 
     if (Captured)
     {
-        captured = Array::New(allocator, Captured ? Captured->Capacity() : 0);
-        for (size_t i = 0; i < Captured->Capacity(); ++i)
+        captured = RangeArray::New(allocator, Captured ? Captured->GetLength() : 0);
+        for (size_t i = 0; i < Captured->GetLength(); ++i)
         {
             hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
                 "Captured must be T_SMALL_INT");
@@ -50,7 +50,7 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
         }
     }
 
-    Array *arrayArgs = Array::New(allocator, arguments->GetLength());
+    RangeArray *arrayArgs = RangeArray::New(allocator, arguments->GetLength());
     for (size_t i = 0; i < arguments->GetLength(); ++i)
     {
         JSValue value;
@@ -93,12 +93,12 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
 
     Array *regs = Array::New(allocator, compiled->GetRegisterCount());
     Array *table = Array::New(allocator, compiled->GetVarCount());
-    Array *captured = nullptr;
+    RangeArray *captured = nullptr;
 
     if (Captured)
     {
-        captured = Array::New(allocator, Captured ? Captured->Capacity() : 0);
-        for (size_t i = 0; i < Captured->Capacity(); ++i)
+        captured = RangeArray::New(allocator, Captured ? Captured->GetLength() : 0);
+        for (size_t i = 0; i < Captured->GetLength(); ++i)
         {
             hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
                 "Captured must be T_SMALL_INT");
@@ -107,7 +107,7 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
         }
     }
 
-    Array *arrayArgs = Array::New(allocator, arguments->GetLength());
+    RangeArray *arrayArgs = RangeArray::New(allocator, arguments->GetLength());
     for (size_t i = 0; i < arguments->GetLength(); ++i)
     {
         JSValue value;
