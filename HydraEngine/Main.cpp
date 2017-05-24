@@ -19,6 +19,7 @@ int main(int argc, const char **argv)
     if (argc < 2)
     {
         std::cerr << "Missing parameter" << std::endl;
+        return 1;
     }
 
     auto VM = vm::VM::GetInstance();

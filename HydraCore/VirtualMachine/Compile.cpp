@@ -695,7 +695,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 je(labels[block->Alternate->Index], T_NEAR);
                 jmp(labels[block->Consequent->Index], T_NEAR);
         }
