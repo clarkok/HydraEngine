@@ -379,7 +379,7 @@ bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIns
     size_t index = 0;
     for (auto &ref : funcInst->Captured)
     {
-        captured->at(index++) = JSValue::FromSmallInt(ref->Index);
+        captured->at(index++) = scope->GetRegs()->at(ref->Index);
     }
 
     hydra_assert(funcInst->FuncPtr != nullptr,
@@ -400,7 +400,7 @@ bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
     size_t index = 0;
     for (auto &ref : funcInst->Captured)
     {
-        captured->at(index++) = JSValue::FromSmallInt(ref->Index);
+        captured->at(index++) = scope->GetRegs()->at(ref->Index);
     }
 
     hydra_assert(funcInst->FuncPtr != nullptr,

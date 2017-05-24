@@ -36,19 +36,6 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
 
     Array *regs = Array::New(allocator, compiled->GetRegisterCount());
     Array *table = Array::New(allocator, compiled->GetVarCount());
-    RangeArray *captured = nullptr;
-
-    if (Captured)
-    {
-        captured = RangeArray::New(allocator, Captured ? Captured->GetLength() : 0);
-        for (size_t i = 0; i < Captured->GetLength(); ++i)
-        {
-            hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
-                "Captured must be T_SMALL_INT");
-            captured->at(i) = 
-                Scope->GetRegs()->at(Captured->at(i).SmallInt());
-        }
-    }
 
     RangeArray *arrayArgs = RangeArray::New(allocator, arguments->GetLength());
     for (size_t i = 0; i < arguments->GetLength(); ++i)
@@ -70,7 +57,7 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
         Scope,
         regs,
         table,
-        captured,
+        Captured,
         thisArg,
         arrayArgs);
 
@@ -93,19 +80,6 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
 
     Array *regs = Array::New(allocator, compiled->GetRegisterCount());
     Array *table = Array::New(allocator, compiled->GetVarCount());
-    RangeArray *captured = nullptr;
-
-    if (Captured)
-    {
-        captured = RangeArray::New(allocator, Captured ? Captured->GetLength() : 0);
-        for (size_t i = 0; i < Captured->GetLength(); ++i)
-        {
-            hydra_assert(JSValue::GetType(Captured->at(i)) == Type::T_SMALL_INT,
-                "Captured must be T_SMALL_INT");
-            captured->at(i) = 
-                Scope->GetRegs()->at(Captured->at(i).SmallInt());
-        }
-    }
 
     RangeArray *arrayArgs = RangeArray::New(allocator, arguments->GetLength());
     for (size_t i = 0; i < arguments->GetLength(); ++i)
@@ -127,7 +101,7 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
         Scope,
         regs,
         table,
-        captured,
+        Captured,
         Scope->GetThisArg(),
         arrayArgs);
 

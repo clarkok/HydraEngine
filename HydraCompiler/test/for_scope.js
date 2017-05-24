@@ -7,3 +7,8 @@ for (let i = 0; i < 10; )
     ++i;
     break;
 }
+
+for (let i = 0; i < t.length; ++i)
+{
+    __write(t[i]());
+}

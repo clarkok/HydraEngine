@@ -7,7 +7,7 @@ class Scope
     /**
      * @param {Scope} upper
      */
-    constructor(upper, breakable = null, continuable = null, func = null)
+    constructor(upper, breakable = null, continuable = null, func = null, loopVars = null)
     {
         this.map = {};
         this.capture = {};
@@ -18,6 +18,7 @@ class Scope
 
         this.breakable = breakable;
         this.continuable = continuable;
+        this.loopVars = loopVars;
 
         this.upper = upper;
         this.func = func;
@@ -68,6 +69,21 @@ class Scope
         }
         else if (this.capture.hasOwnProperty(name))
         {
+            let loopVar;
+
+            if (this.loopVars)
+            {
+                loopVar = this.loopVars.find((ele) => ele.$capture.index === this.capture[name]);
+            }
+
+            if (loopVar)
+            {
+                return {
+                    inst : loopVar.$alloca,
+                    type : 'direct'
+                };
+            }
+
             return {
                 index : this.capture[name],
                 type : 'capture'
@@ -959,7 +975,7 @@ function CompileExpression(node, func, last, scope)
 
 function CompileStatement(node, func, last, scope)
 {
-    function PreparePushScope()
+    function PreparePushScopeForBlock(last)
     {
         let next = func.NewBlock();
         last.Jump(next);
@@ -967,6 +983,11 @@ function CompileStatement(node, func, last, scope)
             last,
             next
         };
+    }
+
+    function PreparePushScope()
+    {
+        return PreparePushScopeForBlock(last);
     }
 
     function CompletePushScope(lastScope, blockScope, last, $pushScope)
@@ -977,7 +998,7 @@ function CompileStatement(node, func, last, scope)
 
         for (let cap of blockScope.CaptureList())
         {
-            let localSymbol = scope.Lookup(cap.name, true);
+            let localSymbol = lastScope.Lookup(cap.name, true);
             if (localSymbol.type === 'direct')
             {
                 $pushScope.captured.push(localSymbol.inst);
@@ -1001,6 +1022,15 @@ function CompileStatement(node, func, last, scope)
         last.PushInst($jump);
     }
 
+    function FeedbackLoopVar(loopVars, last)
+    {
+        for (let pair of loopVars)
+        {
+            let $value = last.Load(pair.$alloca);
+            last.Store(pair.$capture, $value);
+        }
+    }
+
     switch (node.type)
     {
         case 'BlockStatement':
@@ -1021,19 +1051,31 @@ function CompileStatement(node, func, last, scope)
             }
         case 'BreakStatement':
             {
-                let breakableScope = scope;
+                let currentScope = scope;
                 let popCount = 0;
-                while (breakableScope !== null && !breakableScope.breakable)
+
+                while (currentScope !== null && !currentScope.breakable)
                 {
-                    breakableScope = breakableScope.upper;
-                    popCount ++;
+                    if (currentScope.loopVars)
+                    {
+                        if (popCount > 0)
+                        {
+                            last.PopScope(popCount);
+                            popCount = 0;
+                        }
+
+                        FeedbackLoopVar(currentScope.loopVars, last);
+                    }
+
+                    currentScope = currentScope.upper;
+                    popCount++;
                 }
-                if (breakableScope === null)
+                if (currentScope === null)
                 {
                     throw SyntaxError('Not breakable');
                 }
                 last.PopScope(popCount);
-                last.Jump(breakableScope.breakable);
+                last.Jump(currentScope.breakable);
 
                 last = func.NewBlock();
 
@@ -1043,21 +1085,36 @@ function CompileStatement(node, func, last, scope)
             throw Error('Not implemented');
         case 'ContinueStatement':
             {
-                let continuableScope = scope;
+                let currentScope = scope;
                 let popCount = 0;
-                while (continuableScope !== null && !continuableScope.continuable)
+
+                while (currentScope !== null && !currentScope.continuable)
                 {
-                    continuableScope = continuableScope.upper;
-                    popCount ++;
+                    if (currentScope.loopVars)
+                    {
+                        if (popCount > 0)
+                        {
+                            last.PopScope(popCount);
+                            popCount = 0;
+                        }
+
+                        FeedbackLoopVar(currentScope.LoopVars, last);
+                    }
+
+                    currentScope = currentScope.upper;
+                    popCount++;
                 }
-                if (continuableScope === null)
+                if (currentScope === null)
                 {
-                    throw SyntaxError('Not continuable');
+                    throw SyntaxError('Not breakable');
                 }
                 last.PopScope(popCount);
-                last.Jump(continuableScope.continuable);
+                last.Jump(currentScope.continuable);
 
-                return func.NewBlock();
+                last = func.NewBlock();
+
+                return last;
+
             }
         case 'DebuggerStatement':
             break;
@@ -1125,8 +1182,46 @@ function CompileStatement(node, func, last, scope)
 
                 next.Jump(loopCmpEntry);
 
-                loopBody = CompileStatement(node.body, func, loopBodyEntry, loopScope);
-                loopBody.Jump(loopUpdateEntry);
+                if (node.init.type === 'VariableDeclaration')
+                {
+                    let loopVars = [];
+                    let captureScope = new Scope(loopScope, null /* breakable */, null /* continutable */, null /* func */, loopVars);
+                    let {last, next} = PreparePushScopeForBlock(loopBodyEntry);
+                    let $pushScope = next.PushScope(0);
+
+                    for (let decl of node.init.declarations)
+                    {
+                        let result = captureScope.Lookup(decl.id.name);
+                        if (result.type !== 'capture')
+                        {
+                            throw Error('Internal');
+                        }
+
+                        let $capture = next.Capture(result.index);
+                        let $alloca = next.Alloca(decl.id.name + '@');
+                        let $value = next.Load($capture);
+                        next.Store($alloca, $value);
+
+                        loopVars.push({
+                            $alloca,
+                            $capture
+                        });
+                        captureScope.Declare(decl.id.name + '@', $alloca);
+                    }
+
+                    loopBody = CompileStatement(node.body, func, next, captureScope);
+
+                    CompletePushScope(loopScope, captureScope, last, $pushScope);
+                    FeedbackLoopVar(loopVars, loopBody);
+                    loopBody.PopScope();
+
+                    loopBody.Jump(loopUpdateEntry);
+                }
+                else
+                {
+                    loopBody = CompileStatement(node.body, func, loopBodyEntry, loopScope);
+                    loopBody.Jump(loopUpdateEntry);
+                }
 
                 if (node.update)
                 {
