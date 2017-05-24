@@ -38,7 +38,11 @@ public:
 
     ~ThreadAllocator()
     {
-        Owner->TotalThreads.fetch_add(-1, std::memory_order_relaxed);
+        if (Active.exchange(false))
+        {
+            Owner->TotalThreads.fetch_add(-1, std::memory_order_relaxed);
+            RunningLock.unlock();
+        }
     }
 
     template <typename T, typename T_Report, typename ...T_Args>

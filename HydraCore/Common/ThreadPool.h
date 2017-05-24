@@ -46,7 +46,7 @@ public:
     {
         while (begin != end)
         {
-            begin->wait();
+            begin->get();
             begin++;
         }
     }

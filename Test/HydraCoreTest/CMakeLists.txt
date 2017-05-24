@@ -33,6 +33,12 @@ add_executable( ConcurrentLevelHashSetTest
 target_link_libraries( ConcurrentLevelHashSetTest HydraCore )
 add_test(ConcurrentLevelHashSetTest ConcurrentLevelHashSetTest)
 
+add_executable( ConcurrentQueueTest
+    ConcurrentQueueTest.cpp
+)
+target_link_libraries( ConcurrentQueueTest HydraCore )
+add_test(ConcurrentQueueTest ConcurrentQueueTest)
+
 add_executable( ManagedHashMapTest
     ManagedHashMapTest.cpp
 )

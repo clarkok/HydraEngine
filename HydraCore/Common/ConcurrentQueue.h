@@ -9,7 +9,7 @@ namespace hydra
 namespace concurrent
 {
 
-template<typename T, size_t N = 1024, size_t SPIN_COUNT = 32>
+template<typename T, size_t N = 1024, size_t SPIN_COUNT = 8>
 class Queue
 {
 public:
@@ -80,6 +80,7 @@ public:
 
     void Enqueue(const T &value)
     {
+        RetryController retry(WaitMutex, WriteCV);
         while (true)
         {
             size_t spinCount = SPIN_COUNT;
@@ -90,16 +91,13 @@ public:
                     return;
                 }
             }
-
-            {
-                std::unique_lock<std::mutex> lck(WaitMutex);
-                WriteCV.wait(lck);
-            }
+            retry.Wait();
         }
     }
 
     void Dequeue(T &value)
     {
+        RetryController retry(WaitMutex, ReadCV);
         while (true)
         {
             size_t spinCount = SPIN_COUNT;
@@ -110,11 +108,7 @@ public:
                     return;
                 }
             }
-
-            {
-                std::unique_lock<std::mutex> lck(WaitMutex);
-                ReadCV.wait(lck);
-            }
+            retry.Wait();
         }
     }
 
@@ -133,6 +127,36 @@ private:
     {
         std::atomic<size_t> Seq;
         T Value;
+    };
+
+    struct RetryController
+    {
+        RetryController(std::mutex &mutex, std::condition_variable &cv)
+            : RetryCounter(0), Mutex(mutex), CV(cv)
+        { }
+
+        inline void Wait()
+        {
+            auto retry = RetryCounter++;
+            if (retry < 5)
+            {
+                std::this_thread::yield();
+            }
+            else if (retry < 10)
+            {
+                std::unique_lock<std::mutex> lck(Mutex);
+                CV.wait_for(lck, 3ms);
+            }
+            else
+            {
+                std::unique_lock<std::mutex> lck(Mutex);
+                CV.wait_for(lck, 10ms);
+            }
+        }
+
+        size_t RetryCounter;
+        std::mutex &Mutex;
+        std::condition_variable &CV;
     };
 
     std::array<Cell, N> Buffer;

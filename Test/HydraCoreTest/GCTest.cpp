@@ -184,6 +184,58 @@ TEST_CASE("ForeachWordOnStack", "[GC]")
     });
 }
 
+TEST_CASE("ObjectGCState", "[GC]")
+{
+    static constexpr size_t COUNT_BASE = 5000000;
+
+    TestHeapObject *uut = new TestHeapObject(gc::HeapObject::IS_IN_USE);
+
+    SECTION("Basic")
+    {
+        auto result = uut->SetGCState(gc::GCState::GC_BLACK);
+        REQUIRE(result == gc::GCState::GC_WHITE);
+
+        result = uut->GetGCState();
+        REQUIRE(result == gc::GCState::GC_BLACK);
+    }
+
+    SECTION("Multiple Threads TrySetGCState")
+    {
+        std::atomic<size_t> totalCount;
+
+        auto thread = [&]()
+        {
+            size_t count = COUNT_BASE + (std::rand() % (COUNT_BASE / 10));
+            size_t i = count;
+
+            std::cout << "+ " << count << std::endl;
+
+            while (i--)
+            {
+                u8 expected = uut->GetGCState();
+                while (!uut->TrySetGCState(expected, (expected + 1) & 3))
+                { }
+            }
+
+            totalCount.fetch_add(count);
+
+            std::cout << "- " << count << std::endl;
+        };
+
+        std::thread t1(thread);
+        std::thread t2(thread);
+        std::thread t3(thread);
+
+        t1.join();
+        t2.join();
+        t3.join();
+
+        auto count = totalCount.load();
+        INFO(count);
+        REQUIRE(uut->GetGCState() == (count & 3));
+    }
+}
+
 struct EventListener : Catch::TestEventListenerBase
 {
     using TestEventListenerBase::TestEventListenerBase;

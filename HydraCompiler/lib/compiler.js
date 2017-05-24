@@ -870,11 +870,11 @@ function CompileExpression(node, func, last, scope)
                     }
                     else
                     {
-                        if (node.argument.property.type !== 'Identifier')
+                        if (node.left.property.type !== 'Identifier')
                         {
                             throw Error('Internal');
                         }
-                        $key = last.String(node.argument.property.name);
+                        $key = last.String(node.left.property.name);
                     }
                 }
 

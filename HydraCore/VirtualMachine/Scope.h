@@ -39,6 +39,7 @@ public:
     {
         gc::Heap::GetInstance()->WriteBarrier(this, upper);
         gc::Heap::GetInstance()->WriteBarrier(this, regs);
+        gc::Heap::GetInstance()->WriteBarrier(this, captured);
         if (ThisArg.IsReference() && ThisArg.ToReference())
         {
             gc::Heap::GetInstance()->WriteBarrier(this, ThisArg.ToReference());

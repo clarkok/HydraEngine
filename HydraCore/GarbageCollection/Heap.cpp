@@ -163,6 +163,7 @@ void Heap::GCManagement()
 
                 FullCleaningList.Steal(FullList);
                 perfSession.Phase("BeforeResumeTheWorld");
+
                 ResumeTheWorld();
 
                 FireGCPhaseAndWait(GCPhase::GC_FULL_SWEEP, [this]()
@@ -245,6 +246,7 @@ void Heap::GCManagement()
 
                 CleaningList.Steal(FullList);
                 perfSession.Phase("BeforeResumeTheWorld");
+
                 ResumeTheWorld();
 
                 FireGCPhaseAndWait(GCPhase::GC_YOUNG_SWEEP, [this]()
@@ -366,20 +368,16 @@ void Heap::GCWorkerYoungMark()
         hydra_assert(ref, "Reference should not be nullptr");
 
         u8 gcState = ref->GetGCState();
-
-        if (gcState == GCState::GC_WHITE)
+        while (gcState == GCState::GC_WHITE)
         {
-            while (gcState == GCState::GC_WHITE)
+            if (ref->TrySetGCState(gcState, GCState::GC_GREY))
             {
-                if (ref->TrySetGCState(gcState, GCState::GC_GREY))
+                if (!ref->IsLarge())
                 {
-                    if (!ref->IsLarge())
-                    {
-                        Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
-                    }
-                    localQueue.push(ref);
-                    break;
+                    Region::GetRegionOfObject(ref)->IncreaseOldObjectCount();
                 }
+                localQueue.push(ref);
+                break;
             }
         }
     };
@@ -442,6 +440,9 @@ void Heap::GCWorkerYoungMark()
             }
         }
     }
+
+    hydra_assert(localQueue.size() == 0,
+        "localQueue must be empty now");
 }
 
 void Heap::GCWorkerYoungSweep()
@@ -546,6 +547,9 @@ void Heap::GCWorkerFullMark()
             }
         }
     }
+
+    hydra_assert(localQueue.size() == 0,
+        "localQueue must be empty now");
 }
 
 void Heap::GCWorkerFullSweep()

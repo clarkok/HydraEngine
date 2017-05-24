@@ -20,8 +20,16 @@ bool JSNativeFunction::Call(gc::ThreadAllocator &allocator,
     return Func(allocator, thisArg, arguments, retVal, error);
 }
 
+JSCompiledFunction::JSCompiledFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, RangeArray *captured, vm::IRFunc *func)
+    : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
+{
+    gc::Heap::GetInstance()->WriteBarrier(this, Scope);
+    gc::Heap::GetInstance()->WriteBarrier(this, Captured);
+}
+
 void JSCompiledFunction::Scan(std::function<void(gc::HeapObject*)> scan)
 {
+    JSObject::Scan(scan);
     if (Scope) scan(Scope);
     if (Captured) scan(Captured);
 }
@@ -46,6 +54,10 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
         if (arguments->Get(i, value, attribute))
         {
             arrayArgs->at(i) = value;
+            if (value.IsReference())
+            {
+                gc::Heap::GetInstance()->WriteBarrier(arrayArgs, value.ToReference());
+            }
         }
         else
         {
@@ -64,8 +76,16 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
     return compiled->Call(allocator, newScope, retVal, error);
 }
 
+JSCompiledArrowFunction::JSCompiledArrowFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, RangeArray *captured, vm::IRFunc *func)
+    : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
+{
+    gc::Heap::GetInstance()->WriteBarrier(this, Scope);
+    gc::Heap::GetInstance()->WriteBarrier(this, Captured);
+}
+
 void JSCompiledArrowFunction::Scan(std::function<void(gc::HeapObject*)> scan)
 {
+    JSObject::Scan(scan);
     if (Scope) scan(Scope);
     if (Captured) scan(Captured);
 }
@@ -90,6 +110,10 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
         if (arguments->Get(i, value, attribute))
         {
             arrayArgs->at(i) = value;
+            if (value.IsReference())
+            {
+                gc::Heap::GetInstance()->WriteBarrier(arrayArgs, value.ToReference());
+            }
         }
         else
         {

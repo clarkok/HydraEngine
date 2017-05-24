@@ -83,7 +83,10 @@ class JSObject : public gc::HeapObject
 public:
     JSObject(u8 property, Klass *klass, Array *table)
         : HeapObject(property), Klass(klass), Table(table)
-    { }
+    {
+        gc::Heap::GetInstance()->WriteBarrier(this, Klass);
+        gc::Heap::GetInstance()->WriteBarrier(this, Table);
+    }
 
     inline Klass *GetKlass() const
     {

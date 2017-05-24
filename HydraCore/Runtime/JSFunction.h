@@ -87,9 +87,7 @@ private:
 class JSCompiledFunction : public JSFunction
 {
 public:
-    JSCompiledFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, RangeArray *captured, vm::IRFunc *func)
-        : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
-    { }
+    JSCompiledFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, RangeArray *captured, vm::IRFunc *func);
 
     virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final;
 
@@ -104,9 +102,7 @@ private:
 class JSCompiledArrowFunction : public JSFunction
 {
 public:
-    JSCompiledArrowFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, RangeArray *captured, vm::IRFunc *func)
-        : JSFunction(property, klass, table), Scope(scope), Captured(captured), Func(func)
-    { }
+    JSCompiledArrowFunction(u8 property, runtime::Klass *klass, Array *table, vm::Scope *scope, RangeArray *captured, vm::IRFunc *func);
 
     virtual void Scan(std::function<void(gc::HeapObject*)> scan) override final;
 

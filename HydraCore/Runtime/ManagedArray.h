@@ -53,7 +53,7 @@ public:
     {
         for (auto value : *this)
         {
-            if (value.IsReference())
+            if (value.IsReference() && value.ToReference())
             {
                 scan(value.ToReference());
             }
@@ -143,7 +143,7 @@ public:
     {
         for (auto value : *this)
         {
-            if (value.IsReference())
+            if (value.IsReference() && value.ToReference())
             {
                 scan(value.ToReference());
             }

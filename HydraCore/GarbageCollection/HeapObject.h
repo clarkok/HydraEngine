@@ -83,6 +83,7 @@ public:
         u8 expected = GetGCState();
         while (!TrySetGCState(expected, desired))
         { }
+
         return expected;
     }
 

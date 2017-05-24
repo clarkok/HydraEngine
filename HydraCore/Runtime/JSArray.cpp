@@ -57,7 +57,7 @@ void JSArray::Set(
         if (value.IsReference())
         {
             auto heap = gc::Heap::GetInstance();
-            heap->WriteBarrier(this, value.ToReference());
+            heap->WriteBarrier(TablePart, value.ToReference());
         }
     }
     else

@@ -304,7 +304,8 @@ bool Call(gc::ThreadAllocator &allocator, JSValue callee, JSValue thisArg, JSArr
         js_throw_error(TypeError, "Object dosen't support this action");
     }
 
-    JSFunction *func = dynamic_cast<JSFunction*>(callee.Object());
+    JSObject *obj = callee.Object();
+    JSFunction *func = dynamic_cast<JSFunction*>(obj);
 
     if (func == nullptr)
     {

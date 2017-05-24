@@ -8,6 +8,8 @@ int main(int argc, const char **argv)
 {
     // ensure initialization order
     {
+        Logger::GetInstance();
+        gc::Heap::GetInstance();
         vm::IRModuleGCHelper::GetInstance();
         vm::VM::GetInstance();
     }
@@ -26,6 +28,7 @@ int main(int argc, const char **argv)
     VM->CompileToTask(allocator, argv[1]);
     VM->Execute(allocator);
 
+    allocator.SetInactive([](){});
     VM->Stop();
 
     return 0;

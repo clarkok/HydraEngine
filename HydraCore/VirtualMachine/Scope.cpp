@@ -14,11 +14,11 @@ void Scope::Scan(std::function<void(gc::HeapObject *)> scan)
 {
     if (Regs) scan(Regs);
     if (Upper) scan(Upper);
+    if (Captured) scan(Captured);
     if (ThisArg.IsReference() && ThisArg.ToReference())
     {
         scan(ThisArg.ToReference());
     }
-    if (Captured) scan(Captured);
     if (Arguments) scan(Arguments);
 }
 

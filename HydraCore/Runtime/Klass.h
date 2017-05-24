@@ -172,6 +172,7 @@ private:
         Transaction(nullptr)
     {
         std::memset(Table(), 0, TableSize * sizeof(String*));
+        gc::Heap::GetInstance()->WriteBarrier(this, Parent);
     }
 
     Klass(u8 property, size_t level, Klass *other, String *key, gc::ThreadAllocator &allocator)
