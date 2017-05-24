@@ -134,6 +134,18 @@ public:
 
     virtual void Scan(std::function<void(HeapObject*)> scan) override;
 
+    static inline size_t OffsetKlass()
+    {
+        return reinterpret_cast<size_t>(
+            &(reinterpret_cast<JSObject*>(0)->Klass));
+    }
+
+    static inline size_t OffsetTable()
+    {
+        return reinterpret_cast<size_t>(
+            &(reinterpret_cast<JSObject*>(0)->Table));
+    }
+
 private:
     Klass *Klass;
     Array *Table;

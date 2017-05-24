@@ -86,31 +86,96 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             }
             case GET_ITEM:
             {
-                LOAD_REG(rax, inst->As<ir::GetItem>()->_Obj);
-                LOAD_REG(rbx, inst->As<ir::GetItem>()->_Key);
+                if (inst->As<ir::GetItem>()->_Key->Is<ir::String>())
+                {
+                    // inline cached version
+                    inLocalLabel();
 
-                // &error
-                mov(ptr[rsp + 32], r9);
+                    LOAD_REG(rax, inst->As<ir::GetItem>()->_Obj);
 
-                // &retVal
-                RETVAL_REG(r9);
+                    // make sure it is an object
+                    mov(rbx, rax);
+                    shr(rbx, 48);
+                    cmp(rbx, 0xFFFA);
+                    jne("slowPath");
 
-                // key
-                mov(r8, rbx);
+                    // detect cached
+                    and(rax, r15);
+                    L("cached");
+                    mov(rbx, (u64)0x0123456789ABCDEFull);
+                    cmp(rbx, ptr[rax + runtime::JSObject::OffsetKlass()]);
+                    jne("slowPath");
 
-                // object
-                mov(rdx, rax);
+                    // load by index
+                    mov(rbx, (u64)0x0123456789ABCDEFull);
+                    mov(rax, ptr[rax + runtime::JSObject::OffsetTable()]);
+                    mov(rax, ptr[rax + rbx]);
+                    RETVAL_REG(rbx);
+                    mov(ptr[rbx], rax);
+                    jmp("finish");
 
-                mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectGet));
-                call(rax);
+                    L("slowPath");
+                    LOAD_REG(rax, inst->As<ir::GetItem>()->_Obj);
+                    LOAD_REG(rbx, inst->As<ir::GetItem>()->_Key);
 
-                mov(r9, ptr[rbp + 32]);
-                mov(r8, ptr[rbp + 24]);
-                mov(rdx, ptr[rbp + 16]);
-                mov(rcx, ptr[rbp + 8]);
+                    // &error
+                    mov(ptr[rsp + 40], r9);
 
-                test(rax, rax);
-                jz(throwPoint, T_NEAR);
+                    // &retVal
+                    RETVAL_REG(r9);
+                    mov(ptr[rsp + 32], r9);
+
+                    // fixup
+                    mov(r9, "cached");
+
+                    // key
+                    mov(r8, rbx);
+
+                    // object
+                    mov(rdx, rax);
+
+                    mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectGetAndFixCache));
+                    call(rax);
+
+                    mov(r9, ptr[rbp + 32]);
+                    mov(r8, ptr[rbp + 24]);
+                    mov(rdx, ptr[rbp + 16]);
+                    mov(rcx, ptr[rbp + 8]);
+
+                    test(rax, rax);
+                    jz(throwPoint, T_NEAR);
+
+                    L("finish");
+                    outLocalLabel();
+                }
+                else
+                {
+                    LOAD_REG(rax, inst->As<ir::GetItem>()->_Obj);
+                    LOAD_REG(rbx, inst->As<ir::GetItem>()->_Key);
+
+                    // &error
+                    mov(ptr[rsp + 32], r9);
+
+                    // &retVal
+                    RETVAL_REG(r9);
+
+                    // key
+                    mov(r8, rbx);
+
+                    // object
+                    mov(rdx, rax);
+
+                    mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectGet));
+                    call(rax);
+
+                    mov(r9, ptr[rbp + 32]);
+                    mov(r8, ptr[rbp + 24]);
+                    mov(rdx, ptr[rbp + 16]);
+                    mov(rcx, ptr[rbp + 8]);
+
+                    test(rax, rax);
+                    jz(throwPoint, T_NEAR);
+                }
 
                 break;
             }

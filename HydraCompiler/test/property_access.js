@@ -1,11 +1,12 @@
 'use strict';
 
-let t = {};
+let t = { a : 'A' };
 let i = 0;
+let b;
 
-while (i++ < 100000)
+while (i++ < 1000000)
 {
-    t.a = 'A';
+    b = t.a;
 }
 
 __write(i);

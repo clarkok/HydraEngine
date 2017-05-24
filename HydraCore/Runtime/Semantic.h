@@ -68,6 +68,9 @@ JSNativeFunction *NewNativeFunc(gc::ThreadAllocator &allocator, JSNativeFunction
 bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 
+bool ObjectGetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValue key, void *fixup, JSValue &retVal, JSValue &error);
+bool ObjectSetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValue key, void *fixup, JSValue value, JSValue &error);
+
 bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSValue &retVal, JSValue &error);
 bool ObjectGetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, String *key, JSValue &retVal, JSValue &error);
 bool ObjectGetSafeArray(gc::ThreadAllocator &allocator, JSArray *array, size_t key, JSValue &retVal, JSValue &error);

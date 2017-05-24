@@ -414,6 +414,82 @@ bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
     return true;
 }
 
+bool ObjectGetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValue key, void *fixup, JSValue &retVal, JSValue &error)
+{
+    if (lib_Array_IsArraySafe(object))
+    {
+        JSArray *arr = dynamic_cast<JSArray*>(object.Object());
+
+        if (JSValue::GetType(key) == Type::T_SMALL_INT)
+        {
+            return ObjectGetSafeArray(allocator, arr, static_cast<size_t>(key.SmallInt()), retVal, error);
+        }
+        else if (JSValue::GetType(key) == Type::T_STRING)
+        {
+            i64 integralKey;
+            if (IsStringIntegral(key.String(), integralKey) && integralKey >= 0)
+            {
+                return ObjectGetSafeArray(allocator, arr, static_cast<size_t>(integralKey), retVal, error);
+            }
+        }
+    }
+
+    if (JSValue::GetType(object) == Type::T_OBJECT)
+    {
+        JSValue stringKey;
+        if (!ToString(allocator, key, stringKey, error))
+        {
+            return false;
+        }
+
+        JSObject *obj = object.Object();
+        Klass *klass = obj->GetKlass();
+        size_t index;
+        if (!klass->Find(stringKey.String(), index))
+        {
+            return ObjectGetSafeObject(allocator, object.Object(), stringKey.String(), retVal, error);
+        }
+
+        JSObjectPropertyAttribute attribute;
+        obj->GetIndex(index, retVal, attribute);
+
+        if (!attribute.IsData())
+        {
+            return ObjectGetSafeObject(allocator, object.Object(), stringKey.String(), retVal, error);
+        }
+
+        // Fix up
+        u64 klassU64 = reinterpret_cast<u64>(klass);
+        u64 offset = index * 16 + 8 + Array::OffsetTable();
+
+        u8 *memory = reinterpret_cast<u8*>(fixup);
+        memory[2] = (klassU64 & 0xFF);  klassU64 >>= 8;
+        memory[3] = (klassU64 & 0xFF);  klassU64 >>= 8;
+        memory[4] = (klassU64 & 0xFF);  klassU64 >>= 8;
+        memory[5] = (klassU64 & 0xFF);  klassU64 >>= 8;
+        memory[6] = (klassU64 & 0xFF);  klassU64 >>= 8;
+        memory[7] = (klassU64 & 0xFF);  klassU64 >>= 8;
+        memory[8] = (klassU64 & 0xFF);  klassU64 >>= 8;
+        memory[9] = (klassU64 & 0xFF);  klassU64 >>= 8;
+
+        memory[18] = (offset & 0xFF);   offset >>= 8;
+        memory[19] = (offset & 0xFF);   offset >>= 8;
+        memory[20] = (offset & 0xFF);   offset >>= 8;
+        memory[21] = (offset & 0xFF);   offset >>= 8;
+        memory[22] = (offset & 0xFF);   offset >>= 8;
+        memory[23] = (offset & 0xFF);   offset >>= 8;
+        memory[24] = (offset & 0xFF);   offset >>= 8;
+        memory[25] = (offset & 0xFF);   offset >>= 8;
+
+        return true;
+    }
+    else
+    {
+        hydra_trap("TODO: other data types");
+        return false;
+    }
+}
+
 bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSValue &retVal, JSValue &error)
 {
     if (lib_Array_IsArraySafe(object))
