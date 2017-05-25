@@ -458,7 +458,7 @@ bool ObjectGetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValu
         else if (JSValue::GetType(key) == Type::T_STRING)
         {
             i64 integralKey;
-            if (IsStringIntegral(key.String(), integralKey) && integralKey >= 0)
+            if (IsStringConvatableToArrayInterger(key.String(), integralKey) && integralKey >= 0)
             {
                 return ObjectGetSafeArray(allocator, arr, static_cast<size_t>(integralKey), retVal, error);
             }
@@ -534,7 +534,7 @@ bool ObjectSetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValu
         else if (JSValue::GetType(key) == Type::T_STRING)
         {
             i64 integralKey;
-            if (IsStringIntegral(key.String(), integralKey) && integralKey >= 0)
+            if (IsStringConvatableToArrayInterger(key.String(), integralKey) && integralKey >= 0)
             {
                 return ObjectSetSafeArray(allocator, arr, static_cast<size_t>(integralKey), value, error);
             }
@@ -613,7 +613,7 @@ bool ObjectGet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSVa
         else if (JSValue::GetType(key) == Type::T_STRING)
         {
             i64 integralKey;
-            if (IsStringIntegral(key.String(), integralKey) && integralKey >= 0)
+            if (IsStringConvatableToArrayInterger(key.String(), integralKey) && integralKey >= 0)
             {
                 return ObjectGetSafeArray(allocator, arr, static_cast<size_t>(integralKey), retVal, error);
             }
@@ -771,7 +771,7 @@ bool ObjectSet(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSVa
         else if (JSValue::GetType(key) == Type::T_STRING)
         {
             i64 integralKey;
-            if (IsStringIntegral(key.String(), integralKey) && integralKey >= 0)
+            if (IsStringConvatableToArrayInterger(key.String(), integralKey) && integralKey >= 0)
             {
                 return ObjectSetSafeArray(allocator, arr, static_cast<size_t>(integralKey), value, error);
             }
@@ -901,12 +901,25 @@ bool ObjectDelete(gc::ThreadAllocator &allocator, JSValue object, JSValue key, J
 
 /*********************** String ***********************/
 
-bool IsStringIntegral(String *str, i64 &value)
+bool IsStringConvatableToArrayInterger(String *str, i64 &value)
 {
     value = 0;
     size_t length = str->length();
 
-    for (size_t i = 0; i < length; ++i)
+    if (!length)
+    {
+        return false;
+    }
+
+    {
+        auto ch = str->at(0);
+        if (ch >= '1' && ch <= '9')
+        {
+            value += ch - '0';
+        }
+    }
+
+    for (size_t i = 1; i < length; ++i)
     {
         auto ch = str->at(i);
         if (ch >= '0' && ch <= '9')
@@ -1760,7 +1773,7 @@ static bool lib_Object_prototype_hasOwnProperty(gc::ThreadAllocator &allocator, 
         else if (JSValue::GetType(keyArg) == Type::T_STRING)
         {
             i64 integralKey;
-            if (IsStringIntegral(keyArg.String(), integralKey) && integralKey >= 0)
+            if (IsStringConvatableToArrayInterger(keyArg.String(), integralKey) && integralKey >= 0)
             {
                 JSValue value;
                 JSObjectPropertyAttribute attribute;

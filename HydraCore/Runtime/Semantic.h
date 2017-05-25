@@ -82,7 +82,7 @@ bool ObjectSetSafeArray(gc::ThreadAllocator &allocator, JSArray *array, size_t k
 bool ObjectDelete(gc::ThreadAllocator &allocator, JSValue object, JSValue key, JSValue &error);
 
 /********************************** String ******************************/
-bool IsStringIntegral(String *str, i64 &value);
+bool IsStringConvatableToArrayInterger(String *str, i64 &value);
 bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error);
 
 /******************************** Operation *****************************/
