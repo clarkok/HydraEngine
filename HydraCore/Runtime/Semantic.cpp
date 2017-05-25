@@ -148,10 +148,12 @@ void Initialize()
         "Object.prototype's klass should inherit from emptyObjectKlass");
     Object_prototype->SetIndex(expectedObjectProtoOffset,
         JSValue::FromObject(nullptr),
+        JSObjectPropertyAttribute::HAS_VALUE |
         JSObjectPropertyAttribute::IS_DATA_MASK |
         JSObjectPropertyAttribute::IS_WRITABLE_MASK);
     Object_prototype->SetIndex(expectedObjectConstructorOffset,
         JSValue::FromObject(Object),
+        JSObjectPropertyAttribute::HAS_VALUE |
         JSObjectPropertyAttribute::IS_DATA_MASK |
         JSObjectPropertyAttribute::IS_WRITABLE_MASK);
     Object->Set(allocator, strs::PROTOTYPE, JSValue::FromObject(Object_prototype));
@@ -162,10 +164,12 @@ void Initialize()
         "Function.prototype's klass should inherit from emptyObjectKlass");
     Function_prototype->SetIndex(expectedObjectProtoOffset,
         JSValue::FromObject(Object_prototype),
+        JSObjectPropertyAttribute::HAS_VALUE |
         JSObjectPropertyAttribute::IS_DATA_MASK |
         JSObjectPropertyAttribute::IS_WRITABLE_MASK);
     Function_prototype->SetIndex(expectedObjectConstructorOffset,
         JSValue::FromObject(Function),
+        JSObjectPropertyAttribute::HAS_VALUE |
         JSObjectPropertyAttribute::IS_DATA_MASK |
         JSObjectPropertyAttribute::IS_WRITABLE_MASK);
     Function->Set(allocator, strs::PROTOTYPE, JSValue::FromObject(Function_prototype));
@@ -231,6 +235,7 @@ JSObject *NewEmptyObjectSafe(gc::ThreadAllocator &allocator)
 
     ret->SetIndex(expectedObjectProtoOffset,
         JSValue::FromObject(Object_prototype),
+        JSObjectPropertyAttribute::HAS_VALUE |
         JSObjectPropertyAttribute::IS_DATA_MASK |
         JSObjectPropertyAttribute::IS_WRITABLE_MASK);
 
@@ -271,18 +276,29 @@ bool NewObjectSafe(gc::ThreadAllocator &allocator,
     hydra_assert(emptyObjectKlass->IsBaseOf(ret->GetKlass()),
         "Newly allocated object's klass should inherit from emptyObjectKlass");
 
-    JSValue constructor___proto__;
-    if (!ObjectGetSafeObject(allocator, constructor, strs::__PROTO__, constructor___proto__, error))
+    JSValue constructor_prototype;
+    if (!ObjectGetSafeObject(allocator, constructor, strs::PROTOTYPE, constructor_prototype, error))
     {
         return false;
     }
 
     ret->SetIndex(expectedObjectProtoOffset,
-        constructor___proto__,
+        constructor_prototype,
+        JSObjectPropertyAttribute::HAS_VALUE |
         JSObjectPropertyAttribute::IS_DATA_MASK |
         JSObjectPropertyAttribute::IS_WRITABLE_MASK);
 
-    return_js_call(constructor, JSValue::FromObject(ret), arguments);
+    if (!constructor->Call(allocator, JSValue::FromObject(ret), arguments, retVal, error))
+    {
+        return false;
+    }
+
+    if (JSValue::GetType(retVal) != Type::T_UNDEFINED)
+    {
+        return true;
+    }
+
+    js_return(JSValue::FromObject(ret));
 }
 
 bool NewObject(gc::ThreadAllocator &allocator, JSValue constructor, JSArray *arguments, JSValue &retVal, JSValue &error)
@@ -359,8 +375,10 @@ static void InitializeFunction(gc::ThreadAllocator &allocator, JSFunction *func)
 {
     func->SetIndex(expectedObjectProtoOffset,
         JSValue::FromObject(Function_prototype),
+        JSObjectPropertyAttribute::HAS_VALUE |
         JSObjectPropertyAttribute::IS_DATA_MASK |
         JSObjectPropertyAttribute::IS_WRITABLE_MASK);
+    func->Set(allocator, strs::PROTOTYPE, JSValue::FromObject(NewEmptyObjectSafe(allocator)));
 }
 
 JSFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func, JSValue thisArg)
