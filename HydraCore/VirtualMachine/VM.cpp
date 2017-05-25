@@ -152,5 +152,21 @@ void VM::Stop()
     gc::Heap::GetInstance()->Shutdown();
 }
 
+void VM::LoadJsLib(gc::ThreadAllocator &allocator)
+{
+    auto libInit = Compile(allocator,
+        platform::NormalizePath({
+            platform::GetDirectoryOfPath(__FILE__),
+            "../../HydraJsLib/index.ir"
+        }));
+    auto args = runtime::semantic::NewArrayInternal(allocator);
+
+    runtime::JSValue retVal;
+    runtime::JSValue error;
+    auto result = libInit->Call(allocator, runtime::JSValue(), args, retVal, error);
+
+    hydra_assert(result, "Failed to load JsLib");
+}
+
 } // namespace vm
 } // namespace hydra

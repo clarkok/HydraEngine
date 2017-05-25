@@ -45,6 +45,7 @@ namespace semantic
     def(u"__write", __WRITE)            \
     def(u"name", NAME)                  \
     def(u"dirname", DIRNAME)            \
+    def(u"isArray", IS_ARRAY)           \
 
 
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
@@ -1833,6 +1834,13 @@ static bool lib_Array_prototype_push(gc::ThreadAllocator &allocator, JSValue thi
 
 static void InitializeArray(gc::ThreadAllocator &allocator)
 {
+    // Array.isArray
+    {
+        Array->Set(allocator,
+            strs::IS_ARRAY,
+            JSValue::FromObject(NewNativeFunc(allocator, lib_Array_IsArray)));
+    }
+
     // Array.prototype.length
     {
         auto getter = JSValue::FromObject(NewNativeFunc(allocator, lib_Array_prototype_length_get));

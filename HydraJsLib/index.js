@@ -28,6 +28,10 @@ function include(path)
 
     if (!__modules[normalized])
     {
+        __modules[normalized] = {
+            name : normalized,
+            exports : undefined
+        };
         __execute(normalized);
     }
 
@@ -38,6 +42,5 @@ global.__modules = {};
 global.module = module;
 global.include = include;
 
-let included = this.include('./included.ir');
-__write(included);
+this.include('./array.ir');
 

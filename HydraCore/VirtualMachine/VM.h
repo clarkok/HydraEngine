@@ -30,6 +30,8 @@ public:
     void AddTask(runtime::JSFunction *);
     void Stop();
 
+    void LoadJsLib(gc::ThreadAllocator &allocator);
+
 private:
     std::queue<runtime::JSFunction *> Queue;
     std::multiset<runtime::JSFunction *> References;

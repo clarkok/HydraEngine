@@ -26,6 +26,8 @@ int main(int argc, const char **argv)
     auto VM = vm::VM::GetInstance();
     gc::ThreadAllocator allocator(gc::Heap::GetInstance());
 
+    VM->LoadJsLib(allocator);
+
     VM->CompileToTask(allocator, argv[1]);
     VM->Execute(allocator);
 
