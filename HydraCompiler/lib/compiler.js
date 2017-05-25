@@ -1567,13 +1567,14 @@ function CompileFunction(node, ir, upperScope)
 function CompileArrowFunction(node, ir, upperScope)
 {
     let func = ir.NewFunc('<arrow>', node.params.length);
-    let scope = new Scope(upperScope);
+    let scope = new Scope(upperScope, null, null, func);
     let args = node.params.reduce((prev, current, index) => {
         if (current.type !== 'Identifier')
         {
             throw Error('Non-identifier argument is not supported');
         }
         prev[current.name] = index;
+        return prev;
     }, {});
     scope.SetArguments(args, null);
     let first = func.NewBlock();

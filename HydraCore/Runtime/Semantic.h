@@ -115,7 +115,7 @@ vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst
 bool ToBoolean(JSValue value);
 
 JSObject *GetGlobalObject();
-JSObject *MakeLocalGlobal(gc::ThreadAllocator &allocator, String *moduleName);
+JSObject *MakeLocalGlobal(gc::ThreadAllocator &allocator, String *moduleName, String *moduleDir);
 
 bool GetArguments(gc::ThreadAllocator &allocator, vm::Scope *scope, JSValue &retVal, JSValue &error);
 

@@ -719,7 +719,6 @@ class BlockBuilder
     }
 };
 
-let functionCounter = 0;
 class FunctionBuilder
 {
     constructor(name, length, ir)
@@ -729,7 +728,7 @@ class FunctionBuilder
         this.blocks = [];
         this.ir = ir;
         this.localCounter = 0;
-        this.id = functionCounter++;
+        this.id = ir.functionCounter++;
     }
 
     NewBlock()
@@ -789,6 +788,7 @@ class IRBuilder
     {
         this.name = name;
         this.functions = [];
+        this.functionCounter = 0;
     }
 
     NewFunc(name, length)

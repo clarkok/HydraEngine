@@ -97,14 +97,14 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rbx, rax);
                     shr(rbx, 48);
                     cmp(rbx, 0xFFFA);
-                    jne("slowPath");
+                    jne(".slowPath");
 
                     // detect cached
                     and(rax, r15);
-                    L("cached");
+                    L(".cached");
                     mov(rbx, (u64)0x0123456789ABCDEFull);
                     cmp(rbx, ptr[rax + runtime::JSObject::OffsetKlass()]);
-                    jne("slowPath");
+                    jne(".slowPath");
 
                     // load by index
                     mov(rbx, (u64)0x0123456789ABCDEFull);
@@ -112,9 +112,9 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rax, ptr[rax + rbx]);
                     RETVAL_REG(rbx);
                     mov(ptr[rbx], rax);
-                    jmp("finish");
+                    jmp(".finish");
 
-                    L("slowPath");
+                    L(".slowPath");
                     LOAD_REG(rax, inst->As<ir::GetItem>()->_Obj);
                     LOAD_REG(rbx, inst->As<ir::GetItem>()->_Key);
 
@@ -126,7 +126,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(ptr[rsp + 32], r9);
 
                     // fixup
-                    mov(r9, "cached");
+                    mov(r9, ".cached");
 
                     // key
                     mov(r8, rbx);
@@ -145,7 +145,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     test(rax, rax);
                     jz(throwPoint, T_NEAR);
 
-                    L("finish");
+                    L(".finish");
                     outLocalLabel();
                 }
                 else
@@ -192,22 +192,22 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rbx, rax);
                     shr(rbx, 48);
                     cmp(rbx, 0xFFFA);
-                    jne("slowPath");
+                    jne(".slowPath");
 
                     // detect cached
                     and(rax, r15);
-                    L("cached");
+                    L(".cached");
                     mov(rbx, (u64)(0x0123456789ABCDEFull));
                     cmp(rbx, ptr[rax + runtime::JSObject::OffsetKlass()]);
-                    jne("slowPath");
+                    jne(".slowPath");
 
                     mov(rbx, (u64)(0x0123456789ABCDEFull));
                     mov(rax, ptr[rax + runtime::JSObject::OffsetTable()]);
                     LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
                     mov(ptr[rax + rbx], r10);
-                    jmp("finish");
+                    jmp(".finish");
 
-                    L("slowPath");
+                    L(".slowPath");
                     LOAD_REG(rax, inst->As<ir::SetItem>()->_Obj);
                     LOAD_REG(rbx, inst->As<ir::SetItem>()->_Key);
                     LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
@@ -219,7 +219,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(ptr[rsp + 32], r10);
 
                     // fixup
-                    mov(r9, "cached");
+                    mov(r9, ".cached");
 
                     // key
                     mov(r8, rbx);
@@ -238,7 +238,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     test(rax, rax);
                     jz(throwPoint, T_NEAR);
 
-                    L("finish");
+                    L(".finish");
                     outLocalLabel();
                 }
                 else
@@ -683,6 +683,8 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             }
             case ALLOCA:
             {
+                // Scope
+                mov(rcx, rdx);
                 mov(rax, reinterpret_cast<u64>(Scope::AllocateStatic));
                 call(rax);
 
@@ -698,7 +700,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case ARG:
             {
                 mov(rax, ptr[rdx + Scope::OffsetArguments()]);
-                add(rax, static_cast<u32>(runtime::Array::OffsetTable()));
+                add(rax, static_cast<u32>(runtime::RangeArray::OffsetTable()));
                 lea(rax, ptr[rax + 8 * inst->As<ir::Arg>()->Index]);
                 SET_RESULT(rbx, rax);
                 break;

@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <stack>
+#include <string>
 #include <algorithm>
 
 namespace hydra
@@ -119,6 +120,8 @@ public:
         u64 m = 1;
         return Hash = hash(0, length(), m);
     }
+
+    std::string ToString() const;
 
     static void Print(String *string);
     static void Println(String *string);

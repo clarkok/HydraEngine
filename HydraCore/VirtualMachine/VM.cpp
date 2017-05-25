@@ -17,29 +17,62 @@ namespace vm
 
 struct VMInitializeHelper : public Singleton<VMInitializeHelper>
 {
+    using JSValue = runtime::JSValue;
+    using JSArray = runtime::JSArray;
+    using String = runtime::String;
+    using Type = runtime::Type;
+
     VMInitializeHelper()
     {
         gc::ThreadAllocator allocator(gc::Heap::GetInstance());
 
         runtime::semantic::SetOnGlobal(
             allocator,
-            runtime::String::New(allocator, u"module"),
-            runtime::JSValue::FromObject(runtime::semantic::NewNativeFunc(allocator, lib_Module)));
+            String::New(allocator, u"__execute"),
+            JSValue::FromObject(runtime::semantic::NewNativeFunc(allocator, lib_Execute)));
 
         runtime::semantic::SetOnGlobal(
             allocator,
-            runtime::String::New(allocator, u"include"),
-            runtime::JSValue::FromObject(runtime::semantic::NewNativeFunc(allocator, lib_Include)));
+            String::New(allocator, u"__normalize_path"),
+            JSValue::FromObject(runtime::semantic::NewNativeFunc(allocator, lib_NormalizePath)));
     }
 
-    static bool lib_Module(gc::ThreadAllocator &allocator, runtime::JSValue thisArg, runtime::JSArray *arguments, runtime::JSValue &retVal, runtime::JSValue &error)
+    static bool lib_Execute(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
     {
-        js_return(runtime::JSValue());
+        JSValue normalized;
+        if (!lib_NormalizePath(allocator, thisArg, arguments, normalized, error))
+        {
+            return false;
+        }
+
+        auto func = VM::GetInstance()->Compile(allocator, normalized.String()->ToString());
+        auto args = runtime::semantic::NewArrayInternal(allocator);
+        return func->Call(allocator, thisArg, args, retVal, error);
     }
 
-    static bool lib_Include(gc::ThreadAllocator &allocator, runtime::JSValue thisArg, runtime::JSArray *arguments, runtime::JSValue &retVal, runtime::JSValue &error)
+    static bool lib_NormalizePath(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
     {
-        js_return(runtime::JSValue());
+        std::vector<std::string> paths;
+        for (size_t i = 0; i < arguments->GetLength(); ++i)
+        {
+            JSValue arg;
+            if (!runtime::semantic::ObjectGetSafeArray(allocator, arguments, i, arg, error))
+            {
+                return false;
+            }
+
+            JSValue str;
+            if (!runtime::semantic::ToString(allocator, arg, str, error))
+            {
+                return false;
+            }
+
+            paths.push_back(str.String()->ToString());
+        }
+
+        std::string normalized = platform::NormalizePath(paths.begin(), paths.end());
+
+        js_return(JSValue::FromString(String::New(allocator, normalized.begin(), normalized.end())));
     }
 };
 
@@ -92,8 +125,12 @@ runtime::JSFunction *VM::Compile(gc::ThreadAllocator &allocator, const std::stri
     hydra_assert(pair.second, "module is unique");
 
     auto moduleName = platform::NormalizePath({ path });
+    auto moduleDir = platform::GetDirectoryOfPath(moduleName);
 
-    auto local = runtime::semantic::MakeLocalGlobal(allocator, runtime::String::New(allocator, moduleName.begin(), moduleName.end()));
+    auto local = runtime::semantic::MakeLocalGlobal(
+        allocator,
+        runtime::String::New(allocator, moduleName.begin(), moduleName.end()),
+        runtime::String::New(allocator, moduleDir.begin(), moduleDir.end()));
 
     return runtime::semantic::NewRootFunc(allocator, (*(pair.first))->Functions.front().get(), runtime::JSValue::FromObject(local));
 }

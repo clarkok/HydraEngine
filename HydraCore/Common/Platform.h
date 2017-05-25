@@ -5,11 +5,13 @@
 
 #include <string>
 #include <initializer_list>
+#include <cstdlib>
 
 #ifdef _MSC_VER
 
 #include <intrin.h>
 #include <windows.h>
+#include "Shlwapi.h"
 
 #else
 
@@ -26,7 +28,6 @@ inline void *AlignedAlloc(size_t size, size_t alignment);
 inline void AlignedFree(void *ptr);
 inline size_t GetMSB(uint64_t);
 inline size_t GetLSB(uint64_t);
-std::string NormalizePath(std::initializer_list<std::string> strs);
 inline u64 powi(u64 base, u64 exp)
 {
     u64 res = 1;
@@ -44,6 +45,16 @@ inline u64 powi(u64 base, u64 exp)
 
 template <typename T_callback>
 void ForeachWordOnStack(T_callback callback);
+
+template <typename T_Iter>
+std::string NormalizePath(T_Iter begin, T_Iter end);
+
+inline std::string NormalizePath(std::initializer_list<std::string> strs)
+{
+    return NormalizePath(strs.begin(), strs.end());
+}
+
+inline std::string GetDirectoryOfPath(std::string fullPath);
 
 class MappedFile;
 
@@ -121,6 +132,50 @@ private:
     HANDLE Mapping;
     void *View;
 };
+
+template <typename T_Iter>
+std::string NormalizePath(T_Iter begin, T_Iter end)
+{
+    char buffer1[MAX_PATH];
+    char buffer2[MAX_PATH];
+
+    char *buf1 = buffer1, *buf2 = buffer2;
+
+    auto result = GetCurrentDirectory(MAX_PATH, buf1);
+    hydra_assert(result, "GetCurrentDirectory failed");
+
+    while (begin != end)
+    {
+        auto result = PathCombine(buf2, buf1, begin->c_str());
+        hydra_assert(result, "PathCombine failed");
+        std::swap(buf1, buf2);
+        ++begin;
+    }
+
+    char *ptr = buf1;
+    while (*ptr)
+    {
+        if (*ptr == '/')
+        {
+            *ptr = '\\';
+        }
+        ++ptr;
+    }
+
+    result = PathCanonicalize(buf2, buf1);
+    hydra_assert(result, "PathCanonicalize failed");
+
+    return buf2;
+}
+
+inline std::string GetDirectoryOfPath(std::string fullPath)
+{
+    char buffer[MAX_PATH];
+    std::strncpy(buffer, fullPath.c_str(), MAX_PATH);
+
+    PathRemoveFileSpec(buffer);
+    return buffer;
+}
 
 #else
 

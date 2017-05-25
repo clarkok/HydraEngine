@@ -44,6 +44,7 @@ namespace semantic
     def(u"object", _OBJECT)             \
     def(u"__write", __WRITE)            \
     def(u"name", NAME)                  \
+    def(u"dirname", DIRNAME)            \
 
 
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
@@ -534,7 +535,7 @@ bool ObjectSetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValu
         size_t index;
         if (!klass->Find(stringKey.String(), index))
         {
-            return ObjectGetSafeObject(allocator, object.Object(), stringKey.String(), value, error);
+            return ObjectSetSafeObject(allocator, object.Object(), stringKey.String(), value, error);
         }
 
         JSValue desc;
@@ -672,6 +673,7 @@ bool ObjectGetSafeObjectInternal(
         if (!proto)
         {
             retVal = JSValue();
+            attribute = JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE;
             return true;
         }
 
@@ -702,6 +704,7 @@ bool ObjectGetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, Strin
         if (!proto)
         {
             retVal = JSValue();
+            attribute = JSObjectPropertyAttribute::DEFAULT_DATA_ATTRIBUTE;
             return true;
         }
 
@@ -1667,11 +1670,12 @@ JSObject *GetGlobalObject()
     return Global;
 }
 
-JSObject *MakeLocalGlobal(gc::ThreadAllocator &allocator, String *moduleName)
+JSObject *MakeLocalGlobal(gc::ThreadAllocator &allocator, String *moduleName, String *moduleDir)
 {
     auto local = NewEmptyObjectSafe(allocator);
     local->SetIndex(expectedObjectProtoOffset, JSValue::FromObject(GetGlobalObject()));
     local->Set(allocator, strs::NAME, JSValue::FromString(moduleName));
+    local->Set(allocator, strs::DIRNAME, JSValue::FromString(moduleDir));
     return local;
 }
 

@@ -1,0 +1,1 @@
+__write(this.name);
