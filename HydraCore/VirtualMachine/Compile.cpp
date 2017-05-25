@@ -181,33 +181,95 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             }
             case SET_ITEM:
             {
-                LOAD_REG(rax, inst->As<ir::SetItem>()->_Obj);
-                LOAD_REG(rbx, inst->As<ir::SetItem>()->_Key);
-                LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
+                if (inst->As<ir::SetItem>()->_Key->Is<ir::String>())
+                {
+                    // inline cached version
+                    inLocalLabel();
 
-                // &error
-                mov(ptr[rsp + 32], r9);
+                    LOAD_REG(rax, inst->As<ir::SetItem>()->_Obj);
 
-                // value
-                mov(r9, r10);
+                    // make sure it is an object
+                    mov(rbx, rax);
+                    shr(rbx, 48);
+                    cmp(rbx, 0xFFFA);
+                    jne("slowPath");
 
-                // key
-                mov(r8, rbx);
+                    // detect cached
+                    and(rax, r15);
+                    L("cached");
+                    mov(rbx, (u64)(0x0123456789ABCDEFull));
+                    cmp(rbx, ptr[rax + runtime::JSObject::OffsetKlass()]);
+                    jne("slowPath");
 
-                // object
-                mov(rdx, rax);
+                    mov(rbx, (u64)(0x0123456789ABCDEFull));
+                    mov(rax, ptr[rax + runtime::JSObject::OffsetTable()]);
+                    LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
+                    mov(ptr[rax + rbx], r10);
+                    jmp("finish");
 
-                mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectSet));
-                call(rax);
+                    L("slowPath");
+                    LOAD_REG(rax, inst->As<ir::SetItem>()->_Obj);
+                    LOAD_REG(rbx, inst->As<ir::SetItem>()->_Key);
+                    LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
 
-                mov(r9, ptr[rbp + 32]);
-                mov(r8, ptr[rbp + 24]);
-                mov(rdx, ptr[rbp + 16]);
-                mov(rcx, ptr[rbp + 8]);
+                    // &error
+                    mov(ptr[rsp + 40], r9);
 
-                test(rax, rax);
-                jz(throwPoint, T_NEAR);
+                    // value
+                    mov(ptr[rsp + 32], r10);
 
+                    // fixup
+                    mov(r9, "cached");
+
+                    // key
+                    mov(r8, rbx);
+
+                    // object
+                    mov(rdx, rax);
+
+                    mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectSetAndFixCache));
+                    call(rax);
+
+                    mov(r9, ptr[rbp + 32]);
+                    mov(r8, ptr[rbp + 24]);
+                    mov(rdx, ptr[rbp + 16]);
+                    mov(rcx, ptr[rbp + 8]);
+
+                    test(rax, rax);
+                    jz(throwPoint, T_NEAR);
+
+                    L("finish");
+                    outLocalLabel();
+                }
+                else
+                {
+                    LOAD_REG(rax, inst->As<ir::SetItem>()->_Obj);
+                    LOAD_REG(rbx, inst->As<ir::SetItem>()->_Key);
+                    LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
+
+                    // &error
+                    mov(ptr[rsp + 32], r9);
+
+                    // value
+                    mov(r9, r10);
+
+                    // key
+                    mov(r8, rbx);
+
+                    // object
+                    mov(rdx, rax);
+
+                    mov(rax, reinterpret_cast<u64>(runtime::semantic::ObjectSet));
+                    call(rax);
+
+                    mov(r9, ptr[rbp + 32]);
+                    mov(r8, ptr[rbp + 24]);
+                    mov(rdx, ptr[rbp + 16]);
+                    mov(rcx, ptr[rbp + 8]);
+
+                    test(rax, rax);
+                    jz(throwPoint, T_NEAR);
+                }
                 break;
             }
             case DEL_ITEM:
