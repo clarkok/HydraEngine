@@ -142,7 +142,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rdx, ptr[rbp + 16]);
                     mov(rcx, ptr[rbp + 8]);
 
-                    test(rax, rax);
+                    test(al, al);
                     jz(throwPoint, T_NEAR);
 
                     L(".finish");
@@ -173,7 +173,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rdx, ptr[rbp + 16]);
                     mov(rcx, ptr[rbp + 8]);
 
-                    test(rax, rax);
+                    test(al, al);
                     jz(throwPoint, T_NEAR);
                 }
 
@@ -235,7 +235,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rdx, ptr[rbp + 16]);
                     mov(rcx, ptr[rbp + 8]);
 
-                    test(rax, rax);
+                    test(al, al);
                     jz(throwPoint, T_NEAR);
 
                     L(".finish");
@@ -267,7 +267,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rdx, ptr[rbp + 16]);
                     mov(rcx, ptr[rbp + 8]);
 
-                    test(rax, rax);
+                    test(al, al);
                     jz(throwPoint, T_NEAR);
                 }
                 break;
@@ -291,7 +291,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -323,7 +323,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -359,7 +359,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -380,7 +380,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -403,7 +403,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -487,7 +487,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -511,7 +511,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -541,7 +541,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -571,7 +571,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
 
                 break;
@@ -599,7 +599,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);                                    \
                 mov(rcx, ptr[rbp + 8]);                                     \
                                                                             \
-                test(rax, rax);                                             \
+                test(al, al);                                               \
                 jz(throwPoint, T_NEAR);                                     \
                                                                             \
                 break;                                                      \
@@ -611,6 +611,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             CASE_BINARY(MOD, OpMod);
             CASE_BINARY(BAND, OpBand);
             CASE_BINARY(BOR, OpBor);
+            CASE_BINARY(BXOR, OpBxor);
             CASE_BINARY(SLL, OpSll);
             CASE_BINARY(SRL, OpSrl);
             CASE_BINARY(SRR, OpSrr);
@@ -645,7 +646,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);                                    \
                 mov(rcx, ptr[rbp + 8]);                                     \
                                                                             \
-                test(rax, rax);                                             \
+                test(al, al);                                               \
                 jz(throwPoint, T_NEAR);                                     \
                                                                             \
                 break;                                                      \
@@ -734,7 +735,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(rdx, ptr[rbp + 16]);
                 mov(rcx, ptr[rbp + 8]);
 
-                test(rax, rax);
+                test(al, al);
                 jz(throwPoint, T_NEAR);
                 break;
             }

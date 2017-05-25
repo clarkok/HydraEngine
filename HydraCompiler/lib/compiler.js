@@ -229,7 +229,16 @@ function CompileExpression(node, func, last, scope)
                         last.String(node.value);
                         break;
                     case 'object':
-                        // regex;
+                        if (node.value === null)
+                        {
+                            last.Null();
+                            break;
+                        }
+                        else
+                        {
+                            // regex;
+                            throw Error('Regex not supported');
+                        }
                 }
             }
             break;
@@ -1500,7 +1509,26 @@ function CompileNodeList(nodeList, func, scope)
             }
 
             let ret = CompileFunction(node, func.ir, scope);
-            let $func = last.Func(ret.func, ret.captured);
+            let captured = ret.captured.map((c) => {
+                let result = scope.Lookup(c.name, true);
+                if (!result)
+                {
+                    throw Error('Internal');
+                }
+                else if (result.type === 'direct')
+                {
+                    return result.inst;
+                }
+                else if (result.type === 'capture')
+                {
+                    return last.Capture(result.index);
+                }
+                else if (result.type === 'args')
+                {
+                    return last.Arg(result.index);
+                }
+            })
+            let $func = last.Func(ret.func, captured);
 
             scope.Declare(node.id.name);
             let result = scope.Lookup(node.id.name);

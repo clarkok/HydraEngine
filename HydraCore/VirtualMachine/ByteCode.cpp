@@ -298,6 +298,7 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                             reader.Uint(placeHolder);
                         }
                     }
+                    break;
                 case JUMP:
                     reader.Uint(placeHolder);
                     break;

@@ -93,6 +93,7 @@ bool OpDiv(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
 bool OpMod(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
 bool OpBand(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
 bool OpBor(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
+bool OpBxor(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
 bool OpBnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error);
 bool OpLnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error);
 bool OpSll(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error);
@@ -129,6 +130,9 @@ inline void SetOnGlobal(gc::ThreadAllocator &allocator, String *key, JSValue val
     hydra_assert(result,
         "Failed to set global");
 }
+
+bool ToNumber(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error);
+bool ToPrimitive(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error);
 
 } // namespace semantic
 } // namespace runtime

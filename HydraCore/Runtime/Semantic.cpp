@@ -30,6 +30,7 @@ namespace semantic
     def(u"null", _NULL)                 \
     def(u"undefined", UNDEFINED)        \
     def(u"toString", TO_STRING)         \
+    def(u"valueOf", VALUE_OF)           \
     def(u"NaN", _NAN)                   \
     def(u"Infinity", _INFINITY)         \
     def(u"-Infinity", _N_INFINITY)      \
@@ -994,7 +995,8 @@ bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JS
         JSFunction *toStringFunc = dynamic_cast<JSFunction *>(toString.Object());
         hydra_assert(toStringFunc, "toStringFunc must not be null");
 
-        return_js_call(toStringFunc, value, nullptr);
+        auto arguments = NewArrayInternal(allocator);
+        return_js_call(toStringFunc, value, arguments);
         break;
     }
     case Type::T_SMALL_INT:
@@ -1190,6 +1192,34 @@ bool OpBor(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     js_return(JSValue::FromSmallInt(numberA | numberB));
 }
 
+bool OpBxor(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
+{
+    auto typeA = JSValue::GetType(a);
+    auto typeB = JSValue::GetType(b);
+
+    u64 numberA = 0, numberB = 0;
+
+    if (typeA == Type::T_SMALL_INT)
+    {
+        numberA = a.SmallInt();
+    }
+    else if (typeA == Type::T_NUMBER)
+    {
+        numberA = static_cast<u64>(a.Number());
+    }
+
+    if (typeB == Type::T_SMALL_INT)
+    {
+        numberB = b.SmallInt();
+    }
+    else if (typeB == Type::T_NUMBER)
+    {
+        numberB = static_cast<u64>(b.Number());
+    }
+
+    js_return(JSValue::FromSmallInt(numberA ^ numberB));
+}
+
 bool OpBnot(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValue &error)
 {
     auto typeA = JSValue::GetType(a);
@@ -1302,36 +1332,135 @@ bool OpEq(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal,
     auto typeA = JSValue::GetType(a);
     auto typeB = JSValue::GetType(b);
 
-    if (typeA == Type::T_SMALL_INT && typeB == Type::T_SMALL_INT)
+    if (typeA == Type::T_NOT_EXISTS)
     {
-        js_return(JSValue::FromBoolean(a.SmallInt() == b.SmallInt()));
+        a = JSValue();
+        typeA = Type::T_UNDEFINED;
+    }
+    else if (typeA == Type::T_SMALL_INT)
+    {
+        a = JSValue::FromNumber(static_cast<double>(a.SmallInt()));
+        typeA = Type::T_NUMBER;
     }
 
-    if ((typeA == Type::T_SMALL_INT || typeA == Type::T_NUMBER) &&
-        (typeB == Type::T_SMALL_INT || typeB == Type::T_NUMBER))
+    if (typeB == Type::T_NOT_EXISTS)
     {
-        double numberA = (typeA == Type::T_SMALL_INT) ? a.SmallInt() : a.Number();
-        double numberB = (typeB == Type::T_SMALL_INT) ? b.SmallInt() : b.Number();
-
-        js_return(JSValue::FromBoolean(numberA == numberB));
+        b = JSValue();
+        typeB = Type::T_UNDEFINED;
+    }
+    else if (typeB == Type::T_SMALL_INT)
+    {
+        b = JSValue::FromNumber(static_cast<double>(b.SmallInt()));
+        typeB = Type::T_NUMBER;
     }
 
-    if ((typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS) &&
-        (typeB == Type::T_UNDEFINED || typeB == Type::T_NOT_EXISTS))
+    if (typeA == typeB)
+    {
+        return OpEqq(allocator, a, b, retVal, error);
+    }
+
+    if ((typeA == Type::T_UNDEFINED || (typeA == Type::T_OBJECT && a.Object() == nullptr)) &&
+        (typeB == Type::T_UNDEFINED || (typeB == Type::T_OBJECT && b.Object() == nullptr)))
     {
         js_return(JSValue::FromBoolean(true));
     }
 
-    if (!ToString(allocator, a, a, error))
+    if (typeA == Type::T_NUMBER && typeB == Type::T_STRING)
     {
-        return false;
-    }
-    if (!ToString(allocator, b, b, error))
-    {
-        return false;
+        if (!ToNumber(allocator, b, b, error))
+        {
+            return false;
+        }
+
+        typeB = JSValue::GetType(b);
+        if (typeB == Type::T_SMALL_INT)
+        {
+            b = JSValue::FromNumber(static_cast<double>(b.SmallInt()));
+        }
+
+        js_return(JSValue::FromBoolean(a == b));
     }
 
-    js_return(JSValue::FromBoolean(a.String()->EqualsTo(b.String())));
+    if (typeB == Type::T_NUMBER && typeA == Type::T_STRING)
+    {
+        if (!ToNumber(allocator, a, a, error))
+        {
+            return false;
+        }
+
+        typeA = JSValue::GetType(a);
+        if (typeA == Type::T_SMALL_INT)
+        {
+            a = JSValue::FromNumber(static_cast<double>(a.SmallInt()));
+        }
+
+        js_return(JSValue::FromBoolean(a == b));
+    }
+
+    if (typeA == Type::T_BOOLEAN)
+    {
+        if (!ToNumber(allocator, a, a, error))
+        {
+            return false;
+        }
+
+        typeA = JSValue::GetType(a);
+        if (typeA == Type::T_SMALL_INT)
+        {
+            a = JSValue::FromNumber(static_cast<double>(a.SmallInt()));
+        }
+
+        return OpEq(allocator, a, b, retVal, error);
+    }
+
+    if (typeB == Type::T_BOOLEAN)
+    {
+        if (!ToNumber(allocator, b, b, error))
+        {
+            return false;
+        }
+
+        typeB = JSValue::GetType(b);
+        if (typeB == Type::T_SMALL_INT)
+        {
+            b = JSValue::FromNumber(static_cast<double>(b.SmallInt()));
+        }
+
+        return OpEq(allocator, a, b, retVal, error);
+    }
+
+    if (typeA == Type::T_UNDEFINED || typeB == Type::T_UNDEFINED)
+    {
+        js_return(JSValue::FromBoolean(false));
+    }
+
+    if (typeA == Type::T_OBJECT)
+    {
+        if (a.Object() == nullptr)
+        {
+            js_return(JSValue::FromBoolean(false));
+        }
+
+        if (!ToPrimitive(allocator, a, a, error))
+        {
+            return false;
+        }
+    }
+
+    if (typeB == Type::T_OBJECT)
+    {
+        if (b.Object() == nullptr)
+        {
+            js_return(JSValue::FromBoolean(false));
+        }
+
+        if (!ToPrimitive(allocator, b, b, error))
+        {
+            return false;
+        }
+    }
+
+    return OpEq(allocator, a, b, retVal, error);
 }
 
 bool OpEqq(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
@@ -1673,7 +1802,7 @@ bool ToBoolean(JSValue a)
             boolA = false;
             break;
         case Type::T_NUMBER:
-            boolA = a.Number() != 0.0f;
+            boolA = !std::isnan(a.Number()) && a.Number() != 0.0f;
             break;
         case Type::T_OBJECT:
             boolA = a.Object() != nullptr;
@@ -1728,6 +1857,81 @@ JSObject *MakeGetterSetterPair(gc::ThreadAllocator &allocator, JSValue getter, J
     ret->Set(allocator, strs::SET, setter);
 
     return ret;
+}
+
+bool ToNumber(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error)
+{
+    switch (JSValue::GetType(value))
+    {
+    case Type::T_BOOLEAN:
+        js_return(JSValue::FromSmallInt(value.Boolean() ? 1 : 0));
+    case Type::T_UNDEFINED:
+    case Type::T_NOT_EXISTS:
+        js_return(JSValue(JSValue::NAN_PAYLOAD));
+    case Type::T_NUMBER:
+        js_return(value);
+    case Type::T_OBJECT:
+    {
+        if (value.Object() == nullptr)
+        {
+            js_return(JSValue::FromSmallInt(0));
+        }
+
+        if (!ToPrimitive(allocator, value, value, error))
+        {
+            return false;
+        }
+        return ToNumber(allocator, value, retVal, error);
+    }
+    case Type::T_SMALL_INT:
+        js_return(value);
+    case Type::T_STRING:
+    {
+        // TODO
+        js_return(JSValue::FromNumber(std::stod(value.String()->ToString())));
+    }
+    case Type::T_SYMBOL:
+        js_throw_error(TypeError, "Symbol cannot convert to Number");
+    default:
+        break;
+    }
+}
+
+bool ToPrimitive(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error)
+{
+    if (JSValue::GetType(value) != Type::T_OBJECT)
+    {
+        js_return(value);
+    }
+
+    if (!value.Object())
+    {
+        js_return(JSValue::FromSmallInt(0));
+    }
+
+    JSValue method;
+    if (!ObjectGetSafeObject(allocator, value.Object(), strs::VALUE_OF, method, error))
+    {
+        return false;
+    }
+
+    if (JSValue::GetType(value) != Type::T_OBJECT ||
+        dynamic_cast<JSFunction*>(value.Object()) == nullptr)
+    {
+        if (!ObjectGetSafeObject(allocator, value.Object(), strs::TO_STRING, method, error))
+        {
+            return false;
+        }
+    }
+
+    if (JSValue::GetType(value) != Type::T_OBJECT ||
+        dynamic_cast<JSFunction*>(value.Object()) == nullptr)
+    {
+        js_throw_error(TypeError, "Object cannot be converted to Primitive");
+    }
+
+    auto arguments = NewArrayInternal(allocator);
+    return dynamic_cast<JSFunction*>(method.Object())->Call(allocator, value, arguments, retVal, error);
 }
 
 /*********************** lib ***********************/
