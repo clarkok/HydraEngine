@@ -11,6 +11,7 @@ int main(int argc, const char **argv)
         Logger::GetInstance();
         gc::Heap::GetInstance();
         vm::IRModuleGCHelper::GetInstance();
+        runtime::semantic::Initialize();
         vm::VM::GetInstance();
     }
 
@@ -24,7 +25,6 @@ int main(int argc, const char **argv)
 
     auto VM = vm::VM::GetInstance();
     gc::ThreadAllocator allocator(gc::Heap::GetInstance());
-    runtime::semantic::Initialize(allocator);
 
     VM->CompileToTask(allocator, argv[1]);
     VM->Execute(allocator);

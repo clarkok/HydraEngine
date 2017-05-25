@@ -25,7 +25,7 @@ namespace semantic
 
 void RootScan(std::function<void(gc::HeapObject*)> scan);
 
-void Initialize(gc::ThreadAllocator &allocator);
+void Initialize();
 
 /********************************** Object & Array ******************************/
 // {}
@@ -63,7 +63,7 @@ bool NewArray(gc::ThreadAllocator &allocator, T_iterator begin, T_iterator end, 
     js_return(ret);
 }
 
-JSCompiledFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func);
+JSFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func, JSValue thisArg);
 JSNativeFunction *NewNativeFunc(gc::ThreadAllocator &allocator, JSNativeFunction::Functor func);
 bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
 bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error);
@@ -115,9 +115,20 @@ vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst
 bool ToBoolean(JSValue value);
 
 JSObject *GetGlobalObject();
+JSObject *MakeLocalGlobal(gc::ThreadAllocator &allocator, String *moduleName);
+
 bool GetArguments(gc::ThreadAllocator &allocator, vm::Scope *scope, JSValue &retVal, JSValue &error);
 
 JSObject *MakeGetterSetterPair(gc::ThreadAllocator &allocator, JSValue getter, JSValue setter);
+
+inline void SetOnGlobal(gc::ThreadAllocator &allocator, String *key, JSValue value)
+{
+    JSObject *global = GetGlobalObject();
+    JSValue error;
+    auto result = ObjectSetSafeObject(allocator, global, key, value, error);
+    hydra_assert(result,
+        "Failed to set global");
+}
 
 } // namespace semantic
 } // namespace runtime

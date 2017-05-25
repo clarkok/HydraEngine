@@ -43,6 +43,7 @@ namespace semantic
     def(u"string", STRING)              \
     def(u"object", _OBJECT)             \
     def(u"__write", __WRITE)            \
+    def(u"name", NAME)                  \
 
 
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
@@ -114,8 +115,10 @@ void RootScan(std::function<void(gc::HeapObject*)> scan)
     scan(Global);
 }
 
-void Initialize(gc::ThreadAllocator &allocator)
+void Initialize()
 {
+    gc::ThreadAllocator allocator(gc::Heap::GetInstance());
+
     gc::Heap::GetInstance()->RegisterRootScanFunc(RootScan);
 
     strs::Initialize(allocator);
@@ -358,9 +361,17 @@ static void InitializeFunction(gc::ThreadAllocator &allocator, JSFunction *func)
         JSObjectPropertyAttribute::IS_WRITABLE_MASK);
 }
 
-JSCompiledFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func)
+JSFunction *NewRootFunc(gc::ThreadAllocator &allocator, vm::IRFunc *func, JSValue thisArg)
 {
-    auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, nullptr, nullptr, func);
+    vm::Scope *scope = allocator.AllocateAuto<vm::Scope>(
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        thisArg,
+        nullptr);
+
+    auto ret = emptyObjectKlass->NewObject<JSCompiledArrowFunction>(allocator, scope, nullptr, func);
     InitializeFunction(allocator, ret);
     return ret;
 }
@@ -1656,6 +1667,14 @@ JSObject *GetGlobalObject()
     return Global;
 }
 
+JSObject *MakeLocalGlobal(gc::ThreadAllocator &allocator, String *moduleName)
+{
+    auto local = NewEmptyObjectSafe(allocator);
+    local->SetIndex(expectedObjectProtoOffset, JSValue::FromObject(GetGlobalObject()));
+    local->Set(allocator, strs::NAME, JSValue::FromString(moduleName));
+    return local;
+}
+
 bool GetArguments(gc::ThreadAllocator &allocator, vm::Scope *scope, JSValue &retVal, JSValue &error)
 {
     JSArray *ret = NewArrayInternal(allocator, scope->GetArguments()->GetLength());
@@ -1800,14 +1819,25 @@ static bool lib_Array_prototype_length_get(gc::ThreadAllocator &allocator, JSVal
     js_return(JSValue::FromSmallInt(dynamic_cast<JSArray*>(thisArg.Object())->GetLength()));
 }
 
+static bool lib_Array_prototype_push(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
+{
+    if (!lib_Array_IsArraySafe(thisArg))
+    {
+        js_throw_error(TypeError, "this is not an array");
+    }
+}
+
 static void InitializeArray(gc::ThreadAllocator &allocator)
 {
-    auto getter = JSValue::FromObject(NewNativeFunc(allocator, lib_Array_prototype_length_get));
-    auto setter = JSValue();
-    auto pair = JSValue::FromObject(MakeGetterSetterPair(allocator, getter, setter));
+    // Array.prototype.length
+    {
+        auto getter = JSValue::FromObject(NewNativeFunc(allocator, lib_Array_prototype_length_get));
+        auto setter = JSValue();
+        auto pair = JSValue::FromObject(MakeGetterSetterPair(allocator, getter, setter));
 
-    Array_prototype->Set(allocator, strs::LENGTH, pair,
-        JSObjectPropertyAttribute::HAS_VALUE | JSObjectPropertyAttribute::IS_ENUMERABLE_MASK);
+        Array_prototype->Set(allocator, strs::LENGTH, pair,
+            JSObjectPropertyAttribute::HAS_VALUE | JSObjectPropertyAttribute::IS_ENUMERABLE_MASK);
+    }
 }
 
 } // namespace semantic

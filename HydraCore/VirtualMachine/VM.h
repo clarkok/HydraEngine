@@ -25,6 +25,7 @@ public:
 
     int Execute(gc::ThreadAllocator &allocator);
 
+    runtime::JSFunction *Compile(gc::ThreadAllocator &allocator, const std::string &path);
     void CompileToTask(gc::ThreadAllocator &allocator, const std::string &path);
     void AddTask(runtime::JSFunction *);
     void Stop();

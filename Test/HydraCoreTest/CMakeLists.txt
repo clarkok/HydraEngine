@@ -78,5 +78,5 @@ add_test(ManagedArrayTest ManagedArrayTest)
 add_executable( ByteCodeTest
     ByteCodeTest.cpp
 )
-target_link_libraries( ByteCodeTest HydraCore )
+target_link_libraries( ByteCodeTest HydraCore SHLWAPI)
 add_test(ByteCodeTest ByteCodeTest)

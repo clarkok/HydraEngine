@@ -4,6 +4,7 @@
 #include "HydraCore.h"
 
 #include <string>
+#include <initializer_list>
 
 #ifdef _MSC_VER
 
@@ -25,6 +26,7 @@ inline void *AlignedAlloc(size_t size, size_t alignment);
 inline void AlignedFree(void *ptr);
 inline size_t GetMSB(uint64_t);
 inline size_t GetLSB(uint64_t);
+std::string NormalizePath(std::initializer_list<std::string> strs);
 inline u64 powi(u64 base, u64 exp)
 {
     u64 res = 1;
