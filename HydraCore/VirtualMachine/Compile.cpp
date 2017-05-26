@@ -31,6 +31,15 @@ namespace vm
     add(_reg, static_cast<u32>(runtime::Array::OffsetTable())); \
     lea(_reg, ptr[_reg + 8 * inst->Index]);
 
+#define SAFEPOINT(_reg)                                 \
+    mov(rcx, rdx);                                      \
+    mov(_reg, reinterpret_cast<u64>(Scope::Safepoint)); \
+    call(_reg);                                         \
+    mov(r9, ptr[rbp + 32]);                             \
+    mov(r8, ptr[rbp + 24]);                             \
+    mov(rdx, ptr[rbp + 16]);                            \
+    mov(rcx, ptr[rbp + 8]);
+
 
 GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 {
@@ -64,6 +73,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             {
             case RETURN:
             {
+                SAFEPOINT(rax);
                 LOAD_REG(rax, inst->As<ir::Return>()->_Value);
                 jmp(returnPoint, T_NEAR);
                 break;
@@ -78,10 +88,36 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             }
             case STORE:
             {
+                inLocalLabel();
+
                 LOAD_REG(rax, inst->As<ir::Store>()->_Addr);
                 LOAD_REG(rbx, inst->As<ir::Store>()->_Value);
                 and(rax, r15);
                 mov(ptr[rax], rbx);
+
+                mov(r10, rbx);
+                shr(r10, 48);
+                cmp(r10, 0xFFFA);
+                je(".writeBarrier");
+
+                cmp(r10, 0xFFFB);
+                jne(".finish");
+
+                L(".writeBarrier");
+                mov(rcx, reinterpret_cast<u64>(gc::Heap::GetInstance()));
+                mov(rdx, rax);
+                mov(r8, rbx);
+                and(r8, r15);
+                mov(rax, reinterpret_cast<u64>(gc::Heap::WriteBarrierInRegions));
+                call(rax);
+
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
+
+                L(".finish");
+                outLocalLabel();
                 break;
             }
             case GET_ITEM:
@@ -705,6 +741,9 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 mov(ptr[rbp + 16], rdx);
                 mov(rcx, ptr[rbp + 8]);
 
+                mov(rax, reinterpret_cast<u64>(&Scope::ThreadTop));
+                mov(ptr[rax], rdx);
+
                 break;
             }
             case POP_SCOPE:
@@ -714,6 +753,9 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rdx, ptr[rdx + Scope::OffsetUpper()]);
                 }
                 mov(ptr[rbp + 16], rdx);
+
+                mov(rax, reinterpret_cast<u64>(&Scope::ThreadTop));
+                mov(ptr[rax], rdx);
                 break;
             }
             case ALLOCA:

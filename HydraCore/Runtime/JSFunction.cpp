@@ -73,6 +73,7 @@ bool JSCompiledFunction::Call(gc::ThreadAllocator &allocator, JSValue thisArg, J
         thisArg,
         arrayArgs);
 
+    vm::AutoThreadTop autoThreadTop(newScope);
     return compiled->Call(allocator, newScope, retVal, error);
 }
 
@@ -129,6 +130,7 @@ bool JSCompiledArrowFunction::Call(gc::ThreadAllocator &allocator, JSValue thisA
         Scope->GetThisArg(),
         arrayArgs);
 
+    vm::AutoThreadTop autoThreadTop(newScope);
     return compiled->Call(allocator, newScope, retVal, error);
 }
 

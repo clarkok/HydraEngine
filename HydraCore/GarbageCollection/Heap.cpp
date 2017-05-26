@@ -52,6 +52,17 @@ void Heap::WriteBarrierStatic(Heap *heap, HeapObject *target, HeapObject *ref)
     heap->WriteBarrier(target, ref);
 }
 
+void Heap::WriteBarrierInRegions(Heap *heap, HeapObject **target, HeapObject *ref)
+{
+    Region *region = Region::GetRegionOfPointer(target);
+    Cell *cell = region->GetCellOfPointer(target);
+    HeapObject *object = dynamic_cast<HeapObject*>(cell);
+
+    hydra_assert(object, "cell must be in use");
+
+    heap->WriteBarrier(object, ref);
+}
+
 void Heap::StopTheWorld()
 {
     if (!PauseRequested.exchange(true))
@@ -162,6 +173,16 @@ void Heap::GCManagement()
                 StopTheWorld();
                 perfSession.Phase("AfterStopTheWorld");
 
+                {
+                    std::unique_lock<std::mutex> lck(RootScanFuncMutex);
+                    for (auto &func : RootScanFunc)
+                    {
+                        func([this](HeapObject *obj)
+                        {
+                            this->Remember(obj);
+                        });
+                    }
+                }
                 FireGCPhaseAndWait(GCPhase::GC_FULL_FINISH_MARK);
                 hydra_assert(WorkingQueue.Count() == 0,
                     "WorkingQueue should be empty now");
@@ -252,6 +273,16 @@ void Heap::GCManagement()
                 StopTheWorld();
                 perfSession.Phase("AfterStopTheWorld");
 
+                {
+                    std::unique_lock<std::mutex> lck(RootScanFuncMutex);
+                    for (auto &func : RootScanFunc)
+                    {
+                        func([this](HeapObject *obj)
+                        {
+                            this->Remember(obj);
+                        });
+                    }
+                }
                 FireGCPhaseAndWait(GCPhase::GC_YOUNG_FINISH_MARK);
                 hydra_assert(WorkingQueue.Count() == 0,
                     "WorkingQueue should be empty now");

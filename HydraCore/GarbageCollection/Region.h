@@ -155,7 +155,12 @@ public:
 
     static inline Region *GetRegionOfObject(HeapObject *obj)
     {
-        return reinterpret_cast<Region *>(reinterpret_cast<uintptr_t>(obj) & ~(REGION_SIZE - 1));
+        return GetRegionOfPointer(obj);
+    }
+
+    static inline Region *GetRegionOfPointer(void *ptr)
+    {
+        return reinterpret_cast<Region *>(reinterpret_cast<uintptr_t>(ptr) & ~(REGION_SIZE - 1));
     }
 
     size_t YoungSweep();
@@ -235,6 +240,15 @@ public:
             hash,
             cexpr::TypeBitCount<u64>::value - REGION_SIZE_LEVEL,
             REGION_SIZE_LEVEL);
+    }
+
+    inline Cell *GetCellOfPointer(void *ptr)
+    {
+        uintptr_t offset = reinterpret_cast<uintptr_t>(ptr) -
+            reinterpret_cast<uintptr_t>(this);
+        auto cellSize = CellSizeFromLevel(Level);
+        auto cellOffset = offset & (~cellSize + 1);
+        return reinterpret_cast<Cell*>(reinterpret_cast<uintptr_t>(this) + cellOffset);
     }
 
     static bool IsInRegion(void *ptr, Cell *&cell);

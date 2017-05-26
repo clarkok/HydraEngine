@@ -16,6 +16,9 @@ concurrent::LevelHashSet<Region> Region::RegionSet;
 
 size_t Region::YoungSweep()
 {
+    Logger::GetInstance()->Log() << "YoungSweep: " << this;
+    auto perfSessoin = Logger::GetInstance()->Perf("YoungSweep");
+
     if (OldObjectCount.load() == 0)
     {
         for (auto cell : *this)
@@ -63,6 +66,9 @@ size_t Region::YoungSweep()
 
 size_t Region::FullSweep()
 {
+    Logger::GetInstance()->Log() << "FullSweep: " << this;
+    auto perfSessoin = Logger::GetInstance()->Perf("FullSweep");
+
     size_t oldObjectCount = 0;
     Allocated = AllocateEnd(Level);
 
@@ -102,11 +108,22 @@ size_t Region::FullSweep()
 
 void Region::RemarkBlockObject()
 {
+    Logger::GetInstance()->Log() << "RemarkRegion: " << this;
+    auto perfSessoin = Logger::GetInstance()->Perf("Remark");
+
+    auto checker = [](HeapObject *ref)
+    {
+        hydra_assert(ref, "ref cannot be null");
+        hydra_assert(ref->IsInUse(), "ref must be in use");
+    };
+
     for (auto cell : *this)
     {
         auto currentProperty = cell->GetProperty();
         if (Cell::CellIsInUse(currentProperty) && Cell::CellGetGCState(currentProperty) == GCState::GC_BLACK)
         {
+            dynamic_cast<HeapObject*>(cell)->Scan(checker);
+
             u8 gcState = GCState::GC_BLACK;
             while (gcState == GCState::GC_BLACK)
             {

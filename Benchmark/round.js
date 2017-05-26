@@ -1,13 +1,14 @@
-let N = 100000;
-let K = 5;
+let N = 1000;
+let K = 3;
 
 function runRound()
 {
-    let result = [];
+    // let result = [];
     let queue = null;
 
     for (let i = 0; i < N; ++i)
     {
+        __write(i);
         let node = new Node(null, i);
         queue = node.AddTo(queue);
     }
@@ -25,20 +26,8 @@ function runRound()
         let front = queue;
         queue = queue.queue;
 
-        result.push(front.value);
-    }
-
-    /*
-    __write(result.length);
-    for (let i = 0; i < N; ++i)
-    {
-        __write("  " + result[i]);
-    }
-    */
-
-    if (result.length !== N)
-    {
-        __write("result length not match: ", result.length);
+        // result.push(front.value);
+        __write(front.value);
     }
 }
 

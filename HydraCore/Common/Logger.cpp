@@ -78,6 +78,7 @@ void Logger::Write()
         std::cout
 #endif
             << "\t" << entry->ThreadId << "\t" << entry->Message << "\t{" << Queue.Count() << "}" << std::endl;;
+        fout.flush();
 
         delete entry;
     }

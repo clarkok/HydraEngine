@@ -39,6 +39,7 @@ public:
     {
         gc::Heap::GetInstance()->WriteBarrier(this, upper);
         gc::Heap::GetInstance()->WriteBarrier(this, regs);
+        gc::Heap::GetInstance()->WriteBarrier(this, table);
         gc::Heap::GetInstance()->WriteBarrier(this, captured);
         if (ThisArg.IsReference() && ThisArg.ToReference())
         {
@@ -64,6 +65,11 @@ public:
     inline Array *GetRegs() const
     {
         return Regs;
+    }
+
+    inline Array *GetTable() const
+    {
+        return Table;
     }
 
     inline RangeArray *GetCaptured() const
@@ -126,6 +132,10 @@ public:
             &reinterpret_cast<Scope*>(0)->Arguments);
     }
 
+    static void Safepoint(Scope *scope);
+
+    static thread_local Scope *ThreadTop;
+
 protected:
     Scope *Upper;
     Array *Regs;
@@ -134,6 +144,22 @@ protected:
     JSValue ThisArg;
     RangeArray *Arguments;
     size_t Allocated;
+};
+
+struct AutoThreadTop
+{
+    AutoThreadTop(Scope *scope)
+    {
+        OldThreadTop = Scope::ThreadTop;
+        Scope::ThreadTop = scope;
+    }
+
+    ~AutoThreadTop()
+    {
+        Scope::ThreadTop = OldThreadTop;
+    }
+
+    Scope *OldThreadTop;
 };
 
 } // namespace vm

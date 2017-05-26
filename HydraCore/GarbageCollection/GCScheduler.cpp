@@ -112,7 +112,12 @@ bool GCScheduler::ShouldYoungGC()
 
 bool GCScheduler::ShouldFullGC()
 {
-    size_t currentRegionCount = Owner->GetFullCleaningRegionCount();
+    size_t currentRegionCount = Region::GetTotalRegionCount();
+
+    if (Owner->GetFullCleaningRegionCount() < Owner->GCWorkerCount)
+    {
+        return false;
+    }
 
     if (currentRegionCount < MINIMUN_FULL_REGION_TO_START_FULL_GC)
     {

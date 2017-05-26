@@ -200,6 +200,7 @@ public:
     }
 
     static void WriteBarrierStatic(Heap *heap, HeapObject *target, HeapObject *ref);
+    static void WriteBarrierInRegions(Heap *heap, HeapObject **target, HeapObject *ref);
 
     void StopTheWorld();
     void ResumeTheWorld();
