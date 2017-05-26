@@ -13,6 +13,12 @@ namespace gc
 Region *Heap::GetFreeRegion(size_t level)
 {
     Region *ret = nullptr;
+    if (RemarkingLists[level].Pop(ret))
+    {
+        ret->RemarkBlockObject();
+        FreeLists[level].Push(ret);
+    }
+
     FreeLists[level].Pop(ret);
 
     if (!ret)
@@ -27,11 +33,6 @@ Region *Heap::GetFreeRegion(size_t level)
 
     hydra_assert(ret->Level == level,
         "Level of region should match to expected");
-
-    if (GCCurrentPhase.load(std::memory_order_relaxed) == GCPhase::GC_IDLE)
-    {
-        size_t currentRegionCount = Region::GetTotalRegionCount();
-    }
 
     return ret;
 }
@@ -167,6 +168,13 @@ void Heap::GCManagement()
                 perfSession.Phase("FinishMark");
 
                 FullCleaningList.Steal(FullList);
+                for (size_t i = 0; i < LEVEL_NR; ++i)
+                {
+                    hydra_assert(RemarkingLists[i].GetCount() == 0,
+                        "RemarkingList shoule be empty");
+                    RemarkingLists[i].Steal(FreeLists[i]);
+                }
+
                 perfSession.Phase("BeforeResumeTheWorld");
 
                 ResumeTheWorld();
@@ -325,6 +333,15 @@ void Heap::Fire(Heap::GCPhase phase, std::vector<std::future<void>> &futures)
             hydra_trap("Unknown gc phase");
         }
     });
+
+    if (phase == GCPhase::GC_FULL_SWEEP)
+    {
+        futures.emplace_back(ThreadPool::GetInstance()->Dispatch<void>([this]()
+        {
+            // remark waiter
+            std::unique_lock<std::shared_mutex> lck(RemarkMutex);
+        }));
+    }
 }
 
 void Heap::Wait(std::vector<std::future<void>> &futures, bool cannotWait)
@@ -371,6 +388,7 @@ void Heap::GCWorkerYoungMark()
     std::function<void(HeapObject *)> scanner = [&](HeapObject *ref)
     {
         hydra_assert(ref, "Reference should not be nullptr");
+        hydra_assert(ref->IsInUse(), "Reference should be in use");
 
         u8 gcState = ref->GetGCState();
         while (gcState == GCState::GC_WHITE)
@@ -476,8 +494,10 @@ void Heap::GCWorkerFullMark()
     bool shouldWaitForWorkingThreadReported = GCCurrentPhase.load() == GCPhase::GC_FULL_MARK;
     std::function<void(HeapObject *)> scanner = [&](HeapObject *ref)
     {
-        u8 gcState = ref->GetGCState();
+        hydra_assert(ref, "Reference should not be nullptr");
+        hydra_assert(ref->IsInUse(), "Reference should be in use");
 
+        u8 gcState = ref->GetGCState();
         if (gcState == GCState::GC_WHITE || gcState == GCState::GC_DARK)
         {
             auto originalGCState = ref->SetGCState(GCState::GC_GREY);
@@ -570,7 +590,17 @@ void Heap::GCWorkerFullSweep()
         }
         else
         {
-            FreeLists[region->Level].Push(region);
+            RemarkingLists[region->Level].Push(region);
+        }
+    }
+
+    for (size_t i = 0; i < LEVEL_NR; ++i)
+    {
+        Region *region;
+        while (RemarkingLists[i].Pop(region))
+        {
+            region->RemarkBlockObject();
+            FreeLists[i].Push(region);
         }
     }
 }

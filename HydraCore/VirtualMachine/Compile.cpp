@@ -783,6 +783,18 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             {
                 break;
             }
+            case DEBUGGER:
+            {
+                mov(rax, reinterpret_cast<u64>(platform::Break));
+                call(rax);
+
+                mov(r9, ptr[rbp + 32]);
+                mov(r8, ptr[rbp + 24]);
+                mov(rdx, ptr[rbp + 16]);
+                mov(rcx, ptr[rbp + 8]);
+
+                break;
+            }
             default:
                 hydra_trap("Unknown inst");
             }

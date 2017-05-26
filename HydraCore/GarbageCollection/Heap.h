@@ -127,18 +127,7 @@ public:
         {
             hydra_assert(obj->IsInUse(),
                 "can only remember living objects");
-
-            u8 currentGCState = obj->GetGCState();
-
-            if (currentGCState == GCState::GC_WHITE)
-            {
-                SetGCStateAndWorkingQueueEnqueue(obj);
-            }
-            else if (currentGCState == GCState::GC_DARK &&
-                GCCurrentPhase.load() == GCPhase::GC_FULL_MARK)
-            {
-                SetGCStateAndWorkingQueueEnqueue(obj);
-            }
+            SetGCStateAndWorkingQueueEnqueue(obj);
         }
     }
 
@@ -182,7 +171,25 @@ public:
 
     inline void WriteBarrier(HeapObject *target, HeapObject *ref)
     {
-        if (ref && ref->GetGCState() == GCState::GC_WHITE)
+        if (!ref)
+        {
+            return;
+        }
+
+        hydra_assert(ref->IsInUse(), "ref must be in use");
+
+        if (ref->GetGCState() == GCState::GC_WHITE)
+        {
+            u8 targetGCState = target->GetGCState();
+            if (targetGCState == GCState::GC_DARK || targetGCState == GCState::GC_BLACK)
+            {
+                SetGCStateAndWorkingQueueEnqueue(target);
+            }
+            return;
+        }
+
+        auto phase = GCCurrentPhase.load();
+        if (phase == GCPhase::GC_FULL_MARK && ref->GetGCState() == GCState::GC_DARK)
         {
             u8 targetGCState = target->GetGCState();
             if (targetGCState == GCState::GC_DARK || targetGCState == GCState::GC_BLACK)
@@ -239,6 +246,7 @@ private:
     std::atomic<size_t> RegionSizeAfterLastFullGC;
 
     std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> FreeLists;
+    std::array<concurrent::ForwardLinkedList<Region>, LEVEL_NR> RemarkingLists;
     concurrent::ForwardLinkedList<Region> FullList;
     concurrent::ForwardLinkedList<Region> CleaningList;
     concurrent::ForwardLinkedList<Region> FullCleaningList;
@@ -261,6 +269,7 @@ private:
     std::shared_mutex WaitingMutex;
     std::condition_variable_any WakeupCV;
     std::atomic<size_t> WaitingThreadsCount;
+    std::shared_mutex RemarkMutex;
 
     std::mutex ShouldGCMutex;
     std::condition_variable ShouldGCCV;

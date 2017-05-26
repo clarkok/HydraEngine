@@ -22,7 +22,6 @@ size_t Region::YoungSweep()
         {
             hydra_assert(cell->IsInUse(),
                 "All objects must be in use");
-
             hydra_assert(cell->GetGCState() == GCState::GC_WHITE,
                 "All objects in Region should be WHITE");
             cell->~Cell();
@@ -75,20 +74,14 @@ size_t Region::FullSweep()
             (Cell::CellGetGCState(currentProperty) == GCState::GC_WHITE ||
              Cell::CellGetGCState(currentProperty) == GCState::GC_DARK))
         {
-            // can be grey here
             cell->~Cell();
             FreeHead = new (cell)EmptyCell(FreeHead);
         }
         else if (Cell::CellIsInUse(currentProperty))
         {
-            auto gcState = cell->GetGCState();
-            while (gcState == GCState::GC_BLACK)
-            {
-                if (cell->TrySetGCState(gcState, GCState::GC_DARK))
-                {
-                    break;
-                }
-            }
+            // can be grey here
+            /*
+            */
             oldObjectCount++;
         }
         else
@@ -105,6 +98,25 @@ size_t Region::FullSweep()
     }
 
     return oldObjectCount;
+}
+
+void Region::RemarkBlockObject()
+{
+    for (auto cell : *this)
+    {
+        auto currentProperty = cell->GetProperty();
+        if (Cell::CellIsInUse(currentProperty) && Cell::CellGetGCState(currentProperty) == GCState::GC_BLACK)
+        {
+            u8 gcState = GCState::GC_BLACK;
+            while (gcState == GCState::GC_BLACK)
+            {
+                if (cell->TrySetGCState(gcState, GCState::GC_DARK))
+                {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 Region::Region(size_t level)

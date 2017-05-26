@@ -299,6 +299,9 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                         }
                     }
                     break;
+                case DEBUGGER:
+                    inst.reset(new ir::Debugger());
+                    break;
                 case JUMP:
                     reader.Uint(placeHolder);
                     break;
@@ -551,6 +554,8 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                     }
                     break;
                 }
+                case DEBUGGER:
+                    break;
                 default:
                     hydra_trap("Internal");
                 }

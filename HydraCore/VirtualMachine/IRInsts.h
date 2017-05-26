@@ -114,6 +114,8 @@ enum INSTS
     MOVE = 82,          // <other>
 
     PHI = 90,           // <num> [<branch> <value>]
+
+    DEBUGGER = 100,
 };
 
 namespace ir
@@ -439,6 +441,11 @@ struct Phi : public IRInst
 {
     DECL_INST(PHI)
     std::list<std::pair<IRBlock::Ref, Ref>> Branches;
+};
+
+struct Debugger : public IRInst
+{
+    DECL_INST(DEBUGGER)
 };
 
 } // namespace ir

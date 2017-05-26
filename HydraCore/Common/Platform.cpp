@@ -62,6 +62,11 @@ MappedFile::~MappedFile()
     CloseHandle(File);
 }
 
+void Break()
+{
+    DebugBreak();
+}
+
 #endif
 
 } // namespace platform

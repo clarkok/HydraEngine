@@ -57,14 +57,14 @@ void GCScheduler::OnFullGCStart()
 {
     History.Push(EventType::E_FULL_GC_START);
     RegionCountBeforeLastFullGC = RegionCountBeforeFullGC;
-    RegionCountBeforeFullGC = Owner->GetFullCleaningRegionCount();
+    RegionCountBeforeFullGC = Region::GetTotalRegionCount();
     FullGCStart = std::chrono::high_resolution_clock::now();
 }
 
 void GCScheduler::OnFullGCEnd()
 {
     History.Push(EventType::E_FULL_GC_END);
-    RegionCountAfterLastFullGC = Owner->GetFullCleaningRegionCount();
+    RegionCountAfterLastFullGC = Region::GetTotalRegionCount();
 
     auto timeElapsed = std::chrono::duration_cast<Duration>(
             std::chrono::high_resolution_clock::now() - FullGCStart);
@@ -114,7 +114,7 @@ bool GCScheduler::ShouldFullGC()
 {
     size_t currentRegionCount = Owner->GetFullCleaningRegionCount();
 
-    if (!currentRegionCount)
+    if (currentRegionCount < MINIMUN_FULL_REGION_TO_START_FULL_GC)
     {
         return false;
     }
@@ -127,21 +127,18 @@ bool GCScheduler::ShouldFullGC()
     double RegionCountToFullGCByIncrement = RegionCountAfterLastFullGC * FULL_GC_TRIGGER_FACTOR_BY_INCREMENT;
     double SecondsForAllocationByIncrement = (RegionCountToFullGCByIncrement - currentRegionCount) / RegionOldFulledPerSecond;
 
-    double RegionCountToFullGCByLast = static_cast<double>(RegionCountBeforeLastFullGC);
-    double SecondsForAllocationByLast = (RegionCountToFullGCByLast - currentRegionCount) / RegionOldFulledPerSecond;
-
     double SecondsForFullGC = currentRegionCount / RegionProcessedInFullGCPerSecond;
 
-    bool ret = (SecondsForFullGC + GC_SCHEDULER_FULL_GC_ADVANCE_IN_SECOND >= SecondsForAllocationByIncrement) ||
-        (SecondsForFullGC >= SecondsForAllocationByLast);
+    bool ret = (SecondsForFullGC + GC_SCHEDULER_FULL_GC_ADVANCE_IN_SECOND >= SecondsForAllocationByIncrement);
 
+    /*
     if (ret)
     {
+    */
         Logger::GetInstance()->Log() << "Predict full gc: "
             << "[NextFullGCTime: " << (SecondsForFullGC * 1000) << "ms] "
-            << "[AllocateToIncrement: " << (SecondsForAllocationByIncrement * 1000) << "ms] "
-            << "[AllocateTolast: " << (SecondsForAllocationByLast * 1000) << "ms]";
-    }
+            << "[AllocateToIncrement: " << (SecondsForAllocationByIncrement * 1000) << "ms]";
+    //}
 
     return ret;
 }

@@ -58,6 +58,8 @@ inline std::string GetDirectoryOfPath(std::string fullPath);
 
 class MappedFile;
 
+void Break();
+
 #ifdef _MSC_VER
 
 inline void *AlignedAlloc(size_t size, size_t alignment)

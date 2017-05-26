@@ -160,6 +160,7 @@ public:
 
     size_t YoungSweep();
     size_t FullSweep();
+    void RemarkBlockObject();
 
     inline iterator begin()
     {

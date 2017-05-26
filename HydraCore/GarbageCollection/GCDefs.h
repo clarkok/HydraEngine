@@ -23,12 +23,14 @@ constexpr size_t LEVEL_NR = MAXIMAL_ALLOCATE_SIZE_LEVEL - MINIMAL_ALLOCATE_SIZE_
 constexpr auto GC_CHECK_INTERVAL = 20ms;
 constexpr auto GC_TOLERANCE = 5ms;
 
-constexpr size_t GC_WORKER_MAX_NR = 8;
+constexpr size_t GC_WORKER_MAX_NR = 1;
 
 constexpr size_t GC_WORKER_BALANCE_FACTOR = 128;
 
 constexpr size_t MAXIMUM_HEAP_SIZE = 1024 * 1024 * 1024;    // 1GB
 constexpr size_t MAXIMUM_REGION_COUNT = MAXIMUM_HEAP_SIZE / REGION_SIZE;
+
+constexpr size_t MINIMUN_FULL_REGION_TO_START_FULL_GC = 10;
 
 constexpr double FULL_GC_TRIGGER_FACTOR_BY_INCREMENT = 2;
 constexpr double FULL_GC_TRIGGER_FACTOR_BY_HEAP_SIZE = 0.7;

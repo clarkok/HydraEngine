@@ -10,14 +10,24 @@ namespace runtime
 
 JSObject *JSValue::Object() const
 {
-    return dynamic_cast<JSObject*>(
-        reinterpret_cast<gc::HeapObject*>(GetLast48Bit()));
+    auto cell = reinterpret_cast<gc::Cell*>(GetLast48Bit());
+    auto object = dynamic_cast<JSObject*>(cell);
+
+    hydra_assert(object || !cell,
+        "dynamic_cast failed");
+
+    return object;
 }
 
 String *JSValue::String() const
 {
-    return dynamic_cast<runtime::String*>(
-        reinterpret_cast<gc::HeapObject*>(GetLast48Bit()));
+    auto cell = reinterpret_cast<gc::Cell*>(GetLast48Bit());
+    auto string = dynamic_cast<runtime::String*>(cell);
+
+    hydra_assert(string || !cell,
+        "dynamic_cast failed");
+
+    return string;
 }
 
 } // namespace runtime

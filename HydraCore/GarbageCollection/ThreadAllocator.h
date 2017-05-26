@@ -147,11 +147,31 @@ public:
                 Owner->ReportedThreads.fetch_add(1);
             }
 
+            checkpointPerf.Phase("Report");
+            std::shared_lock<std::shared_mutex> remarkingLock(Owner->RemarkMutex);
+
             {
                 std::shared_lock<std::shared_mutex> waitingLock(Owner->WaitingMutex);
                 AutoCounter<size_t> autoWaitingThreadCount(Owner->WaitingThreadsCount);
                 Owner->WakeupCV.wait(RunningLock,
                     [this]() { return !Owner->PauseRequested.load(); });
+            }
+
+            checkpointPerf.Phase("Wakeup");
+
+            if (currentGCPhase == Heap::GCPhase::GC_FULL_MARK ||
+                currentGCPhase == Heap::GCPhase::GC_FULL_FINISH_MARK ||
+                currentGCPhase == Heap::GCPhase::GC_FULL_SWEEP)
+            {
+                for (auto &region : LocalPool)
+                {
+                    if (region)
+                    {
+                        region->RemarkBlockObject();
+                    }
+                }
+
+                checkpointPerf.Phase("Remark");
             }
         }
     }
