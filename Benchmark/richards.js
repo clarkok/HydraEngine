@@ -89,6 +89,8 @@ let STATE_NOT_HELD = ~STATE_HELD;
  * operating system.
  **/
 function runRichards() {
+  debugger;
+
   let scheduler = new Scheduler();
   scheduler.addIdleTask(ID_IDLE, 0, null, COUNT);
 
@@ -111,6 +113,8 @@ function runRichards() {
   scheduler.addDeviceTask(ID_DEVICE_B, 5000, null);
 
   scheduler.schedule();
+
+  __write("richards");
 
   if (scheduler.queueCount != EXPECTED_QUEUE_COUNT ||
       scheduler.holdCount != EXPECTED_HOLD_COUNT) {

@@ -1126,6 +1126,7 @@ function CompileStatement(node, func, last, scope)
 
             }
         case 'DebuggerStatement':
+            last.Debugger();
             break;
         case 'DoWhileStatement':
             {

@@ -75,6 +75,8 @@ const Insts =
 
     PHI : 90,           // <num> [<branch> <value>]
 
+    DEBUGGER : 100,
+
     InstToString(inst, func) {
         if (inst.name === null)
         {
@@ -197,6 +199,8 @@ const Insts =
                 return ret + `$${inst.name}\t= $${inst.$other.name}`;
             case Insts.PHI:
                 return ret + `$${inst.name}\t= phi ` + inst.branches.map((b) => `[blk_${b.precedence.index} $${b.$value.name}]`).join(' ')
+            case Insts.DEBUGGER:
+                return ret + `\t  debugger`;
 
             default:
                 throw TypeError(`Invalid Inst type ${inst.type}`);
@@ -360,6 +364,8 @@ const Insts =
                     writer.uint(b.precedence.index);
                     writer.uint(b.$value.__offset);
                 }
+                break;
+            case Insts.DEBUGGER:
                 break;
 
             default:
@@ -704,6 +710,15 @@ class BlockBuilder
                 name,
                 type : Insts.PHI,
                 branches
+            });
+    }
+
+    Debugger(name = null)
+    {
+        return this.PushInst(
+            {
+                name,
+                type : Insts.DEBUGGER
             });
     }
 

@@ -35,7 +35,7 @@ int main()
 
     size_t round = 0;
 
-    std::array<TestHeapObject *, 10> headers;
+    std::array<gc::Cell *, 100> headers;
     std::fill(headers.begin(), headers.end(), nullptr);
 
     while (true)
@@ -51,28 +51,6 @@ int main()
         while (count--)
         {
             head = allocator.AllocateAuto<TestHeapObject>(head);
-            /*
-            hydra::ThreadAllocatorTester::ThreadScan();
-            hydra_assert(head->GetGCState() != gc::GCState::GC_WHITE,
-                "must be scanned");
-            /*
-            head = allocator.Allocate<TestHeapObject>([&]()
-            {
-                auto heap = gc::Heap::GetInstance();
-
-                for (auto &header : headers)
-                {
-                    if (header)
-                    {
-                        heap->Remember(header);
-                    }
-                }
-                if (head)
-                {
-                    heap->Remember(head);
-                }
-            }, head);
-            */
         }
 
         TestHeapObject *ptr = head;
@@ -86,11 +64,28 @@ int main()
             lastId = ptr->Id;
             count++;
         }
-
-        headers[round % 10] = head;
-        // headers[0] = head;
-
         hydra_assert(count == 1000, "Count should match");
+
+        headers[round % headers.size()] = head;
+        for (auto header : headers)
+        {
+            if (!header) { continue; }
+
+            TestHeapObject *ptr = dynamic_cast<TestHeapObject*>(header);
+            hydra_assert(ptr, "dynamic_cast failed");
+
+            size_t lastId = ptr->Id;
+            count = 1;
+            while (ptr->Ref1)
+            {
+                ptr = ptr->Ref1;
+                hydra_assert(ptr->Id == lastId - 1,
+                    "Id should match");
+                lastId = ptr->Id;
+                count++;
+            }
+            hydra_assert(count == 1000, "Count should match");
+        }
 
         if (round % 100 == 0)
         {
