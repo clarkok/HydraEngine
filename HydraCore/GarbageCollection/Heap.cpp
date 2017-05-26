@@ -46,6 +46,11 @@ void Heap::CommitFullRegion(Region *&region)
     region = GetFreeRegion(level);
 }
 
+void Heap::WriteBarrierStatic(Heap *heap, HeapObject *target, HeapObject *ref)
+{
+    heap->WriteBarrier(target, ref);
+}
+
 void Heap::StopTheWorld()
 {
     if (!PauseRequested.exchange(true))

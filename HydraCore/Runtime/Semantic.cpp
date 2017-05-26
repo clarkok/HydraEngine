@@ -495,23 +495,8 @@ bool ObjectGetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValu
         u64 offset = index * 16 + 8 + Array::OffsetTable();
 
         u8 *memory = reinterpret_cast<u8*>(fixup);
-        memory[2] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[3] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[4] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[5] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[6] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[7] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[8] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[9] = (klassU64 & 0xFF);  klassU64 >>= 8;
-
-        memory[18] = (offset & 0xFF);   offset >>= 8;
-        memory[19] = (offset & 0xFF);   offset >>= 8;
-        memory[20] = (offset & 0xFF);   offset >>= 8;
-        memory[21] = (offset & 0xFF);   offset >>= 8;
-        memory[22] = (offset & 0xFF);   offset >>= 8;
-        memory[23] = (offset & 0xFF);   offset >>= 8;
-        memory[24] = (offset & 0xFF);   offset >>= 8;
-        memory[25] = (offset & 0xFF);   offset >>= 8;
+        std::memcpy(memory + 2, &klassU64, 8);
+        std::memcpy(memory + 18, &offset, 8);
 
         return true;
     }
@@ -574,23 +559,8 @@ bool ObjectSetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValu
         u64 offset = index * 16 + 8 + Array::OffsetTable();
 
         u8 *memory = reinterpret_cast<u8*>(fixup);
-        memory[2] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[3] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[4] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[5] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[6] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[7] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[8] = (klassU64 & 0xFF);  klassU64 >>= 8;
-        memory[9] = (klassU64 & 0xFF);  klassU64 >>= 8;
-
-        memory[18] = (offset & 0xFF);   offset >>= 8;
-        memory[19] = (offset & 0xFF);   offset >>= 8;
-        memory[20] = (offset & 0xFF);   offset >>= 8;
-        memory[21] = (offset & 0xFF);   offset >>= 8;
-        memory[22] = (offset & 0xFF);   offset >>= 8;
-        memory[23] = (offset & 0xFF);   offset >>= 8;
-        memory[24] = (offset & 0xFF);   offset >>= 8;
-        memory[25] = (offset & 0xFF);   offset >>= 8;
+        std::memcpy(memory + 2, &klassU64, 8);
+        std::memcpy(memory + 22, &offset, 8);
 
         return true;
     }

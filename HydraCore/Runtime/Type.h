@@ -173,10 +173,7 @@ struct JSValue
         return FromLast48Bit(Type::T_SYMBOL, value);
     }
 
-    inline String *String() const
-    {
-        return reinterpret_cast<runtime::String *>(GetLast48Bit());
-    }
+    String *String() const;
 
     inline static JSValue FromString(runtime::String *value)
     {
@@ -186,10 +183,7 @@ struct JSValue
         return FromLast48Bit(Type::T_STRING, reinterpret_cast<uintptr_t>(value));
     }
 
-    inline JSObject *Object() const
-    {
-        return reinterpret_cast<runtime::JSObject *>(GetLast48Bit());
-    }
+    JSObject *Object() const;
 
     inline static JSValue FromObject(JSObject *value)
     {

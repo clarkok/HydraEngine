@@ -192,19 +192,53 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rbx, rax);
                     shr(rbx, 48);
                     cmp(rbx, 0xFFFA);
-                    jne(".slowPath");
+                    jne(".slowPath", T_NEAR);
 
                     // detect cached
                     and(rax, r15);
                     L(".cached");
                     mov(rbx, (u64)(0x0123456789ABCDEFull));
                     cmp(rbx, ptr[rax + runtime::JSObject::OffsetKlass()]);
-                    jne(".slowPath");
+                    jne(".slowPath", T_NEAR);
 
                     mov(rbx, (u64)(0x0123456789ABCDEFull));
                     mov(rax, ptr[rax + runtime::JSObject::OffsetTable()]);
                     LOAD_REG(r10, inst->As<ir::SetItem>()->_Value);
                     mov(ptr[rax + rbx], r10);
+
+                    mov(rax, r10);
+                    shr(rax, 48);
+                    cmp(rax, 0xFFFA);   // object
+                    je(".writeBarrier");
+
+                    mov(rax, r10);
+                    shr(rax, 48);
+                    cmp(rax, 0xFFFB);   // string
+                    je(".writeBarrier");
+
+                    jmp(".finish", T_NEAR);
+
+                    L(".writeBarrier");
+                    // ref
+                    and(r10, r15);
+                    mov(r8, r10);
+
+                    // target
+                    LOAD_REG(rax, inst->As<ir::SetItem>()->_Obj);
+                    and(rax, r15);
+                    mov(rdx, rax);
+
+                    // this
+                    mov(rcx, reinterpret_cast<u64>(gc::Heap::GetInstance()));
+
+                    mov(rax, reinterpret_cast<u64>(gc::Heap::WriteBarrierStatic));
+                    call(rax);
+
+                    mov(r9, ptr[rbp + 32]);
+                    mov(r8, ptr[rbp + 24]);
+                    mov(rdx, ptr[rbp + 16]);
+                    mov(rcx, ptr[rbp + 8]);
+
                     jmp(".finish");
 
                     L(".slowPath");

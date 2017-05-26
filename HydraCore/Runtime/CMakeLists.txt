@@ -19,4 +19,5 @@ add_library(HydraCore.Runtime OBJECT
     String.cpp
     String.h
     Type.h
+    Type.cpp
 )

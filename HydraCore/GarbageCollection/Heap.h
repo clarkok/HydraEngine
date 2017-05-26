@@ -192,6 +192,8 @@ public:
         }
     }
 
+    static void WriteBarrierStatic(Heap *heap, HeapObject *target, HeapObject *ref);
+
     void StopTheWorld();
     void ResumeTheWorld();
 
