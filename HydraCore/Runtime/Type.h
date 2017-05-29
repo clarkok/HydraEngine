@@ -205,6 +205,12 @@ struct JSValue
         return type == Type::T_STRING || type == Type::T_OBJECT;
     }
 
+    inline bool IsUndefined() const
+    {
+        auto type = Type();
+        return type == Type::T_UNDEFINED || type == Type::T_NOT_EXISTS;
+    }
+
     inline JSValue *VarRef()
     {
         return reinterpret_cast<runtime::JSValue *>(GetLast48Bit());

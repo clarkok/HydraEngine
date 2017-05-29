@@ -8,8 +8,11 @@
 #include "VirtualMachine/IRInsts.h"
 #include "VirtualMachine/CompiledFunction.h"
 
+#include "Common/ThreadPool.h"
+
 #include <cmath>
 #include <iostream>
+#include <queue>
 
 namespace hydra
 {
@@ -44,9 +47,12 @@ namespace semantic
     def(u"string", STRING)              \
     def(u"object", _OBJECT)             \
     def(u"__write", __WRITE)            \
+    def(u"__random", __RANDOM)          \
+    def(u"__parallel", __PARALLEL)      \
     def(u"name", NAME)                  \
     def(u"dirname", DIRNAME)            \
     def(u"isArray", IS_ARRAY)           \
+    def(u"slice", SLICE)                \
 
 
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
@@ -56,6 +62,8 @@ static bool lib_Array(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *
 static bool lib_Array_IsArray(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 static bool lib_Array_IsArraySafe(JSValue value);
 static void InitializeArray(gc::ThreadAllocator &allocator);
+
+static bool lib___parallel(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error);
 
 namespace strs
 {
@@ -221,10 +229,32 @@ void Initialize()
             String::Print(retVal.String());
         }
         String::Println(String::Empty(allocator));
+
+        js_return(JSValue());
     });
 
     result = ObjectSetSafeObject(allocator, Global, strs::__WRITE, JSValue::FromObject(__write), error);
+
     hydra_assert(result, "Error on setting global.__write");
+
+    auto __random = NewNativeFunc(allocator, [](gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) -> bool
+    {
+        double randVal = std::rand();
+        js_return(JSValue::FromNumber(randVal / RAND_MAX));
+    });
+
+    result = ObjectSetSafeObject(allocator, Global, strs::__RANDOM, JSValue::FromObject(__random), error);
+
+    hydra_assert(result, "Error on setting global.__random");
+
+    result = ObjectSetSafeObject(
+        allocator,
+        Global,
+        strs::__PARALLEL,
+        JSValue::FromObject(NewNativeFunc(allocator, lib___parallel)),
+        error);
+
+    hydra_assert(result, "Error on setting global.__parallel");
 }
 
 JSObject *NewEmptyObjectSafe(gc::ThreadAllocator &allocator)
@@ -664,6 +694,7 @@ bool ObjectGetSafeObjectInternal(
         {
             gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.ToReference());
         }
+        return true;
     }
     else
     {
@@ -2051,12 +2082,60 @@ static bool lib_Array_prototype_length_get(gc::ThreadAllocator &allocator, JSVal
     js_return(JSValue::FromSmallInt(dynamic_cast<JSArray*>(thisArg.Object())->GetLength()));
 }
 
-static bool lib_Array_prototype_push(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
+static bool lib_Array_prototype_slice(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
 {
     if (!lib_Array_IsArraySafe(thisArg))
     {
         js_throw_error(TypeError, "this is not an array");
     }
+
+    JSArray *arr = dynamic_cast<JSArray*>(thisArg.Object());
+
+    JSValue startVal;
+    JSValue endVal;
+
+    if (!ObjectGetSafeArray(allocator, arguments, 0, startVal, error))
+    {
+        return false;
+    }
+
+    if (!ObjectGetSafeArray(allocator, arguments, 1, endVal, error))
+    {
+        return false;
+    }
+
+    i64 start = (startVal.IsUndefined() ? 0 : startVal.SmallInt()),
+        end = (endVal.IsUndefined() ? arr->GetLength() : endVal.SmallInt());
+
+    while (start < 0)
+    {
+        start += arr->GetLength();
+    }
+
+    while (end < 0)
+    {
+        end += arr->GetLength();
+    }
+
+    if (end < start)
+    {
+        js_return_obj(NewArrayInternal(allocator));
+    }
+
+    size_t newLength = end - start;
+    JSArray *ret = NewArrayInternal(allocator, newLength);
+
+    for (size_t i = start; i < end; ++i)
+    {
+        JSValue val;
+if (!ObjectGetSafeArray(allocator, arr, i, val, error))
+{
+    return false;
+}
+ret->Set(allocator, i - start, val);
+    }
+
+    js_return_obj(ret);
 }
 
 static void InitializeArray(gc::ThreadAllocator &allocator)
@@ -2077,6 +2156,109 @@ static void InitializeArray(gc::ThreadAllocator &allocator)
         Array_prototype->Set(allocator, strs::LENGTH, pair,
             JSObjectPropertyAttribute::HAS_VALUE | JSObjectPropertyAttribute::IS_ENUMERABLE_MASK);
     }
+
+    // Array.prototype.slice
+    {
+        Array_prototype->Set(allocator,
+            strs::SLICE,
+            JSValue::FromObject(NewNativeFunc(allocator, lib_Array_prototype_slice)));
+    }
+}
+
+static bool lib___parallel(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
+{
+    auto taskRunner = [](JSFunction *func, JSValue *retVal, JSValue *error) -> bool
+    {
+        gc::ThreadAllocator allocator(gc::Heap::GetInstance());
+
+        JSArray *arguments = NewArrayInternal(allocator);
+        return func->Call(allocator, JSValue(), arguments, *retVal, *error);
+    };
+
+    auto heap = gc::Heap::GetInstance();
+    auto threadPool = ThreadPool::GetInstance();
+
+    JSValue tasksArray;
+    if (!ObjectGetSafeArray(allocator, arguments, 0, tasksArray, error))
+    {
+        return false;
+    }
+
+    if (!lib_Array_IsArraySafe(tasksArray))
+    {
+        js_throw_error(TypeError, "not an array");
+    }
+
+    JSArray *tasks = dynamic_cast<JSArray*>(tasksArray.Object());
+    RangeArray *tasksFunc = RangeArray::New(allocator, tasks->GetLength());
+    RangeArray *results = RangeArray::New(allocator, tasks->GetLength());
+    RangeArray *errors = RangeArray::New(allocator, tasks->GetLength());
+    bool anyError = false;
+
+    std::vector<std::future<bool>> futures(tasks->GetLength());
+
+    for (size_t i = 0; i < tasks->GetLength(); ++i)
+    {
+        JSValue taskFunc;
+        if (!ObjectGetSafeArray(allocator, tasks, i, taskFunc, error))
+        {
+            return false;
+        }
+
+        if (dynamic_cast<JSFunction*>(taskFunc.Object()) == nullptr)
+        {
+            js_throw_error(TypeError, "not an function");
+        }
+
+        tasksFunc->at(i) = taskFunc;
+        heap->WriteBarrier(tasksFunc, taskFunc.Object());
+    }
+
+    allocator.SetInactive();
+
+    size_t waiting = 0;
+    for (size_t i = 0; i < tasksFunc->GetLength(); ++i)
+    {
+        if ((i - waiting) >= std::thread::hardware_concurrency())
+        {
+            if (!futures[waiting++].get())
+            {
+                anyError = true;
+            }
+        }
+
+        futures[i] = threadPool->Dispatch<bool>(
+            taskRunner,
+            dynamic_cast<JSFunction*>(tasksFunc->at(i).Object()),
+            &(results->at(i)),
+            &(errors->at(i)));
+    }
+
+    for (; waiting < futures.size(); ++waiting)
+    {
+        if (!futures[waiting].get())
+        {
+            anyError = true;
+        }
+    }
+
+    allocator.SetActive();
+
+    if (anyError)
+    {
+        hydra_trap("error parallel");
+    }
+
+    JSArray *result = NewArrayInternal(allocator, results->GetLength());
+    for (size_t i = 0; i < results->GetLength(); ++i)
+    {
+        if (!ObjectSetSafeArray(allocator, result, i, results->at(i), error))
+        {
+            return false;
+        }
+    }
+
+    js_return_obj(result);
 }
 
 } // namespace semantic

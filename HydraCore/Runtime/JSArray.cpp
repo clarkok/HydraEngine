@@ -155,7 +155,7 @@ void JSArray::SetSlowInternal(
 
         if (value.IsReference())
         {
-            heap->WriteBarrier(this, value.ToReference());
+            heap->WriteBarrier(TablePart, value.ToReference());
         }
     }
     else

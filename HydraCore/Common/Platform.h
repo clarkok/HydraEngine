@@ -113,6 +113,36 @@ void ForeachWordOnStack(T_callback callback)
     }
 }
 
+struct StackState
+{
+    u64 low;
+    u64 high;
+};
+
+static inline StackState GetCurrentStackState()
+{
+    CONTEXT threadContext;
+    RtlCaptureContext(&threadContext);
+
+    u64 low = 0, high = 0;
+    GetCurrentThreadStackLimits(&low, &high);
+
+    hydra_assert(reinterpret_cast<uintptr_t>(&threadContext) >= threadContext.Rsp &&
+        reinterpret_cast<uintptr_t>(&threadContext) < high,
+        "threadContext must in stack");
+
+    return StackState{ threadContext.Rsp, high };
+}
+
+template <typename T_callback>
+void ForeachWordOnStackWithState(StackState state, T_callback callback)
+{
+    for (uintptr_t ptr = state.low; ptr < state.high; ptr += sizeof(void*))
+    {
+        callback(reinterpret_cast<void**>(ptr));
+    }
+}
+
 class MappedFile
 {
 public:

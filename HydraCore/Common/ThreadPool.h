@@ -18,7 +18,7 @@ namespace hydra
 class ThreadPool : public Singleton<ThreadPool>
 {
 public:
-    ThreadPool(size_t threadCount = std::thread::hardware_concurrency());
+    ThreadPool(size_t threadCount = std::thread::hardware_concurrency() * 2);
     ~ThreadPool();
 
     inline size_t GetLivingThreadCount()

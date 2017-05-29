@@ -107,11 +107,28 @@ public:
     {
         if (Active.exchange(false))
         {
+            {
+                std::unique_lock<std::mutex> lck(InactiveSetsMutex);
+                InactiveSets.insert(this);
+            }
+
+            for (auto &region : LocalPool)
+            {
+                if (region)
+                {
+                    Owner->FeedbackInactiveRegion(region);
+                    region = nullptr;
+                }
+            }
+
             reportFunc();
+            ReporterFunction = reportFunc;
             Owner->TotalThreads.fetch_add(-1, std::memory_order_relaxed);
             RunningLock.unlock();
         }
     }
+
+    void SetInactive();
 
     inline void SetActive()
     {
@@ -119,6 +136,10 @@ public:
         {
             Owner->TotalThreads.fetch_add(1, std::memory_order_relaxed);
             RunningLock.lock();
+            {
+                std::unique_lock<std::mutex> lck(InactiveSetsMutex);
+                InactiveSets.erase(this);
+            }
         }
     }
 
@@ -176,14 +197,22 @@ public:
         }
     }
 
+    static void Initialize();
+
 private:
     Heap *Owner;
     std::array<Region *, LEVEL_NR> LocalPool;
     size_t ReportedGCRound;
     std::shared_lock<std::shared_mutex> RunningLock;
     std::atomic<bool> Active;
+    std::function<void()> ReporterFunction;
 
     static void ThreadScan();
+    static void ScanWordOnStack(void **stackPtr);
+    static void ScanAllInactiveThreads(std::function<void(gc::HeapObject *)> scan);
+
+    static std::set<ThreadAllocator *> InactiveSets;
+    static std::mutex InactiveSetsMutex;
 
     friend class hydra::ThreadAllocatorTester;
 };

@@ -23,7 +23,7 @@ constexpr size_t LEVEL_NR = MAXIMAL_ALLOCATE_SIZE_LEVEL - MINIMAL_ALLOCATE_SIZE_
 constexpr auto GC_CHECK_INTERVAL = 20ms;
 constexpr auto GC_TOLERANCE = 5ms;
 
-constexpr size_t GC_WORKER_MAX_NR = 1;
+constexpr size_t GC_WORKER_MAX_NR = 8;
 
 constexpr size_t GC_WORKER_BALANCE_FACTOR = 128;
 

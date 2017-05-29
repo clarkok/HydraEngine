@@ -74,7 +74,7 @@ struct IRFunc
 
     std::atomic<CompiledFunction *> Compiled;
 
-    std::future<CompiledFunction *> BaselineFuture;
+    std::shared_future<CompiledFunction *> BaselineFuture;
 
     std::unique_ptr<CompiledFunction> BaselineFunction;
     std::unique_ptr<CompiledFunction> OptimizedFunction;

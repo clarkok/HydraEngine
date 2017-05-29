@@ -1107,7 +1107,7 @@ function CompileStatement(node, func, last, scope)
                             popCount = 0;
                         }
 
-                        FeedbackLoopVar(currentScope.LoopVars, last);
+                        FeedbackLoopVar(currentScope.loopVars, last);
                     }
 
                     currentScope = currentScope.upper;

@@ -228,6 +228,11 @@ public:
         RootScanFunc.push_back(scanFunc);
     }
 
+    inline void FeedbackInactiveRegion(Region *region)
+    {
+        FreeLists[region->Level].Push(region);
+    }
+
 private:
     enum class GCPhase
     {

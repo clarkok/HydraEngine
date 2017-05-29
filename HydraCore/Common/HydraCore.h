@@ -50,9 +50,7 @@ struct Exception : std::exception
 {
     std::string What;
 
-    Exception(std::string what)
-        : std::exception(), What(what)
-    { }
+    Exception(std::string what);
 
     virtual const char *what() const noexcept override
     {
