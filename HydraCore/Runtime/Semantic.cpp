@@ -246,12 +246,14 @@ JSObject *NewEmptyObjectSafe(gc::ThreadAllocator &allocator)
 bool NewEmptyObject(gc::ThreadAllocator &allocator, JSValue &retVal, JSValue &error)
 {
     retVal = JSValue::FromObject(NewEmptyObjectSafe(allocator));
+    gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.Object());
     return true;
 }
 
 bool NewObjectWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRInst *inst, JSValue &retVal, JSValue &error)
 {
     retVal = JSValue::FromObject(NewEmptyObjectSafe(allocator));
+    gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.Object());
 
     for (auto &pair : inst->As<vm::ir::Object>()->Initialization)
     {
@@ -299,7 +301,7 @@ bool NewObjectSafe(gc::ThreadAllocator &allocator,
         return true;
     }
 
-    js_return(JSValue::FromObject(ret));
+    js_return_obj(ret);
 }
 
 bool NewObject(gc::ThreadAllocator &allocator, JSValue constructor, JSArray *arguments, JSValue &retVal, JSValue &error)
@@ -360,6 +362,7 @@ bool NewArrayWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
 {
     auto ret = NewArrayInternal(allocator, inst->As<vm::ir::Array>()->Initialization.size());
     retVal = JSValue::FromObject(ret);
+    gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.Object());
 
     size_t index = 0;
     for (auto &ref : inst->As<vm::ir::Array>()->Initialization)
@@ -421,6 +424,7 @@ bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIns
     auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, scope, captured, funcInst->FuncPtr);
     InitializeFunction(allocator, ret);
     retVal = JSValue::FromObject(ret);
+    gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.Object());
 
     return true;
 }
@@ -442,6 +446,7 @@ bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
     auto ret = emptyObjectKlass->NewObject<JSCompiledArrowFunction>(allocator, scope, captured, funcInst->FuncPtr);
     InitializeFunction(allocator, ret);
     retVal = JSValue::FromObject(ret);
+    gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.Object());
 
     return true;
 }
@@ -484,6 +489,10 @@ bool ObjectGetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValu
 
         JSObjectPropertyAttribute attribute;
         obj->GetIndex(index, retVal, attribute);
+        if (retVal.IsReference())
+        {
+            gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.ToReference());
+        }
 
         if (!attribute.IsData())
         {
@@ -496,7 +505,7 @@ bool ObjectGetAndFixCache(gc::ThreadAllocator &allocator, JSValue object, JSValu
 
         u8 *memory = reinterpret_cast<u8*>(fixup);
         std::memcpy(memory + 2, &klassU64, 8);
-        std::memcpy(memory + 18, &offset, 8);
+        std::memcpy(memory + 22, &offset, 8);
 
         return true;
     }
@@ -649,7 +658,14 @@ bool ObjectGetSafeObjectInternal(
     JSObjectPropertyAttribute &attribute,
     JSValue &error)
 {
-    if (!object->Get(key, retVal, attribute))
+    if (object->Get(key, retVal, attribute))
+    {
+        if (retVal.IsReference())
+        {
+            gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.ToReference());
+        }
+    }
+    else
     {
         JSValue __proto__;
         JSObjectPropertyAttribute __proto__attribute;
@@ -680,7 +696,14 @@ bool ObjectGetSafeObjectInternal(
 bool ObjectGetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, String *key, JSValue &retVal, JSValue &error)
 {
     JSObjectPropertyAttribute attribute;
-    if (!object->Get(key, retVal, attribute))
+    if (object->Get(key, retVal, attribute))
+    {
+        if (retVal.IsReference())
+        {
+            gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.ToReference());
+        }
+    }
+    else
     {
         JSValue __proto__;
         JSObjectPropertyAttribute __proto__attribute;
@@ -715,7 +738,14 @@ bool ObjectGetSafeObject(gc::ThreadAllocator &allocator, JSObject *object, Strin
 bool ObjectGetSafeArray(gc::ThreadAllocator &allocator, JSArray *array, size_t key, JSValue &retVal, JSValue &error)
 {
     JSObjectPropertyAttribute attribute;
-    if (!array->Get(key, retVal, attribute))
+    if (array->Get(key, retVal, attribute))
+    {
+        if (retVal.IsReference())
+        {
+            gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.ToReference());
+        }
+    }
+    else
     {
         retVal = JSValue();
         return true;
@@ -932,26 +962,22 @@ static inline String *NumberToString(gc::ThreadAllocator &allocator, double valu
     return String::New(allocator, str.begin(), str.end());
 }
 
-static inline String *SmallIntToString(gc::ThreadAllocator &allocator, i64 value)
-{
-}
-
 bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JSValue &error)
 {
     switch (JSValue::GetType(value))
     {
     case Type::T_BOOLEAN:
-        js_return(JSValue::FromString(value.Boolean() ? strs::_TRUE : strs::_FALSE));
+        js_return_str(value.Boolean() ? strs::_TRUE : strs::_FALSE);
         break;
     case Type::T_NUMBER:
-        js_return(JSValue::FromString(NumberToString(allocator, value.Number())));
+        js_return_str(NumberToString(allocator, value.Number()));
         break;
     case Type::T_OBJECT:
     {
         JSObject *object = value.Object();
         if (!object)
         {
-            js_return(JSValue::FromString(strs::_NULL));
+            js_return_str(strs::_NULL);
         }
         JSValue toString;
         auto result = ObjectGetSafeObject(allocator, object, strs::TO_STRING, toString, error);
@@ -970,14 +996,14 @@ bool ToString(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal, JS
         break;
     }
     case Type::T_SMALL_INT:
-        js_return(JSValue::FromString(NumberToString(allocator, static_cast<double>(value.SmallInt()))));
+        js_return_str(NumberToString(allocator, static_cast<double>(value.SmallInt())));
         break;
     case Type::T_STRING:
-        js_return(JSValue::FromString(value.String()));
+        js_return_str(value.String());
         break;
     case Type::T_UNDEFINED:
     case Type::T_NOT_EXISTS:
-        js_return(JSValue::FromString(strs::UNDEFINED));
+        js_return_str(strs::UNDEFINED);
         break;
     default:
         hydra_trap("Unknown type");
@@ -1008,7 +1034,7 @@ bool OpAdd(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
     if (typeA == Type::T_STRING && typeB == Type::T_STRING)
     {
         String *concated = String::Concat(allocator, a.String(), b.String());
-        js_return(JSValue::FromString(concated));
+        js_return_str(concated);
     }
 
     if (typeA == Type::T_UNDEFINED || typeA == Type::T_NOT_EXISTS ||
@@ -1026,7 +1052,7 @@ bool OpAdd(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal
         return false;
     }
     String *concated = String::Concat(allocator, a.String(), b.String());
-    js_return(JSValue::FromString(concated));
+    js_return_str(concated);
 }
 
 bool OpSub(gc::ThreadAllocator &allocator, JSValue a, JSValue b, JSValue &retVal, JSValue &error)
@@ -1706,28 +1732,28 @@ bool OpTypeOf(gc::ThreadAllocator &allocator, JSValue a, JSValue &retVal, JSValu
     switch (typeA)
     {
     case hydra::runtime::Type::T_UNDEFINED:
-        js_return(JSValue::FromString(strs::UNDEFINED));
+        js_return_str(strs::UNDEFINED);
         break;
     case hydra::runtime::Type::T_NOT_EXISTS:
-        js_return(JSValue::FromString(strs::UNDEFINED));
+        js_return_str(strs::UNDEFINED);
         break;
     case hydra::runtime::Type::T_BOOLEAN:
-        js_return(JSValue::FromString(strs::_BOOLEAN));
+        js_return_str(strs::_BOOLEAN);
         break;
     case hydra::runtime::Type::T_SMALL_INT:
-        js_return(JSValue::FromString(strs::NUMBER));
+        js_return_str(strs::NUMBER);
         break;
     case hydra::runtime::Type::T_NUMBER:
-        js_return(JSValue::FromString(strs::NUMBER));
+        js_return_str(strs::NUMBER);
         break;
     case hydra::runtime::Type::T_SYMBOL:
-        js_return(JSValue::FromString(strs::SYMBOL));
+        js_return_str(strs::SYMBOL);
         break;
     case hydra::runtime::Type::T_STRING:
-        js_return(JSValue::FromString(strs::STRING));
+        js_return_str(strs::STRING);
         break;
     case hydra::runtime::Type::T_OBJECT:
-        js_return(JSValue::FromString(strs::_OBJECT));
+        js_return_str(strs::_OBJECT);
         break;
     default:
         hydra_trap("Error typeof value");
@@ -1817,7 +1843,7 @@ bool GetArguments(gc::ThreadAllocator &allocator, vm::Scope *scope, JSValue &ret
     {
         ret->Set(allocator, i, scope->GetArguments()->at(i));
     }
-    js_return(JSValue::FromObject(ret));
+    js_return_obj(ret);
 }
 
 JSObject *MakeGetterSetterPair(gc::ThreadAllocator &allocator, JSValue getter, JSValue setter)
@@ -1907,11 +1933,7 @@ bool ToPrimitive(gc::ThreadAllocator &allocator, JSValue value, JSValue &retVal,
 /*********************** lib ***********************/
 static bool lib_Object(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)
 {
-    if (JSValue::GetType(thisArg) != Type::T_UNDEFINED)
-    {
-        js_return(thisArg);
-    }
-    js_return(JSValue::FromObject(NewEmptyObjectSafe(allocator)));
+    js_return_obj(NewEmptyObjectSafe(allocator));
 }
 
 static bool lib_Object_prototype_hasOwnProperty(gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error)

@@ -49,7 +49,7 @@ void JSObject::Set(gc::ThreadAllocator &allocator,
                 heap->WriteBarrier(newTable, ref);
             });
             Table = newTable;
-            heap->WriteBarrier(this, newTable);
+            heap->WriteBarrier(this, Table);
         }
     }
 

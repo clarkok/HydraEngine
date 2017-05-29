@@ -63,6 +63,24 @@ void Heap::WriteBarrierInRegions(Heap *heap, HeapObject **target, HeapObject *re
     heap->WriteBarrier(object, ref);
 }
 
+void Heap::WriteBarrierIfInHeap(Heap *heap, void *target, HeapObject *ref)
+{
+    Cell *cell;
+
+    if (!Region::IsInRegion(reinterpret_cast<void*>(target), cell))
+    {
+        return;
+    }
+
+    HeapObject *object = dynamic_cast<HeapObject*>(cell);
+    if (!object)
+    {
+        return;
+    }
+
+    heap->WriteBarrier(object, ref);
+}
+
 void Heap::StopTheWorld()
 {
     if (!PauseRequested.exchange(true))

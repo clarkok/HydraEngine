@@ -89,8 +89,6 @@ let STATE_NOT_HELD = ~STATE_HELD;
  * operating system.
  **/
 function runRichards() {
-  debugger;
-
   let scheduler = new Scheduler();
   scheduler.addIdleTask(ID_IDLE, 0, null, COUNT);
 

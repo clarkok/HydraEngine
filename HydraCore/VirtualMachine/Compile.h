@@ -66,6 +66,7 @@ public:
     { }
 
     virtual GeneratedCode Compile(size_t &registerCount) override final;
+    void CheckWrittenValue(Xbyak::Reg64 valueReg, Xbyak::Reg64 tmp1);
 
 private:
     IRFunc *IR;

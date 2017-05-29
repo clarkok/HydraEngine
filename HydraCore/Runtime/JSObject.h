@@ -128,7 +128,7 @@ public:
 
         if (value.IsReference())
         {
-            gc::Heap::GetInstance()->WriteBarrier(this, value.ToReference());
+            gc::Heap::GetInstance()->WriteBarrier(Table, value.ToReference());
         }
     }
 

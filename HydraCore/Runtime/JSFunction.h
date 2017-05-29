@@ -25,6 +25,20 @@ namespace runtime
 {
 
 #define js_return(__value)  do { retVal = __value; return true; } while (false)
+#define js_return_obj(__obj)                                                                \
+    do {                                                                                    \
+        retVal = JSValue::FromObject(__obj);                                                \
+        gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.Object());  \
+        return true;                                                                        \
+    } while (false)
+
+#define js_return_str(__str)                                                                \
+    do {                                                                                    \
+        retVal = JSValue::FromString(__str);                                                \
+        gc::Heap::WriteBarrierIfInHeap(gc::Heap::GetInstance(), &retVal, retVal.String());  \
+        return true;                                                                        \
+    } while (false)
+
 #define js_throw(__error)   do { error = __error; return false; } while (false)
 #define js_call(__retVal, __func, __this, __arguments)                                      \
     do {                                                                                    \

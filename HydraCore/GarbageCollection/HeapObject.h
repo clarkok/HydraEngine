@@ -127,6 +127,12 @@ public:
         }
     }
 
+    inline static uintptr_t PropertyOffset()
+    {
+        return reinterpret_cast<uintptr_t>(
+            &reinterpret_cast<Cell*>(0)->Property);
+    }
+
     static constexpr u8 IS_IN_USE = 1u << 7;
     static constexpr u8 IS_LARGE = 1u << 6;
     static constexpr u8 IS_PERMANENT = 1u << 5;

@@ -176,6 +176,7 @@ public:
             return;
         }
 
+        hydra_assert(target->IsInUse(), "target must be in use");
         hydra_assert(ref->IsInUse(), "ref must be in use");
 
         if (ref->GetGCState() == GCState::GC_WHITE)
@@ -201,6 +202,7 @@ public:
 
     static void WriteBarrierStatic(Heap *heap, HeapObject *target, HeapObject *ref);
     static void WriteBarrierInRegions(Heap *heap, HeapObject **target, HeapObject *ref);
+    static void WriteBarrierIfInHeap(Heap *heap, void *target, HeapObject *ref);
 
     void StopTheWorld();
     void ResumeTheWorld();

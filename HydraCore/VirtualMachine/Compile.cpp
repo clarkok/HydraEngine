@@ -40,6 +40,45 @@ namespace vm
     mov(rdx, ptr[rbp + 16]);                            \
     mov(rcx, ptr[rbp + 8]);
 
+void BaselineCompileTask::CheckWrittenValue(Xbyak::Reg64 valueReg, Xbyak::Reg64 tmp1)
+{
+    Label valueIsReference, finish;
+
+    inLocalLabel();
+
+    mov(tmp1, valueReg);
+    and(valueReg, r15);
+    jz(finish);             // is null
+
+    shr(tmp1, 48);
+    cmp(tmp1, 0xFFFA);
+    je(valueIsReference);   // is object
+
+    cmp(tmp1, 0xFFFB);
+    jne(finish);            // is string
+
+    L(valueIsReference);
+    movzx(tmp1, byte[valueReg + gc::Cell::PropertyOffset()]);
+    test(tmp1, 1);          // test GCState for WHITE or DARK
+    jnz(finish);
+
+    movzx(tmp1, byte[rdx + gc::Cell::PropertyOffset()]);
+    test(tmp1, 2);          // test GCState for DARK or BLACK
+    jz(finish);
+
+    mov(r8, valueReg);
+    mov(rcx, reinterpret_cast<u64>(gc::Heap::GetInstance()));
+    mov(tmp1, reinterpret_cast<u64>(gc::Heap::WriteBarrierStatic));
+    call(tmp1);
+
+    mov(r9, ptr[rbp + 32]);
+    mov(r8, ptr[rbp + 24]);
+    mov(rdx, ptr[rbp + 16]);
+    mov(rcx, ptr[rbp + 8]);
+
+    L(finish);
+    outLocalLabel();
+}
 
 GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 {
@@ -73,7 +112,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             {
             case RETURN:
             {
-                SAFEPOINT(rax);
+                // SAFEPOINT(rax);
                 LOAD_REG(rax, inst->As<ir::Return>()->_Value);
                 jmp(returnPoint, T_NEAR);
                 break;
@@ -84,6 +123,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                 and(rax, r15);
                 mov(rax, ptr[rax]);
                 SET_RESULT(rbx, rax);
+                CheckWrittenValue(rax, rbx);
                 break;
             }
             case STORE:
@@ -133,14 +173,14 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rbx, rax);
                     shr(rbx, 48);
                     cmp(rbx, 0xFFFA);
-                    jne(".slowPath");
+                    jne(".slowPath", T_NEAR);
 
                     // detect cached
                     and(rax, r15);
                     L(".cached");
                     mov(rbx, (u64)0x0123456789ABCDEFull);
                     cmp(rbx, ptr[rax + runtime::JSObject::OffsetKlass()]);
-                    jne(".slowPath");
+                    jne(".slowPath", T_NEAR);
 
                     // load by index
                     mov(rbx, (u64)0x0123456789ABCDEFull);
@@ -148,6 +188,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     mov(rax, ptr[rax + rbx]);
                     RETVAL_REG(rbx);
                     mov(ptr[rbx], rax);
+                    CheckWrittenValue(rax, rbx);
                     jmp(".finish");
 
                     L(".slowPath");
@@ -247,12 +288,8 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     cmp(rax, 0xFFFA);   // object
                     je(".writeBarrier");
 
-                    mov(rax, r10);
-                    shr(rax, 48);
                     cmp(rax, 0xFFFB);   // string
-                    je(".writeBarrier");
-
-                    jmp(".finish", T_NEAR);
+                    jne(".finish", T_NEAR);
 
                     L(".writeBarrier");
                     // ref
@@ -262,7 +299,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
                     // target
                     LOAD_REG(rax, inst->As<ir::SetItem>()->_Obj);
                     and(rax, r15);
-                    mov(rdx, rax);
+                    mov(rdx, ptr[rax + runtime::JSObject::OffsetTable()]);
 
                     // this
                     mov(rcx, reinterpret_cast<u64>(gc::Heap::GetInstance()));
@@ -531,6 +568,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             {
                 mov(rax, runtime::JSValue::FromString(inst->As<ir::String>()->Value).Payload);
                 SET_RESULT(rbx, rax);
+                CheckWrittenValue(rax, rbx);
                 break;
             }
             case REGEX:
@@ -797,6 +835,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             {
                 mov(rax, ptr[rdx + Scope::OffsetThisArg()]);
                 SET_RESULT(rbx, rax);
+                CheckWrittenValue(rax, rbx);
                 break;
             }
             case ARGUMENTS:
@@ -819,6 +858,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             {
                 LOAD_REG(rax, inst->As<ir::Move>()->_Other);
                 SET_RESULT(rbx, rax);
+                CheckWrittenValue(rax, rbx);
                 break;
             }
             case PHI:
@@ -868,6 +908,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 
                 LOAD_REG(rax, pos->second);
                 STORE_REG(rax, rbx, phi);
+                CheckWrittenValue(rax, rbx);
             }
         }
 
@@ -925,6 +966,24 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
 
     L(returnPoint);
     mov(ptr[r8], rax);
+    mov(rbx, rax);
+    shr(rbx, 48);
+    and(rbx, 0xFFFE);
+    cmp(rbx, 0xFFFA);
+    jne("returnAfterWriteBarrier");
+
+    mov(rdx, r8);
+    mov(r8, rax);
+    and(r8, r15);
+    mov(rcx, reinterpret_cast<u64>(gc::Heap::GetInstance()));
+    mov(rax, reinterpret_cast<u64>(gc::Heap::WriteBarrierIfInHeap));
+    call(rax);
+    mov(r9, ptr[rbp + 32]);
+    mov(r8, ptr[rbp + 24]);
+    mov(rdx, ptr[rbp + 16]);
+    mov(rcx, ptr[rbp + 8]);
+
+    L("returnAfterWriteBarrier");
     mov(rax, 1);
     add(rsp, 56);
     pop(r15);

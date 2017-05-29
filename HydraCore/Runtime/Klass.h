@@ -37,6 +37,7 @@ public:
 
             Transaction.compare_exchange_strong(currentTransaction, newTransaction);
             currentTransaction = Transaction.load();
+            gc::Heap::GetInstance()->WriteBarrier(this, currentTransaction);
         }
 
         auto newLevel = Level;

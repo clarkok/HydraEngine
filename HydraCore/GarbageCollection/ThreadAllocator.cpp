@@ -46,6 +46,7 @@ void ThreadAllocator::ThreadScan()
         }
     });
 
+    /*
     auto scope = vm::Scope::ThreadTop;
     std::set<HeapObject *> scanned;
 
@@ -76,6 +77,7 @@ void ThreadAllocator::ThreadScan()
 
         scope = scope->GetUpper();
     }
+    */
 }
 
 } // namespace gc
