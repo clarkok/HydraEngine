@@ -12,9 +12,11 @@
 #include "Common/Singleton.h"
 
 #include <list>
+#include <set>
 #include <vector>
 #include <memory>
 #include <future>
+#include <ostream>
 
 namespace hydra
 {
@@ -43,6 +45,8 @@ struct IRInst : public Replacable<struct IRInst>
     }
 
     size_t Index;
+
+    virtual void Dump(std::ostream &os) = 0;
 };
 
 struct IRBlock : public Replacable<struct IRBlock>
@@ -52,6 +56,14 @@ struct IRBlock : public Replacable<struct IRBlock>
     IRInst::Ref Condition;
     IRBlock::Ref Consequent;
     IRBlock::Ref Alternate;
+
+    IRBlock::Ref Dominator;
+    std::set<IRBlock::Ref> Precedences;
+
+    IRInst::Ref Scope;
+    IRInst::Ref EndScope;
+
+    void Dump(std::ostream &os);
 };
 
 struct IRModule;
@@ -95,6 +107,8 @@ struct IRFunc
     }
 
     size_t GetVarCount() const;
+
+    void Dump(std::ostream &os);
 };
 
 struct IRModule
