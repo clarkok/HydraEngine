@@ -107,6 +107,7 @@ public:
     {
         if (Active.exchange(false))
         {
+            Logger::GetInstance()->Log() << "Thread Inactive";
             {
                 std::unique_lock<std::mutex> lck(InactiveSetsMutex);
                 InactiveSets.insert(this);
@@ -134,6 +135,8 @@ public:
     {
         if (!Active.exchange(true))
         {
+            Logger::GetInstance()->Log() << "Thread active";
+
             Owner->TotalThreads.fetch_add(1, std::memory_order_relaxed);
             RunningLock.lock();
             {

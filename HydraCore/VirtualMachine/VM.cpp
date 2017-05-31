@@ -154,11 +154,15 @@ void VM::Stop()
 
 void VM::LoadJsLib(gc::ThreadAllocator &allocator)
 {
+    /*
     auto libInit = Compile(allocator,
         platform::NormalizePath({
             platform::GetDirectoryOfPath(__FILE__),
             "../../HydraJsLib/index.ir"
         }));
+        */
+    auto libInit = Compile(allocator,
+        "./index.ir");
     auto args = runtime::semantic::NewArrayInternal(allocator);
 
     runtime::JSValue retVal;

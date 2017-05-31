@@ -13,6 +13,7 @@
 #include <cmath>
 #include <iostream>
 #include <queue>
+#include <chrono>
 
 namespace hydra
 {
@@ -49,6 +50,7 @@ namespace semantic
     def(u"__write", __WRITE)            \
     def(u"__random", __RANDOM)          \
     def(u"__parallel", __PARALLEL)      \
+    def(u"__datetime", __DATETIME)      \
     def(u"name", NAME)                  \
     def(u"dirname", DIRNAME)            \
     def(u"isArray", IS_ARRAY)           \
@@ -246,6 +248,18 @@ void Initialize()
     result = ObjectSetSafeObject(allocator, Global, strs::__RANDOM, JSValue::FromObject(__random), error);
 
     hydra_assert(result, "Error on setting global.__random");
+
+    auto __datetime = NewNativeFunc(allocator, [](gc::ThreadAllocator &allocator, JSValue thisArg, JSArray *arguments, JSValue &retVal, JSValue &error) -> bool
+    {
+        u64 ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+        js_return(JSValue::FromSmallInt(ms));
+    });
+
+    result = ObjectSetSafeObject(allocator, Global, strs::__DATETIME, JSValue::FromObject(__datetime), error);
+
+    hydra_assert(result, "Error on setting global.__datetime");
 
     result = ObjectSetSafeObject(
         allocator,
@@ -2183,6 +2197,21 @@ static bool lib___parallel(gc::ThreadAllocator &allocator, JSValue thisArg, JSAr
     {
         return false;
     }
+    JSValue concurrencyVal;
+    if (!ObjectGetSafeArray(allocator, arguments, 1, concurrencyVal, error))
+    {
+        return false;
+    }
+    if (JSValue::GetType(concurrencyVal) != Type::T_SMALL_INT)
+    {
+        concurrencyVal = JSValue::FromSmallInt(std::thread::hardware_concurrency());
+    }
+
+    i64 concurrency = concurrencyVal.SmallInt();
+    if (concurrency > std::thread::hardware_concurrency())
+    {
+        concurrency = std::thread::hardware_concurrency();
+    }
 
     if (!lib_Array_IsArraySafe(tasksArray))
     {
@@ -2219,7 +2248,7 @@ static bool lib___parallel(gc::ThreadAllocator &allocator, JSValue thisArg, JSAr
     size_t waiting = 0;
     for (size_t i = 0; i < tasksFunc->GetLength(); ++i)
     {
-        if ((i - waiting) >= std::thread::hardware_concurrency())
+        if ((i - waiting) >= concurrency)
         {
             if (!futures[waiting++].get())
             {

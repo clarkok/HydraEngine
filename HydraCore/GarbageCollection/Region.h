@@ -208,8 +208,6 @@ public:
 
     static inline size_t GetLevelFromSize(size_t size)
     {
-        hydra_assert(size <= MAXIMAL_ALLOCATE_SIZE, "'size' is too large");
-
         if (size < MINIMAL_ALLOCATE_SIZE)
         {
             return 0;

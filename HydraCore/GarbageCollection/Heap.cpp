@@ -140,6 +140,8 @@ void Heap::GCManagement()
     bool youngGCRequested = false;
     bool fullGCRequested = false;
 
+    return;
+
     while (!ShouldExit.load())
     {
         {

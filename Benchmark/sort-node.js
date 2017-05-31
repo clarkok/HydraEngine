@@ -1,12 +1,7 @@
 let N = 100000;
-let concurrency = 8;
+let concurrency = 4;
 
 let arr = [];
-
-function rand()
-{
-    return (__random() * N) | 0;
-}
 
 function sort(arr, start, end)
 {
@@ -84,54 +79,37 @@ function merge(arr, sliced)
     }
 }
 
-function sort_p(arr)
+function sort_s(arr)
 {
-    let start = __datetime();
+    console.log('sort');
 
-    __write('sort_p');
-
-    if (concurrency == 1)
-    {
-        sort(arr, 0, arr.length);
-        __write((__datetime() - start), "ms");
-        return;
-    }
-
-    let tasks = [];
+    let sliced = [];
     let length = arr.length;
 
     for (let i = 0; i < concurrency; ++i)
     {
         let start = (length * i / concurrency) | 0;
         let end = (length * (i + 1) / concurrency) | 0;
-        __write('Part ', i, ' from ', start, ' to ', end);
+        console.log('Part ', i, ' from ', start, ' to ', end);
 
-        tasks[i] = () => {
-            let sliced = arr.slice(start, end);
-            sort(sliced, 0, sliced.length);
-            return sliced;
-        }
+        let s = arr.slice(start, end);
+        sort(s, 0, s.length);
+        sliced[i] = s;
     }
 
-    let sliced = __parallel(tasks, concurrency);
-
-    __write((__datetime() - start), "ms");
-
-    __write('merge');
+    console.log('merge');
     merge(arr, sliced);
-
-    __write((__datetime() - start), "ms");
 }
 
 for (let i = 0; i < N; ++i)
 {
-    arr[i] = rand();
+    arr[i] = (Math.random() * N) | 0;
     if (i % 1000 == 0)
     {
-        __write(i);
+        console.log(i);
     }
 }
 
-__write('sorting');
-
-sort_p(arr);
+let start = Date.now();
+sort_s(arr);
+console.log(Date.now() - start, "ms");
