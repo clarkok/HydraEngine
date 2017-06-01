@@ -124,6 +124,29 @@ runtime::JSFunction *VM::Compile(gc::ThreadAllocator &allocator, const std::stri
     auto pair = Modules.emplace(byteCode.Load(allocator));
     hydra_assert(pair.second, "module is unique");
 
+    for (auto &funcIter : pair.first->get()->Functions)
+    {
+        auto func = funcIter.get();
+        func->BaselineFuture = std::move(std::async(
+            std::launch::deferred,
+            [func]() -> CompiledFunction *
+            {
+                std::unique_ptr<CompileTask> task(new BaselineCompileTask(func));
+
+                size_t registerCount;
+                func->BaselineFunction = std::make_unique<CompiledFunction>(
+                    std::move(task),
+                    func->Length,
+                    func->GetVarCount());
+
+                CompiledFunction *current = nullptr;
+                func->Compiled.compare_exchange_strong(current, func->BaselineFunction.get());
+
+                return func->BaselineFunction.get();
+            }
+        ));
+    }
+
     auto moduleName = platform::NormalizePath({ path });
     auto moduleDir = platform::GetDirectoryOfPath(moduleName);
 

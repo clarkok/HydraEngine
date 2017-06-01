@@ -221,7 +221,7 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                     FIRST_INST(BNOT, Bnot, 1);
                     FIRST_INST(LNOT, Lnot, 1);
                     FIRST_INST(TYPEOF, TypeOf, 1);
-                    FIRST_INST(POP_SCOPE, PopScope, 1);
+                    FIRST_INST(POP_SCOPE, PopScope, 0);
                     FIRST_INST(ALLOCA, Alloca, 0);
                     FIRST_INST(ARG, Arg, 1);
                     FIRST_INST(CAPTURE, Capture, 1);
@@ -522,7 +522,6 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
                     break;
                 }
                 case POP_SCOPE:
-                    LoadSizeT(PopScope, Count);
                     break;
                 case ALLOCA:
                     break;
@@ -605,27 +604,6 @@ std::unique_ptr<IRFunc> ByteCode::LoadFunction(
         }
     }
 #pragma endregion SECOND_SCAN
-
-    auto func = ret.get();
-
-    ret->BaselineFuture = std::move(std::async(
-        std::launch::deferred,
-        [func]() -> CompiledFunction *
-        {
-            std::unique_ptr<CompileTask> task(new BaselineCompileTask(func));
-
-            size_t registerCount;
-            func->BaselineFunction = std::make_unique<CompiledFunction>(
-                std::move(task),
-                func->Length,
-                func->GetVarCount());
-
-            CompiledFunction *current = nullptr;
-            func->Compiled.compare_exchange_strong(current, func->BaselineFunction.get());
-
-            return func->BaselineFunction.get();
-        }
-    ));
 
     return ret;
 }

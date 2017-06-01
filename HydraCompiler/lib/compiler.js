@@ -1061,29 +1061,20 @@ function CompileStatement(node, func, last, scope)
         case 'BreakStatement':
             {
                 let currentScope = scope;
-                let popCount = 0;
 
                 while (currentScope !== null && !currentScope.breakable)
                 {
                     if (currentScope.loopVars)
                     {
-                        if (popCount > 0)
-                        {
-                            last.PopScope(popCount);
-                            popCount = 0;
-                        }
-
                         FeedbackLoopVar(currentScope.loopVars, last);
                     }
-
+                    last.PopScope();
                     currentScope = currentScope.upper;
-                    popCount++;
                 }
                 if (currentScope === null)
                 {
                     throw SyntaxError('Not breakable');
                 }
-                last.PopScope(popCount);
                 last.Jump(currentScope.breakable);
 
                 last = func.NewBlock();
@@ -1095,29 +1086,20 @@ function CompileStatement(node, func, last, scope)
         case 'ContinueStatement':
             {
                 let currentScope = scope;
-                let popCount = 0;
-
                 while (currentScope !== null && !currentScope.continuable)
                 {
                     if (currentScope.loopVars)
                     {
-                        if (popCount > 0)
-                        {
-                            last.PopScope(popCount);
-                            popCount = 0;
-                        }
-
                         FeedbackLoopVar(currentScope.loopVars, last);
                     }
+                    last.PopScope();
 
                     currentScope = currentScope.upper;
-                    popCount++;
                 }
                 if (currentScope === null)
                 {
                     throw SyntaxError('Not breakable');
                 }
-                last.PopScope(popCount);
                 last.Jump(currentScope.continuable);
 
                 last = func.NewBlock();
@@ -1296,16 +1278,10 @@ function CompileStatement(node, func, last, scope)
                 }
 
                 let funcScope = scope;
-                let count = 0;
                 while (funcScope !== null && !funcScope.func)
                 {
                     funcScope = funcScope.upper;
-                    count++;
-                }
-
-                if (count > 0)
-                {
-                    last.PopScope(count);
+                    last.PopScope();
                 }
                 last.Return($retVal);
 

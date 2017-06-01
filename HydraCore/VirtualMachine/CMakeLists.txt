@@ -1,14 +1,16 @@
 add_library(HydraCore.VirtualMachine OBJECT
-    CompiledFunction.cpp
-    CompiledFunction.h
-    Compile.cpp
-    Compile.h
-	IR.cpp
-	IR.h
-	IRInsts.cpp
-	IRInsts.h
     ByteCode.cpp
     ByteCode.h
+    Compile.cpp
+    Compile.h
+    CompiledFunction.cpp
+    CompiledFunction.h
+    IR.cpp
+    IR.h
+    IRInsts.cpp
+    IRInsts.h
+    Optimizer.cpp
+    Optimizer.h
     Replacable.h
     Scope.cpp
     Scope.h

@@ -66,6 +66,16 @@ void IRBlock::Dump(std::ostream &os)
         os << "]" << std::endl;
     }
 
+    if (Scope)
+    {
+        os << "\t\t[Scope: $" << Scope->InstIndex << "]" << std::endl;
+    }
+
+    if (EndScope)
+    {
+        os << "\t\t[EndScope: $" << EndScope->InstIndex << "]" << std::endl;
+    }
+
     for (auto &inst : Insts)
     {
         inst->Dump(os);
@@ -73,9 +83,9 @@ void IRBlock::Dump(std::ostream &os)
 
     if (Condition)
     {
-        os << "\t\tbranch $" << Condition->Index << ", blk_" << Consequent->Index << ", blk_" << Alternate->Index << std::endl;
+        os << "\t\tbranch $" << Condition->InstIndex << ", blk_" << Consequent->Index << ", blk_" << Alternate->Index << std::endl;
     }
-    else
+    else if (Consequent)
     {
         os << "\t\tjump blk_" << Consequent->Index << std::endl;
     }
@@ -91,6 +101,8 @@ void IRFunc::Dump(std::ostream &os)
     {
         block->Dump(os);
     }
+
+    os << std::endl << std::endl;
 }
 
 } // namespace vm

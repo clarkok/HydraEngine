@@ -14,22 +14,22 @@ namespace vm
 #define LOAD_REG(_reg, _SrcReg)                                 \
     mov(_reg, ptr[rdx + Scope::OffsetRegs()]);                  \
     add(_reg, static_cast<u32>(runtime::Array::OffsetTable())); \
-    mov(_reg, ptr[_reg + 8 * (_SrcReg)->Index]);
+    mov(_reg, ptr[_reg + 8 * (_SrcReg)->InstIndex]);
 
 #define STORE_REG(_reg, _helper, _DstReg)                           \
     mov(_helper, ptr[rdx + Scope::OffsetRegs()]);                   \
     add(_helper, static_cast<u32>(runtime::Array::OffsetTable()));  \
-    mov(ptr[_helper + 8 * (_DstReg)->Index], _reg);
+    mov(ptr[_helper + 8 * (_DstReg)->InstIndex], _reg);
 
 #define SET_RESULT(_reg, _src_reg)                              \
     mov(_reg, ptr[rdx + Scope::OffsetRegs()]);                  \
     add(_reg, static_cast<u32>(runtime::Array::OffsetTable())); \
-    mov(ptr[_reg + 8 * inst->Index], _src_reg);
+    mov(ptr[_reg + 8 * inst->InstIndex], _src_reg);
 
 #define RETVAL_REG(_reg)                                        \
     mov(_reg, ptr[rdx + Scope::OffsetRegs()]);                  \
     add(_reg, static_cast<u32>(runtime::Array::OffsetTable())); \
-    lea(_reg, ptr[_reg + 8 * inst->Index]);
+    lea(_reg, ptr[_reg + 8 * inst->InstIndex]);
 
 #define SAFEPOINT(_reg)                                 \
     mov(rcx, rdx);                                      \
@@ -627,10 +627,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case FUNC:
             {
                 auto funcInst = inst->As<ir::Func>();
-                if (funcInst->FuncId < IR->Module->Functions.size())
-                {
-                    funcInst->FuncPtr = IR->Module->Functions[funcInst->FuncId].get();
-                }
+                funcInst->FuncPtr = IR->Module->Functions[funcInst->FuncId].get();
 
                 // &error
                 mov(ptr[rsp + 32], r9);
@@ -657,10 +654,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             case ARROW:
             {
                 auto funcInst = inst->As<ir::Arrow>();
-                if (funcInst->FuncId < IR->Module->Functions.size())
-                {
-                    funcInst->FuncPtr = IR->Module->Functions[funcInst->FuncId].get();
-                }
+                funcInst->FuncPtr = IR->Module->Functions[funcInst->FuncId].get();
 
                 // &error
                 mov(ptr[rsp + 32], r9);
@@ -786,10 +780,7 @@ GeneratedCode BaselineCompileTask::Compile(size_t &registerCount)
             }
             case POP_SCOPE:
             {
-                for (size_t i = 0; i < inst->As<ir::PopScope>()->Count; ++i)
-                {
-                    mov(rdx, ptr[rdx + Scope::OffsetUpper()]);
-                }
+                mov(rdx, ptr[rdx + Scope::OffsetUpper()]);
                 mov(ptr[rbp + 16], rdx);
 
                 mov(rax, reinterpret_cast<u64>(&Scope::ThreadTop));

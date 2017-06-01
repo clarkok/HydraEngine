@@ -18,4 +18,5 @@ include_directories(ThirdParty)
 
 add_subdirectory(HydraCore)
 add_subdirectory(HydraEngine)
+add_subdirectory(HydraOptimizer)
 add_subdirectory(Test)

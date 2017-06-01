@@ -44,7 +44,7 @@ struct IRInst : public Replacable<struct IRInst>
         return As<T>() != nullptr;
     }
 
-    size_t Index;
+    size_t InstIndex;
 
     virtual void Dump(std::ostream &os) = 0;
 };
@@ -58,7 +58,7 @@ struct IRBlock : public Replacable<struct IRBlock>
     IRBlock::Ref Alternate;
 
     IRBlock::Ref Dominator;
-    std::set<IRBlock::Ref> Precedences;
+    std::list<IRBlock::Ref> Precedences;
 
     IRInst::Ref Scope;
     IRInst::Ref EndScope;
@@ -100,7 +100,7 @@ struct IRFunc
             block->Index = blockIndex++;
             for (auto &inst : block->Insts)
             {
-                inst->Index = instIndex++;
+                inst->InstIndex = instIndex++;
             }
         }
         return instIndex;

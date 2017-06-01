@@ -49,6 +49,11 @@ public:
         UsedBy.clear();
     }
 
+    size_t UsedCount() const
+    {
+        return UsedBy.size();
+    }
+
     struct Ref
     {
         Ref(T *ptr = nullptr)
@@ -64,7 +69,11 @@ public:
             : Ref(other.Ptr)
         { }
 
-        Ref(Ref &&) = delete;
+        Ref(Ref &&other)
+            : Ref(other.Ptr)
+        {
+            other.Reset();
+        }
 
         operator bool() const
         {
@@ -113,12 +122,12 @@ public:
             return ret;
         }
 
-        T *operator -> ()
+        T *operator -> () const
         {
             return Ptr;
         }
 
-        T &operator * ()
+        T &operator * () const
         {
             return *Ptr;
         }
@@ -135,6 +144,11 @@ public:
         T *Get() const
         {
             return Ptr;
+        }
+
+        bool operator < (const Ref &b)
+        {
+            return Get() < b.Get();
         }
 
         T *Ptr;

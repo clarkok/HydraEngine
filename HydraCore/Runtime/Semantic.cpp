@@ -301,8 +301,8 @@ bool NewObjectWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRI
 
     for (auto &pair : inst->As<vm::ir::Object>()->Initialization)
     {
-        JSValue key = scope->GetRegs()->at(pair.first->Index);
-        JSValue value = scope->GetRegs()->at(pair.second->Index);
+        JSValue key = scope->GetRegs()->at(pair.first->InstIndex);
+        JSValue value = scope->GetRegs()->at(pair.second->InstIndex);
 
         if (!ObjectSet(allocator, retVal, key, value, error))
         {
@@ -411,7 +411,7 @@ bool NewArrayWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
     size_t index = 0;
     for (auto &ref : inst->As<vm::ir::Array>()->Initialization)
     {
-        if (!ObjectSetSafeArray(allocator, ret, index++, scope->GetRegs()->at(ref->Index), error))
+        if (!ObjectSetSafeArray(allocator, ret, index++, scope->GetRegs()->at(ref->InstIndex), error))
         {
             return false;
         }
@@ -459,10 +459,10 @@ bool NewFuncWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIns
     size_t index = 0;
     for (auto &ref : funcInst->Captured)
     {
-        captured->at(index++) = scope->GetRegs()->at(ref->Index);
+        captured->at(index++) = scope->GetRegs()->at(ref->InstIndex);
     }
 
-    hydra_assert(funcInst->FuncPtr != nullptr,
+    hydra_assert(funcInst->FuncPtr,
         "funcInst->FuncPtr cannot be null");
 
     auto ret = emptyObjectKlass->NewObject<JSCompiledFunction>(allocator, scope, captured, funcInst->FuncPtr);
@@ -481,7 +481,7 @@ bool NewArrowWithInst(gc::ThreadAllocator &allocator, vm::Scope *scope, vm::IRIn
     size_t index = 0;
     for (auto &ref : funcInst->Captured)
     {
-        captured->at(index++) = scope->GetRegs()->at(ref->Index);
+        captured->at(index++) = scope->GetRegs()->at(ref->InstIndex);
     }
 
     hydra_assert(funcInst->FuncPtr != nullptr,
@@ -1815,7 +1815,7 @@ vm::Scope *NewScope(gc::ThreadAllocator &allocator, vm::Scope *upper, vm::IRInst
     size_t index = 0;
     for (auto &ref : inst->As<vm::ir::PushScope>()->Captured)
     {
-        captured->at(index++) = upper->GetRegs()->at(ref->Index);
+        captured->at(index++) = upper->GetRegs()->at(ref->InstIndex);
     }
 
     vm::Scope *ret = allocator.AllocateAuto<vm::Scope>(upper,

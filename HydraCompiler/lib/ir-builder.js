@@ -184,7 +184,7 @@ const Insts =
             case Insts.PUSH_SCOPE:
                 return ret + `\t  push_scope ${inst.size} [${inst.captured.map((c) => '$' + c.name).join(',')}]`;
             case Insts.POP_SCOPE:
-                return ret + `\t  pop_scope ${inst.count}`;
+                return ret + `\t  pop_scope`;
             case Insts.ALLOCA:
                 return ret + `$${inst.name}\t= alloca`;
             case Insts.ARG:
@@ -342,7 +342,6 @@ const Insts =
                 }
                 break;
             case Insts.POP_SCOPE:
-                writer.uint(inst.count);
                 break;
             case Insts.ALLOCA:
             case Insts.THIS:
@@ -637,12 +636,11 @@ class BlockBuilder
             });
     }
 
-    PopScope(count = 1)
+    PopScope()
     {
         return this.PushInst(
             {
-                type : Insts.POP_SCOPE,
-                count
+                type : Insts.POP_SCOPE
             });
     }
 

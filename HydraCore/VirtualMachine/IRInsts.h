@@ -128,7 +128,7 @@ namespace ir
 #define DUMP_START(name)                                \
     virtual void Dump(std::ostream &os) override final  \
     {                                                   \
-        os << "\t" << Index << "\t" << name
+        os << "\t" << InstIndex << "\t" << name << " "
 
 #define DUMP_END()                                      \
         << std::endl;                                   \
@@ -138,7 +138,7 @@ namespace ir
 
 #define _()             << ", "
 
-#define DUMP_REF(ref)   << "$" << ref->Index
+#define DUMP_REF(ref)   << "$" << ref->InstIndex
 #define DUMP_STR(str)   << "\"" << str->ToString() << "\""
 #define DUMP_NUM(num)   << num
 #define DUMP_BLK(blk)   << "blk_" << blk->Index
@@ -340,14 +340,11 @@ struct Array : public IRInst
 struct Func : public IRInst
 {
     DECL_INST(FUNC)
-    union
-    {
-        IRFunc *FuncPtr;
-        size_t FuncId;
-    };
+    IRFunc *FuncPtr;
+    size_t FuncId;
     std::list<Ref> Captured;
 
-    DUMP_START("func") DUMP_STR(FuncPtr->Name) << " [";
+    DUMP_START("func") DUMP_NUM(FuncId) << " [";
         for (auto &ref : Captured)
         {
             os << " " DUMP_REF(ref);
@@ -359,14 +356,11 @@ struct Func : public IRInst
 struct Arrow : public IRInst
 {
     DECL_INST(ARROW)
-    union
-    {
-        IRFunc *FuncPtr;
-        size_t FuncId;
-    };
+    IRFunc *FuncPtr;
+    size_t FuncId;
     std::list<Ref> Captured;
 
-    DUMP_START("arrow") DUMP_STR(FuncPtr->Name) << " [";
+    DUMP_START("arrow") DUMP_NUM(FuncId) << " [";
         for (auto &ref : Captured)
         {
             os << " " DUMP_REF(ref);
@@ -562,9 +556,8 @@ struct PushScope : public IRInst
 struct PopScope : public IRInst
 {
     DECL_INST(POP_SCOPE)
-    size_t Count;
 
-    DUMP("pop_scope", DUMP_NUM(Count))
+    DUMP("pop_scope")
 
     Ref Scope;
 };
