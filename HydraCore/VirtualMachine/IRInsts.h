@@ -138,7 +138,7 @@ namespace ir
 
 #define _()             << ", "
 
-#define DUMP_REF(ref)   << "$" << ref->InstIndex
+#define DUMP_REF(ref)   << "$" << (ref ? ref->InstIndex : (-1))
 #define DUMP_STR(str)   << "\"" << str->ToString() << "\""
 #define DUMP_NUM(num)   << num
 #define DUMP_BLK(blk)   << "blk_" << blk->Index
