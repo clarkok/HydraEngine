@@ -17,13 +17,13 @@ void Optimizer::RemoveAfterReturn(IRFunc *func)
             block->Insts.begin(),
             block->Insts.end(),
             [](const std::unique_ptr<IRInst> &inst)
-        {
-            return inst->Is<ir::Return>();
-        }
-        );
+            {
+                return inst->Is<ir::Return>();
+            });
 
         if (returnIter != block->Insts.end())
         {
+            ++returnIter;
             block->Insts.erase(returnIter, block->Insts.end());
             block->Condition.Reset();
             block->Consequent.Reset();
