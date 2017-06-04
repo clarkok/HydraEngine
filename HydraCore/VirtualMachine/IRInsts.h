@@ -583,6 +583,8 @@ struct Capture : public IRInst
     size_t Index;
 
     DUMP("capture", DUMP_NUM(Index))
+
+    Ref Scope;
 };
 
 struct This : public IRInst

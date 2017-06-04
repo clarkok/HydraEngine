@@ -4,10 +4,43 @@
 #include <queue>
 #include <map>
 
+#ifdef NULL
+#undef NULL
+#endif
+
+#ifdef TRUE
+#undef TRUE
+#endif
+
+#ifdef FALSE
+#undef FALSE
+#endif
+
+#ifdef IN
+#undef IN
+#endif
+
+#ifdef THIS
+#undef THIS
+#endif
+
 namespace hydra
 {
 namespace vm
 {
+
+void Optimizer::InitialOptimize(IRFunc *func)
+{
+    RemoveAfterReturn(func);
+    ControlFlowAnalyze(func);
+    InlineScope(func);
+    ArgToLocalAllocaAndMoveCapture(func);
+    MemToReg(func);
+    CleanupBlocks(func);
+    LoopAnalyze(func);
+    RemoveMove(func);
+    RemoveLoopInvariant(func);
+}
 
 void Optimizer::RemoveAfterReturn(IRFunc *func)
 {
@@ -149,6 +182,10 @@ void Optimizer::ControlFlowAnalyze(IRFunc *func)
                     inst->As<ir::PopScope>()->Scope = scope;
                     scope = scope->UpperScope->As<ir::PushScope>();
                 }
+                else if (inst->Is<ir::Capture>())
+                {
+                    inst->As<ir::Capture>()->Scope = scope;
+                }
             }
             block->EndScope = scope;
 
@@ -179,7 +216,11 @@ void Optimizer::InlineScope(IRFunc *func)
 {
     std::map<ir::PushScope *, std::list<std::unique_ptr<IRInst>>::iterator> scopeToIterator;
     std::set<ir::PushScope *> unableToInline;
-    std::list<std::unique_ptr<IRInst>>::iterator entryIterator = func->Blocks.front()->Insts.begin();
+    std::list<std::unique_ptr<IRInst>>::iterator entryIterator = std::find_if(
+        func->Blocks.front()->Insts.begin(),
+        func->Blocks.front()->Insts.end(),
+        [&](const std::unique_ptr<IRInst> &inst) { return !inst->Is<ir::Alloca>(); }
+    );
 
     // filter out inlinable scopes
     for (auto &block : func->Blocks)
@@ -211,6 +252,7 @@ void Optimizer::InlineScope(IRFunc *func)
                     while (inst->Is<ir::Capture>())
                     {
                         auto captureInst = inst->As<ir::Capture>();
+                        currentScope = captureInst->Scope->As<ir::PushScope>();
 
                         if (!currentScope)
                         {
@@ -220,8 +262,6 @@ void Optimizer::InlineScope(IRFunc *func)
                         auto captureIter = currentScope->Captured.begin();
                         std::advance(captureIter, captureInst->Index);
                         inst = captureIter->Get();
-
-                        currentScope = currentScope->UpperScope->As<ir::PushScope>();
                     }
 
                     if (currentScope)
@@ -240,6 +280,7 @@ void Optimizer::InlineScope(IRFunc *func)
                     while (inst->Is<ir::Capture>())
                     {
                         auto captureInst = inst->As<ir::Capture>();
+                        currentScope = captureInst->Scope->As<ir::PushScope>();
 
                         if (!currentScope)
                         {
@@ -249,8 +290,6 @@ void Optimizer::InlineScope(IRFunc *func)
                         auto captureIter = currentScope->Captured.begin();
                         std::advance(captureIter, captureInst->Index);
                         inst = captureIter->Get();
-
-                        currentScope = currentScope->UpperScope->As<ir::PushScope>();
                     }
 
                     if (currentScope)
@@ -316,7 +355,7 @@ void Optimizer::InlineScope(IRFunc *func)
                     );
                 }
             }
-            else if (inlinable && inst->Is<ir::Capture>())
+            else if (scope && inst->Is<ir::Capture>())
             {
                 ir::Capture *capture = inst->As<ir::Capture>();
                 auto replaceIter = scope->Captured.begin();
@@ -358,10 +397,159 @@ void Optimizer::InlineScope(IRFunc *func)
                     inst->ReplaceWith(inst->As<ir::PushScope>()->UpperScope.Get());
                     return true;
                 }
+                else
+                {
+                    inst->As<ir::PushScope>()->Captured.clear();
+                }
             }
 
             return false;
         });
+    }
+}
+
+void Optimizer::ArgToLocalAllocaAndMoveCapture(IRFunc *func)
+{
+    std::map<IRInst *, IRBlock *> scopeToBlock;
+    std::map<IRInst *, std::list<std::unique_ptr<IRInst>>::iterator> scopeToIter;
+    size_t funcCapture = 0;
+
+    scopeToBlock[nullptr] = func->Blocks.front().get();
+    scopeToIter[nullptr] = std::find_if(
+        func->Blocks.front()->Insts.begin(),
+        func->Blocks.front()->Insts.end(),
+        [&](const std::unique_ptr<IRInst> &inst) { return !inst->Is<ir::Alloca>(); }
+    );
+
+    for (auto &block : func->Blocks)
+    {
+        auto scope = block->Scope->As<ir::PushScope>();
+        for (auto iter = block->Insts.begin();
+            iter != block->Insts.end();
+            ++iter)
+        {
+            if ((*iter)->Is<ir::PushScope>())
+            {
+                scopeToBlock[iter->get()] = block.get();
+                auto currentIter = iter;
+                scopeToIter[iter->get()] = ++currentIter;
+                scope = iter->get()->As<ir::PushScope>();
+            }
+            else if ((*iter)->Is<ir::PopScope>())
+            {
+                scope = scope->UpperScope->As<ir::PushScope>();
+            }
+            else if (!scope && (*iter)->Is<ir::Capture>())
+            {
+                auto capture = (*iter)->As<ir::Capture>()->Index;
+                if (capture + 1 > funcCapture)
+                {
+                    funcCapture = capture + 1;
+                }
+            }
+        }
+    }
+
+    std::vector<IRInst*> args(func->Length, nullptr);
+    {
+        auto iter = scopeToIter[nullptr];
+        auto block = scopeToBlock[nullptr];
+        for (size_t i = 0; i < func->Length; ++i)
+        {
+            auto alloc = new ir::Alloca();
+            iter = block->Insts.emplace(iter, alloc);
+            ++iter;
+
+            auto arg = new ir::Arg();
+            arg->Index = i;
+            iter = block->Insts.emplace(iter, arg);
+            ++iter;
+
+            auto load = new ir::Load();
+            load->_Addr = arg;
+            iter = block->Insts.emplace(iter, load);
+            ++iter;
+
+            auto store = new ir::Store();
+            store->_Addr = alloc;
+            store->_Value = load;
+            iter = block->Insts.emplace(iter, store);
+            ++iter;
+
+            args[i] = alloc;
+        }
+    }
+
+    std::map<IRInst *, std::vector<IRInst*>> captures;
+    captures[nullptr] = std::vector<IRInst*>(funcCapture, nullptr);
+
+    for (auto &block : func->Blocks)
+    {
+        auto scope = block->Scope->As<ir::PushScope>();
+        for (auto iter = (block == func->Blocks.front()) ? scopeToIter[nullptr] : block->Insts.begin();
+            iter != block->Insts.end();
+            )
+        {
+            auto &inst = *iter;
+            if (inst->Is<ir::PushScope>())
+            {
+                scope = inst->As<ir::PushScope>();
+                ++iter;
+            }
+            else if (inst->Is<ir::PopScope>())
+            {
+                scope = scope->UpperScope->As<ir::PushScope>();
+                ++iter;
+            }
+            else if (inst->Is<ir::Arg>())
+            {
+                auto arg = inst->As<ir::Arg>();
+                arg->ReplaceWith(args[arg->Index]);
+                iter = block->Insts.erase(iter);
+            }
+            else if (inst->Is<ir::Capture>())
+            {
+                auto capture = iter->get()->As<ir::Capture>();
+                auto scopeIter = captures.find(scope);
+
+                if (scopeIter == captures.end())
+                {
+                    auto pair = captures.emplace(
+                        scope,
+                        std::vector<IRInst *>(scope->Captured.size(), nullptr)
+                    );
+
+                    hydra_assert(pair.second, "insertion must succeed");
+                    scopeIter = pair.first;
+                }
+
+                if (scopeIter->second[capture->Index])
+                {
+                    capture->ReplaceWith(scopeIter->second[capture->Index]);
+                    iter = block->Insts.erase(iter);
+                }
+                else if (block.get() != scopeToBlock[scope] || iter != scopeToIter[scope])
+                {
+                    capture = iter->release()->As<ir::Capture>();
+                    scopeIter->second[capture->Index] = capture;
+                    iter = block->Insts.erase(iter);
+                    auto &iterInScope = scopeToIter[scope];
+                    iterInScope = scopeToBlock[scope]->Insts.emplace(
+                        iterInScope,
+                        capture
+                    );
+                    ++iterInScope;
+                }
+                else
+                {
+                    ++iter;
+                }
+            }
+            else
+            {
+                ++iter;
+            }
+        }
     }
 }
 
@@ -372,9 +560,18 @@ void Optimizer::MemToReg(IRFunc *func)
 
     for (auto &block : func->Blocks)
     {
+        auto scope = block->Scope->As<ir::PushScope>();
         for (auto &inst : block->Insts)
         {
-            if (inst->Is<ir::Alloca>())
+            if (inst->Is<ir::PushScope>())
+            {
+                scope = inst->As<ir::PushScope>();
+            }
+            else if (inst->Is<ir::PopScope>())
+            {
+                scope = scope->UpperScope->As<ir::PushScope>();
+            }
+            else if (inst->Is<ir::Alloca>())
             {
                 allocaToPromote.push_back(inst->As<ir::Alloca>());
             }
@@ -386,6 +583,24 @@ void Optimizer::MemToReg(IRFunc *func)
                     {
                         unableToPromote.insert(captured->As<ir::Alloca>());
                     }
+                    else if (captured->Is<ir::Capture>())
+                    {
+                        auto captureInst = captured.Get();
+
+                        while (captureInst->Is<ir::Capture>() &&
+                            captureInst->As<ir::Capture>()->Scope)
+                        {
+                            auto captureIter = captureInst->As<ir::Capture>()->Scope
+                                ->As<ir::PushScope>()->Captured.begin();
+                            std::advance(captureIter, captureInst->As<ir::Capture>()->Index);
+                            captureInst = captureIter->Get();
+                        }
+
+                        if (captureInst->Is<ir::Alloca>())
+                        {
+                            unableToPromote.insert(captureInst->As<ir::Alloca>());
+                        }
+                    }
                 }
             }
             else if (inst->Is<ir::Arrow>())
@@ -395,6 +610,24 @@ void Optimizer::MemToReg(IRFunc *func)
                     if (captured->Is<ir::Alloca>())
                     {
                         unableToPromote.insert(captured->As<ir::Alloca>());
+                    }
+                    else if (captured->Is<ir::Capture>())
+                    {
+                        auto captureInst = captured.Get();
+
+                        while (captureInst->Is<ir::Capture>() &&
+                            captureInst->As<ir::Capture>()->Scope)
+                        {
+                            auto captureIter = captureInst->As<ir::Capture>()->Scope
+                                ->As<ir::PushScope>()->Captured.begin();
+                            std::advance(captureIter, captureInst->As<ir::Capture>()->Index);
+                            captureInst = captureIter->Get();
+                        }
+
+                        if (captureInst->Is<ir::Alloca>())
+                        {
+                            unableToPromote.insert(captureInst->As<ir::Alloca>());
+                        }
                     }
                 }
             }
@@ -406,9 +639,9 @@ void Optimizer::MemToReg(IRFunc *func)
             allocaToPromote.begin(),
             allocaToPromote.end(),
             [&](ir::Alloca *inst)
-    {
-        return unableToPromote.find(inst) != unableToPromote.end();
-    }),
+            {
+                return unableToPromote.find(inst) != unableToPromote.end();
+            }),
         allocaToPromote.end());
 
     for (auto allocaInst : allocaToPromote)
@@ -517,21 +750,16 @@ void Optimizer::MemToReg(IRFunc *func)
                     }
                     else if (load->_Addr->Is<ir::Capture>())
                     {
-                        auto *capture = load->_Addr->As<ir::Capture>();
-                        IRInst *captured = nullptr;
-                        auto currentScope = scope;
+                        IRInst *captured = load->_Addr.Get();
 
-                        do
+                        while (captured->Is<ir::Capture>() &&
+                            captured->As<ir::Capture>()->Scope)
                         {
-                            if (!currentScope)
-                            {
-                                break;
-                            }
-                            auto captureIter = currentScope->Captured.begin();
-                            std::advance(captureIter, capture->Index);
+                            auto captureIter = captured->As<ir::Capture>()->Scope
+                                ->As<ir::PushScope>()->Captured.begin();
+                            std::advance(captureIter, captured->As<ir::Capture>()->Index);
                             captured = captureIter->Get();
-                            currentScope = currentScope->UpperScope->As<ir::PushScope>();
-                        } while (captured->Is<ir::Capture>());
+                        }
 
                         if (captured->Is<ir::Alloca>() && captured->As<ir::Alloca>() == allocaInst)
                         {
@@ -554,21 +782,16 @@ void Optimizer::MemToReg(IRFunc *func)
                     }
                     else if (store->_Addr->Is<ir::Capture>())
                     {
-                        auto *capture = store->_Addr->As<ir::Capture>();
-                        IRInst *captured = nullptr;
-                        auto currentScope = scope;
+                        IRInst *captured = store->_Addr.Get();
 
-                        do
+                        while (captured->Is<ir::Capture>() &&
+                            captured->As<ir::Capture>()->Scope)
                         {
-                            if (!currentScope)
-                            {
-                                break;
-                            }
-                            auto captureIter = currentScope->Captured.begin();
-                            std::advance(captureIter, capture->Index);
+                            auto captureIter = captured->As<ir::Capture>()->Scope
+                                ->As<ir::PushScope>()->Captured.begin();
+                            std::advance(captureIter, captured->As<ir::Capture>()->Index);
                             captured = captureIter->Get();
-                            currentScope = currentScope->UpperScope->As<ir::PushScope>();
-                        } while (captured->Is<ir::Capture>());
+                        }
 
                         if (captured->Is<ir::Alloca>() && captured->As<ir::Alloca>() == allocaInst)
                         {
@@ -635,81 +858,9 @@ void Optimizer::MemToReg(IRFunc *func)
         dfs(func->Blocks.front().get());
     }
 
-    std::map<ir::PushScope *, std::vector<size_t> > removedCapture;
-
-    for (auto &block : func->Blocks)
-    {
-        for (auto &inst : block->Insts)
-        {
-            if (inst->Is<ir::PushScope>())
-            {
-                auto scope = inst->As<ir::PushScope>();
-                std::vector<size_t> removed;
-
-                size_t index = 0;
-                for (auto &captured : scope->Captured)
-                {
-                    IRInst *capturedInst = captured.Get();
-                    auto currentScope = scope->UpperScope->As<ir::PushScope>();
-                    while (currentScope && capturedInst->Is<ir::Capture>())
-                    {
-                        auto captureIter = currentScope->Captured.begin();
-                        std::advance(captureIter, capturedInst->As<ir::Capture>()->Index);
-                        capturedInst = captureIter->Get();
-                        currentScope = currentScope->UpperScope->As<ir::PushScope>();
-                    }
-
-                    if (capturedInst->Is<ir::Alloca>() &&
-                        (unableToPromote.find(capturedInst->As<ir::Alloca>()) == unableToPromote.end()))
-                    {
-                        removed.push_back(index);
-                    }
-                    ++index;
-                }
-
-                if (removed.size())
-                {
-                    removedCapture[scope] = removed;
-                }
-            }
-        }
-    }
-
-    for (auto &block : func->Blocks)
-    {
-        for (auto &inst : block->Insts)
-        {
-            if (inst->Is<ir::PushScope>())
-            {
-                auto scope = inst->As<ir::PushScope>();
-                auto iter = removedCapture.find(scope);
-                if (iter != removedCapture.end())
-                {
-                    size_t index = 0;
-                    size_t removed = 0;
-                    scope->Captured.remove_if([&](const IRInst::Ref &)
-                    {
-                        if (index == iter->second[removed])
-                        {
-                            ++removed;
-                            ++index;
-                            return true;
-                        }
-                        else
-                        {
-                            ++index;
-                            return false;
-                        }
-                    });
-                }
-            }
-        }
-    }
-
     for (auto &block : func->Blocks)
     {
         auto scope = block->Scope->As<ir::PushScope>();
-        bool needUpdate = scope && removedCapture.find(scope) != removedCapture.end();
 
         for (auto iter = block->Insts.begin();
             iter != block->Insts.end();)
@@ -720,45 +871,11 @@ void Optimizer::MemToReg(IRFunc *func)
             {
                 iter = block->Insts.erase(iter);
             }
-            else if (needUpdate && inst->Is<ir::Capture>())
-            {
-                bool needRemove = false;
-                int delta = 0;
-                auto capture = inst->As<ir::Capture>();
-
-                for (auto removed : removedCapture[scope])
-                {
-                    if (removed == capture->Index)
-                    {
-                        needRemove = true;
-                        break;
-                    }
-                    else if (removed < capture->Index)
-                    {
-                        ++delta;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                if (needRemove)
-                {
-                    iter = block->Insts.erase(iter);
-                }
-                else
-                {
-                    capture->Index -= delta;
-                    ++iter;
-                }
-            }
             else
             {
                 if (inst->Is<ir::PushScope>())
                 {
                     scope = inst->As<ir::PushScope>();
-                    needUpdate = removedCapture.find(scope) != removedCapture.end();
                 }
                 else if (inst->Is<ir::PopScope>())
                 {
@@ -889,6 +1006,307 @@ void Optimizer::CleanupBlocks(IRFunc *func)
     RemoveUnreferencedBlocks(func);
 }
 
+void Optimizer::LoopAnalyze(IRFunc *func)
+{
+    std::vector<bool> visited(func->Blocks.size(), false);
+    std::vector<bool> inStack(func->Blocks.size(), false);
+    std::vector<IRBlock *> stack;
+
+    auto updateLoopHeader = [&](IRBlock *header)
+    {
+        for (auto iter = stack.rbegin(); iter != stack.rend(); ++iter)
+        {
+            if ((*iter)->LoopHeader)
+            {
+                if (DominatedBy(header, (*iter)->LoopHeader.Get()))
+                {
+                    (*iter)->LoopHeader = header;
+                }
+            }
+            else
+            {
+                (*iter)->LoopHeader = header;
+            }
+
+            if ((*iter) == header)
+            {
+                break;
+            }
+        }
+    };
+
+    std::function<void(IRBlock *)> dfs = [&](IRBlock *block)
+    {
+        visited[block->Index] = true;
+        inStack[block->Index] = true;
+        stack.push_back(block);
+
+        if (block->Consequent)
+        {
+            if (inStack[block->Consequent->Index])
+            {
+                auto header = block->Consequent.Get();
+                updateLoopHeader(header);
+            }
+            else if (visited[block->Consequent->Index])
+            {
+                auto header = block->Consequent->LoopHeader.Get();
+                if (header)
+                {
+                    updateLoopHeader(header);
+                }
+            }
+            else
+            {
+                dfs(block->Consequent.Get());
+            }
+        }
+
+        if (block->Alternate)
+        {
+            if (inStack[block->Alternate->Index])
+            {
+                auto header = block->Alternate.Get();
+                updateLoopHeader(header);
+            }
+            else if (visited[block->Alternate->Index])
+            {
+                auto header = block->Alternate->LoopHeader.Get();
+                if (header)
+                {
+                    updateLoopHeader(header);
+                }
+            }
+            else
+            {
+                dfs(block->Alternate.Get());
+            }
+        }
+
+        inStack[block->Index] = false;
+        stack.pop_back();
+    };
+
+    dfs(func->Blocks.front().get());
+
+    std::fill(visited.begin(), visited.end(), false);
+    std::function<void(IRBlock *)> dfsToUpdateDepth = [&](IRBlock *block)
+    {
+        visited[block->Index] = true;
+        if (block->LoopHeader)
+        {
+            if (block->LoopHeader.Get() == block)
+            {
+                auto iter = std::find_if(
+                    block->Precedences.begin(),
+                    block->Precedences.end(),
+                    [&](const IRBlock::Ref &prec)
+                    {
+                        return !DominatedBy(prec.Get(), block);
+                    }
+                );
+
+                hydra_assert(iter != block->Precedences.end(),
+                    "Loop must have a previous");
+
+                block->LoopPrev = iter->Get();
+
+                iter = std::find_if(
+                    block->Precedences.begin(),
+                    block->Precedences.end(),
+                    [&](const IRBlock::Ref &prec)
+                    {
+                        return (prec.Get() != block->LoopPrev.Get()) &&
+                            !DominatedBy(prec.Get(), block);
+                    }
+                );
+                hydra_assert(iter == block->Precedences.end(),
+                    "Loop must have only one previous");
+
+                hydra_assert(visited[block->LoopPrev->Index],
+                    "loop previous must be visited");
+                block->LoopDepth = block->LoopPrev->LoopDepth + 1;
+            }
+            else
+            {
+                block->LoopPrev = block->LoopHeader->LoopPrev;
+                block->LoopDepth = block->LoopHeader->LoopDepth;
+            }
+        }
+        else
+        {
+            block->LoopDepth = 0;
+        }
+
+        if (block->Consequent && !visited[block->Consequent->Index])
+        {
+            dfsToUpdateDepth(block->Consequent.Get());
+        }
+
+        if (block->Alternate && !visited[block->Alternate->Index])
+        {
+            dfsToUpdateDepth(block->Alternate.Get());
+        }
+    };
+    dfsToUpdateDepth(func->Blocks.front().get());
+}
+
+void Optimizer::RemoveMove(IRFunc *func)
+{
+    for (auto &block : func->Blocks)
+    {
+        block->Insts.remove_if([&](const std::unique_ptr<IRInst> &inst)
+        {
+            if (inst->Is<ir::Move>())
+            {
+                inst->ReplaceWith(inst->As<ir::Move>()->_Other.Get());
+                return true;
+            }
+
+            return false;
+        });
+    }
+}
+
+void Optimizer::RemoveLoopInvariant(IRFunc *func)
+{
+    std::map<IRInst *, IRBlock *> instToBlock;
+
+    for (auto &block : func->Blocks)
+    {
+        for (auto &inst : block->Insts)
+        {
+            instToBlock[inst.get()] = block.get();
+        }
+    }
+
+    std::vector<bool> visited(func->Blocks.size(), false);
+    std::function<void(IRBlock *)> dfs = [&](IRBlock *block)
+    {
+        visited[block->Index] = true;
+
+        if (block->LoopHeader)
+        {
+            block->Insts.remove_if([&](std::unique_ptr<IRInst> &inst)
+            {
+                switch (inst->GetType())
+                {
+                case UNDEFINED:
+                case NULL:
+                case TRUE:
+                case FALSE:
+                case NUMBER:
+                case STRING:
+                case REGEX:
+                case THIS:
+                {
+                    auto dst = block;
+                    while (dst->LoopHeader)
+                    {
+                        dst = dst->LoopPrev.Get();
+                    }
+                    hydra_assert(dst != block, "must have a LoopPrev");
+
+                    instToBlock[inst.get()] = dst;
+                    dst->Insts.emplace_back(inst.release());
+                    return true;
+                }
+                case ADD:
+                case SUB:
+                case MUL:
+                case DIV:
+                case MOD:
+                case BAND:
+                case BOR:
+                case BXOR:
+                case SLL:
+                case SRL:
+                case SRR:
+                case EQ:
+                case EQQ:
+                case NE:
+                case NEE:
+                case GT:
+                case GE:
+                case LT:
+                case LE:
+                case IN:
+                case INSTANCEOF:
+                {
+                    auto binary = inst->As<ir::Binary>();
+                    auto leftBlock = instToBlock[binary->_A.Get()];
+                    auto rightBlock = instToBlock[binary->_B.Get()];
+
+                    IRBlock *innerLoop;
+                    if (leftBlock->LoopDepth < rightBlock->LoopDepth)
+                    {
+                        innerLoop = rightBlock->LoopHeader.Get();
+                    }
+                    else
+                    {
+                        innerLoop = leftBlock->LoopHeader.Get();
+                    }
+
+                    auto dst = block;
+                    while (dst->LoopHeader.Get() != innerLoop)
+                    {
+                        dst = dst->LoopPrev.Get();
+                    }
+
+                    if (dst != block)
+                    {
+                        instToBlock[inst.get()] = dst;
+                        dst->Insts.emplace_back(inst.release());
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                case BNOT:
+                case LNOT:
+                case TYPEOF:
+                {
+                    auto unary = inst->As<ir::Unary>();
+                    IRBlock *innerLoop = instToBlock[unary->_A.Get()];
+                    auto dst = block;
+                    while (dst->LoopHeader.Get() != innerLoop)
+                    {
+                        dst = dst->LoopPrev.Get();
+                    }
+
+                    if (dst != block)
+                    {
+                        instToBlock[inst.get()] = dst;
+                        dst->Insts.emplace_back(inst.release());
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                default:
+                    return false;
+                }
+            });
+        }
+
+        if (block->Consequent && !visited[block->Consequent->Index])
+        {
+            dfs(block->Consequent.Get());
+        }
+
+        if (block->Alternate && !visited[block->Alternate->Index])
+        {
+            dfs(block->Alternate.Get());
+        }
+    };
+
+    dfs(func->Blocks.front().get());
+}
+
 void Optimizer::RemoveUnreferencedBlocks(IRFunc *func)
 {
     std::vector<bool> referenced(func->Blocks.size(), false);
@@ -939,6 +1357,26 @@ void Optimizer::RemoveUnreferencedBlocks(IRFunc *func)
         }
     }
 }
+
+bool Optimizer::DominatedBy(IRBlock *a, IRBlock *b)
+{
+    while (a)
+    {
+        if (a->Dominator.Get() == b)
+        {
+            return true;
+        }
+
+        a = a->Dominator.Get();
+    }
+    return false;
+}
+
+#pragma pop_macro("THIS")
+#pragma pop_macro("IN")
+#pragma pop_macro("FALSE")
+#pragma pop_macro("TRUE")
+#pragma pop_macro("NULL")
 
 } // namespace vm
 } // namespace hydra

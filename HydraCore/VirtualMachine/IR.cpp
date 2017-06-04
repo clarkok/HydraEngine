@@ -76,6 +76,16 @@ void IRBlock::Dump(std::ostream &os)
         os << "\t\t[EndScope: $" << EndScope->InstIndex << "]" << std::endl;
     }
 
+    if (LoopHeader)
+    {
+        os << "\t\t[LoopHeader: blk_" << LoopHeader->Index << " Depth: " << LoopDepth << "]" << std::endl;;
+    }
+
+    if (LoopPrev)
+    {
+        os << "\t\t[LoopPrev: blk_" << LoopPrev->Index << "]" << std::endl;;
+    }
+
     for (auto &inst : Insts)
     {
         inst->Dump(os);

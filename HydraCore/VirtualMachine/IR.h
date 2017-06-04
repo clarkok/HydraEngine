@@ -63,6 +63,10 @@ struct IRBlock : public Replacable<struct IRBlock>
     IRInst::Ref Scope;
     IRInst::Ref EndScope;
 
+    IRBlock::Ref LoopHeader;
+    IRBlock::Ref LoopPrev;
+    size_t LoopDepth;
+
     void Dump(std::ostream &os);
 };
 

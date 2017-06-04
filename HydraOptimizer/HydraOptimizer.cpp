@@ -67,6 +67,19 @@ int main(int argc, const char **argv)
         }
     }
 
+    // arg to local alloca and move capture
+    {
+        for (auto &func : irModule->Functions)
+        {
+            vm::Optimizer::ArgToLocalAllocaAndMoveCapture(func.get());
+        }
+        std::ofstream fout(std::string(argv[1]) + ".arg-to-local-alloca-and-move-capture.tir");
+        for (auto &func : irModule->Functions)
+        {
+            func->Dump(fout);
+        }
+    }
+
     // mem to reg
     {
         for (auto &func : irModule->Functions)
@@ -87,6 +100,45 @@ int main(int argc, const char **argv)
             vm::Optimizer::CleanupBlocks(func.get());
         }
         std::ofstream fout(std::string(argv[1]) + ".cleanup-blocks.tir");
+        for (auto &func : irModule->Functions)
+        {
+            func->Dump(fout);
+        }
+    }
+
+    // loop analyze
+    {
+        for (auto &func : irModule->Functions)
+        {
+            vm::Optimizer::LoopAnalyze(func.get());
+        }
+        std::ofstream fout(std::string(argv[1]) + ".loop-analyze.tir");
+        for (auto &func : irModule->Functions)
+        {
+            func->Dump(fout);
+        }
+    }
+
+    // remove move
+    {
+        for (auto &func : irModule->Functions)
+        {
+            vm::Optimizer::RemoveMove(func.get());
+        }
+        std::ofstream fout(std::string(argv[1]) + ".remove-move.tir");
+        for (auto &func : irModule->Functions)
+        {
+            func->Dump(fout);
+        }
+    }
+
+    // remove loop invariant
+    {
+        for (auto &func : irModule->Functions)
+        {
+            vm::Optimizer::RemoveLoopInvariant(func.get());
+        }
+        std::ofstream fout(std::string(argv[1]) + ".remove-loop-invariant.tir");
         for (auto &func : irModule->Functions)
         {
             func->Dump(fout);
