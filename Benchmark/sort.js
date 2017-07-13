@@ -1,5 +1,5 @@
 let N = 100000;
-let concurrency = 8;
+let concurrency = 4;
 
 let arr = [];
 
@@ -59,15 +59,17 @@ function sort(arr, start, end)
 function merge(arr, sliced)
 {
     let index = [];
-    for (let i = 0; i < sliced.length; ++i)
+    let slicedLength = sliced.length;
+    for (let i = 0; i < slicedLength; ++i)
     {
         index[i] = 0;
     }
 
-    for (let i = 0; i < arr.length; ++i)
+    let arrayLength = arr.length;
+    for (let i = 0; i < arrayLength; ++i)
     {
         let min = 0;
-        for (let j = 1; j < sliced.length; ++j)
+        for (let j = 1; j < slicedLength; ++j)
         {
             if (index[j] >= sliced[j].length)
             {
